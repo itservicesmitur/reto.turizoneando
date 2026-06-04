@@ -1,0 +1,47 @@
+{
+  "name": "turizoneando",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:preprod": "tsc -b && vite build --mode preprod",
+    "build:prod": "tsc -b && vite build --mode production",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start --import=./datos-guardados --export-on-exit=./datos-guardados",
+    "deploy:preprod": "firebase deploy -P preprod",
+    "deploy:preprod:hosting": "npm run build:preprod && firebase deploy --only hosting -P preprod",
+    "deploy:preprod:functions": "firebase deploy --only functions -P preprod",
+    "deploy:prod": "firebase deploy -P production",
+    "deploy:prod:hosting": "npm run build:prod && firebase deploy --only hosting -P production",
+    "deploy:prod:functions": "firebase deploy --only functions -P production"
+  },
+  "dependencies": {
+    "firebase": "^11.3.0",
+    "i18next": "^24.2.2",
+    "i18next-http-backend": "^3.0.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-i18next": "^15.4.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@eslint/js": "^10.0.1",
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12"
+  }
+}

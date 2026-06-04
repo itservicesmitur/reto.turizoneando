@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "turizoneando-dev",
+    "preprod": "turizoneando-dev",
+    "production": "turizoneando-4514a"
+  }
+}
