@@ -1,1 +1,72 @@
-{}
+{
+  "nav": {
+    "map":     "Map",
+    "scanner": "Scan",
+    "prizes":  "Prizes",
+    "profile": "Profile"
+  },
+  "login": {
+    "title":           "Turizoneando",
+    "subtitle":        "The Cultural Rally of the Colonial Zone",
+    "welcome":         "Welcome back!",
+    "welcomeSubtitle": "Sign in to start the adventure",
+    "email":           "Email address",
+    "password":        "Password",
+    "submit":          "Let's go!",
+    "loading":         "Loading...",
+    "or":              "or continue with",
+    "google":          "Continue with Google",
+    "apple":           "Continue with Apple",
+    "noAccount":       "Don't have an account?",
+    "register":        "Sign up",
+    "forgotPassword":  "Forgot your password?",
+    "errorInvalid":    "Incorrect email or password.",
+    "errorGeneric":    "Something went wrong. Please try again."
+  },
+  "adminLogin": {
+    "title":    "Admin Panel",
+    "subtitle": "Turizoneando — MITUR",
+    "email":    "Email address",
+    "password": "Password",
+    "submit":   "Sign in",
+    "loading":  "Signing in...",
+    "back":     "Back to home",
+    "error":    "Invalid credentials."
+  },
+  "adminNav": {
+    "dashboard": "Dashboard",
+    "stops":     "Stops",
+    "prizes":    "Prizes",
+    "players":   "Players",
+    "settings":  "Settings",
+    "logout":    "Sign out"
+  },
+  "landing": {
+    "nav_login":     "Sign in",
+    "hero_subtitle": "The cultural rally of the Colonial Zone",
+    "hero_cta":      "Start the adventure!",
+    "hero_login":    "I have an account",
+    "stats_stops":   "Stops",
+    "stats_stages":  "Stages",
+    "stats_quizz":   "Questions",
+    "stats_stories": "Narrated stories",
+    "stats_langs":   "Languages",
+    "what_title":    "A unique cultural experience",
+    "what_body":     "Turizoneando is a digital educational game experience that works from any web browser. Participants visit historic sites of the Colonial Zone, scan a QR code at each stop, listen to a narrated story, and answer questions to win prizes.",
+    "how_title":     "How do you participate?",
+    "stages_title":  "The route by stages",
+    "stage_q":       "questions",
+    "stage_stops":   "stops",
+    "stage_age":     "Age validation",
+    "stops_title":   "The stops – Colonial Zone",
+    "stops_scalable":"Scalable",
+    "cta_title":     "Ready for the adventure?",
+    "cta_body":      "Join the most exciting cultural rally in the Colonial Zone.",
+    "cta_register":  "Register for free!",
+    "cta_login":     "I have an account"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English"
+  }
+}

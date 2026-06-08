@@ -1,1 +1,72 @@
-{}
+{
+  "nav": {
+    "map":     "Mapa",
+    "scanner": "Escanear",
+    "prizes":  "Premios",
+    "profile": "Perfil"
+  },
+  "login": {
+    "title":           "Turizoneando",
+    "subtitle":        "El rally cultural de la Zona Colonial",
+    "welcome":         "¡Bienvenido!",
+    "welcomeSubtitle": "Inicia sesión para comenzar la aventura",
+    "email":           "Correo electrónico",
+    "password":        "Contraseña",
+    "submit":          "¡Vamos!",
+    "loading":         "Cargando...",
+    "or":              "o continuar con",
+    "google":          "Continuar con Google",
+    "apple":           "Continuar con Apple",
+    "noAccount":       "¿No tienes cuenta?",
+    "register":        "Regístrate",
+    "forgotPassword":  "¿Olvidaste tu contraseña?",
+    "errorInvalid":    "Correo o contraseña incorrectos.",
+    "errorGeneric":    "Ocurrió un error. Intenta de nuevo."
+  },
+  "adminLogin": {
+    "title":    "Panel Administrativo",
+    "subtitle": "Turizoneando — MITUR",
+    "email":    "Correo electrónico",
+    "password": "Contraseña",
+    "submit":   "Ingresar",
+    "loading":  "Ingresando...",
+    "back":     "Volver al inicio",
+    "error":    "Credenciales inválidas."
+  },
+  "adminNav": {
+    "dashboard": "Dashboard",
+    "stops":     "Paradas",
+    "prizes":    "Premios",
+    "players":   "Jugadores",
+    "settings":  "Configuración",
+    "logout":    "Cerrar sesión"
+  },
+  "landing": {
+    "nav_login":     "Iniciar sesión",
+    "hero_subtitle": "El rally cultural de la Zona Colonial",
+    "hero_cta":      "¡Comenzar aventura!",
+    "hero_login":    "Ya tengo cuenta",
+    "stats_stops":   "Paradas",
+    "stats_stages":  "Etapas",
+    "stats_quizz":   "Preguntas",
+    "stats_stories": "Historias narradas",
+    "stats_langs":   "Idiomas",
+    "what_title":    "Una experiencia cultural única",
+    "what_body":     "Turizoneando es una experiencia digital de juego educativo que funciona desde cualquier navegador. Los participantes visitan lugares históricos de la Zona Colonial, escanean un QR en cada parada, escuchan una historia narrada y responden preguntas para ganar premios.",
+    "how_title":     "¿Cómo participas?",
+    "stages_title":  "El recorrido por etapas",
+    "stage_q":       "preguntas",
+    "stage_stops":   "paradas",
+    "stage_age":     "Validación de edad",
+    "stops_title":   "Las paradas – Zona Colonial",
+    "stops_scalable":"Escalable",
+    "cta_title":     "¿Listo para la aventura?",
+    "cta_body":      "Únete al rally cultural más emocionante de la Zona Colonial.",
+    "cta_register":  "¡Regístrate gratis!",
+    "cta_login":     "Ya tengo cuenta"
+  },
+  "lang": {
+    "es": "Español",
+    "en": "English"
+  }
+}

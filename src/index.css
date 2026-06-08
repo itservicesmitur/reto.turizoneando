@@ -1,5 +1,93 @@
 @import "tailwindcss";
 
+/* ── Tailwind v4 theme — brand tokens ─────────────────────── */
+@theme {
+  --color-navy:       #1B2B6E;
+  --color-yellow:     #F5C800;
+  --color-red:        #E63329;
+  --color-teal:       #2BBFB8;
+  --color-orange:     #F4762B;
+  --color-green:      #3CAD42;
+  --color-gray-light: #F4F5F7;
+  --color-gray-mid:   #A0A8B8;
+  --color-gray-dark:  #3A3F5C;
+  --color-bg:         #F4F5F7;
+  --color-surface:    #FFFFFF;
+  --color-text:       #1A1A1A;
+  --color-text-muted: #3A3F5C;
+  --color-border:     #DDE1EE;
+  --color-success:    #3CAD42;
+  --color-error:      #E63329;
+  --color-warning:    #F4762B;
+
+  --font-display: 'Fredoka One', cursive;
+  --font-body:    'Nunito', sans-serif;
+
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-full: 9999px;
+}
+
+/* ── Global CSS variables (layout + safe areas) ───────────── */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+
+  --bottom-nav-height: calc(56px + var(--safe-bottom));
+  --page-padding-x:    16px;
+
+  --shadow-card: 0 4px 16px rgba(27, 43, 110, 0.12);
+  --shadow-pop:  0 8px 32px rgba(27, 43, 110, 0.20);
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Prevent iOS text-size adjust */
+html { -webkit-text-size-adjust: 100%; }
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-slide-up { animation: slideUp 0.25s ease-out; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-6px); }
+  80%       { transform: translateX(6px); }
+}
+.animate-shake { animation: shake 0.3s ease-in-out; }
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
 /* === ESTILO PINES: MAPA DEL TESORO === */
 .treasure-pin-container {
   display: flex;
