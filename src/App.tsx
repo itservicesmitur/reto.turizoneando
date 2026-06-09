@@ -3,8 +3,10 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import MainLayout  from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
 import LoginPage      from './pages/LoginPage'
+import RegisterPage   from './pages/RegisterPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import LandingPage    from './pages/LandingPage'
+import { ProtectedRoute, AdminRoute } from './components/RouteGuards'
 
 // Lazy-loaded placeholders — replace with real pages as they are built
 const MapPage     = lazy(() => import('./pages/Map'))
@@ -23,86 +25,98 @@ const router = createBrowserRouter([
 
   // ── Auth routes (no layout) ────────────────────────────────────
   { path: '/login',       element: <LoginPage /> },
+  { path: '/register',    element: <RegisterPage /> },
   { path: '/admin/login', element: <AdminLoginPage /> },
 
-  // ── Full-screen game routes (no bottom nav) ────────────────────
+  // ── Protected client routes ────────────────────────────────────
   {
-    path: '/scanner',
-    element: (
-      <Suspense fallback={null}>
-        <ScannerPage />
-      </Suspense>
-    ),
-  },
-
-  // ── Client routes (MainLayout — pathless, wraps /map /prizes /profile) ──
-  {
-    element: <MainLayout />,
+    element: <ProtectedRoute />,
     children: [
+      // Full-screen scanner (no bottom nav)
       {
-        path: 'map',
+        path: '/scanner',
         element: (
           <Suspense fallback={null}>
-            <MapPage />
+            <ScannerPage />
           </Suspense>
         ),
       },
+
+      // Main app shell (bottom nav)
       {
-        path: 'prizes',
-        element: (
-          <Suspense fallback={null}>
-            <PrizesPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'profile',
-        element: (
-          <Suspense fallback={null}>
-            <ProfilePage />
-          </Suspense>
-        ),
+        element: <MainLayout />,
+        children: [
+          {
+            path: 'map',
+            element: (
+              <Suspense fallback={null}>
+                <MapPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'prizes',
+            element: (
+              <Suspense fallback={null}>
+                <PrizesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'profile',
+            element: (
+              <Suspense fallback={null}>
+                <ProfilePage />
+              </Suspense>
+            ),
+          },
+        ],
       },
     ],
   },
 
-  // ── Admin routes (/admin/*) ─────────────────────────────────────
+  // ── Protected admin routes (/admin/*) ──────────────────────────
   {
-    path: '/admin',
-    element: <AdminLayout />,
+    element: <AdminRoute />,
     children: [
-      { index: true, element: <Navigate to="/admin/dashboard" replace /> },
       {
-        path: 'dashboard',
-        element: (
-          <Suspense fallback={null}>
-            <DashboardPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'stops',
-        element: (
-          <Suspense fallback={null}>
-            <StopsPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'prizes',
-        element: (
-          <Suspense fallback={null}>
-            <AdminPrizesPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'players',
-        element: (
-          <Suspense fallback={null}>
-            <PlayersPage />
-          </Suspense>
-        ),
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={null}>
+                <DashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'stops',
+            element: (
+              <Suspense fallback={null}>
+                <StopsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'prizes',
+            element: (
+              <Suspense fallback={null}>
+                <AdminPrizesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'players',
+            element: (
+              <Suspense fallback={null}>
+                <PlayersPage />
+              </Suspense>
+            ),
+          },
+        ],
       },
     ],
   },
