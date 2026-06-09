@@ -31,6 +31,9 @@ export default function SeasonsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // View state (table vs cards)
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
+
   // Search & filter states
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -610,13 +613,49 @@ export default function SeasonsPage() {
             Limpiar Filtros
           </button>
         )}
+
+        {/* View mode toggle */}
+        <div style={{ display: 'flex', background: '#f8f9fb', border: '1px solid var(--color-border)', borderRadius: 8, padding: 2, marginLeft: 'auto', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            style={{
+              height: 34, width: 36, borderRadius: 6,
+              background: viewMode === 'table' ? '#fff' : 'none',
+              border: 'none',
+              boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              color: viewMode === 'table' ? 'var(--color-navy)' : 'var(--color-gray-mid)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 150ms ease'
+            }}
+            title="Vista de Tabla"
+          >
+            <i className="ri-table-line" style={{ fontSize: 16 }} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            style={{
+              height: 34, width: 36, borderRadius: 6,
+              background: viewMode === 'cards' ? '#fff' : 'none',
+              border: 'none',
+              boxShadow: viewMode === 'cards' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              color: viewMode === 'cards' ? 'var(--color-navy)' : 'var(--color-gray-mid)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 150ms ease'
+            }}
+            title="Vista de Tarjetas"
+          >
+            <i className="ri-grid-line" style={{ fontSize: 16 }} />
+          </button>
+        </div>
       </div>
 
       {/* Main content table area */}
       <div style={{
-        background: 'var(--color-surface)',
+        background: (loading || error || processedSeasons.length === 0 || viewMode === 'table') ? 'var(--color-surface)' : 'transparent',
         borderRadius: 16,
-        boxShadow: 'var(--shadow-card)',
+        boxShadow: (loading || error || processedSeasons.length === 0 || viewMode === 'table') ? 'var(--shadow-card)' : 'none',
         overflow: 'hidden'
       }}>
         {loading ? (
@@ -650,7 +689,7 @@ export default function SeasonsPage() {
               Crea una temporada para inicializar etapas y premios en el rally.
             </p>
           </div>
-        ) : (
+        ) : viewMode === 'table' ? (
           /* Table View */
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -823,6 +862,173 @@ export default function SeasonsPage() {
               </tbody>
             </table>
           </div>
+        ) : (
+          /* Cards View */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20, padding: '8px 0' }}>
+            {paginatedSeasons.map((season) => {
+              return (
+                <div
+                  key={season.id}
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1.5px solid var(--color-border)',
+                    borderRadius: 16,
+                    padding: 20,
+                    boxShadow: '0 4px 12px rgba(27,43,110,0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease',
+                    position: 'relative'
+                  }}
+                  className="season-card-hover"
+                >
+                  <div>
+                    {/* Header: Title & Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                      <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, lineHeight: 1.3 }}>
+                        {season.name}
+                      </h3>
+                      {season.status === 'active' ? (
+                        <span style={{
+                          background: 'rgba(60,173,66,0.1)', color: 'var(--color-green)',
+                          padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap'
+                        }}>
+                          {t('seasonManagement.statusActive')}
+                        </span>
+                      ) : season.status === 'upcoming' ? (
+                        <span style={{
+                          background: 'rgba(27,43,110,0.1)', color: 'var(--color-navy)',
+                          padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap'
+                        }}>
+                          {t('seasonManagement.statusUpcoming')}
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: 'rgba(108,117,125,0.1)', color: '#6c757d',
+                          padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap'
+                        }}>
+                          {t('seasonManagement.statusArchived')}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dates */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+                      <i className="ri-calendar-line" style={{ color: 'var(--color-gray-mid)' }} />
+                      <span>{formatDateRange(season.startDate, season.endDate)}</span>
+                    </div>
+
+                    {/* Stages info */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-mid)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Etapas y Premios
+                      </div>
+                      
+                      {season.stages && season.stages.map(stage => {
+                        return (
+                          <div
+                            key={stage.id}
+                            style={{
+                              background: '#f8f9fb',
+                              borderRadius: 10,
+                              padding: '10px 12px',
+                              border: '1px solid var(--color-border)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{
+                                background: stage.number === 1 ? 'rgba(43,191,184,0.15)' : stage.number === 2 ? 'rgba(244,118,43,0.15)' : 'rgba(245,200,0,0.15)',
+                                color: stage.number === 1 ? '#1a8b86' : stage.number === 2 ? '#b74f11' : '#b28e00',
+                                padding: '2px 6px', borderRadius: 6, fontWeight: 800, fontSize: 10
+                              }}>
+                                ETAPA {stage.number}
+                              </span>
+                              <span style={{ color: 'var(--color-navy)', fontWeight: 700, fontSize: 12 }}>
+                                {stage.pointsCount} paradas
+                              </span>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {stage.prizes && stage.prizes.map((sp, pIdx) => {
+                                const prize = prizes.find(p => p.id === sp.prizeId)
+                                return (
+                                  <div key={pIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text)', fontSize: 11 }}>
+                                    <span style={{ fontWeight: 700, color: 'var(--color-navy)' }}>{sp.stock || 0} u.</span>
+                                    <span style={{ color: 'var(--color-gray-mid)' }}>-</span>
+                                    <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flex: 1 }} title={prize?.name}>
+                                      {prize?.name || 'Cargando...'}
+                                    </span>
+                                    {prize?.requiresAdult && (
+                                      <span style={{ background: 'rgba(230,51,41,0.1)', color: 'var(--color-red)', padding: '0px 4px', borderRadius: 4, fontSize: 9, fontWeight: 800 }}>
+                                        +18
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                              {(!stage.prizes || stage.prizes.length === 0) && (
+                                <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic', fontSize: 11 }}>
+                                  Sin premios
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions Footer inside Card */}
+                  <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 14, marginTop: 4 }}>
+                    <button
+                      onClick={() => handleOpenEdit(season)}
+                      style={{
+                        flex: 1,
+                        height: 34,
+                        borderRadius: 8,
+                        background: 'rgba(27,43,110,0.06)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-navy)',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <i className="ri-pencil-line" />
+                      {t('seasonManagement.actionEdit')}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(season)}
+                      style={{
+                        flex: 1,
+                        height: 34,
+                        borderRadius: 8,
+                        background: 'rgba(230,51,41,0.06)',
+                        border: '1px solid rgba(230,51,41,0.15)',
+                        color: 'var(--color-red)',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <i className="ri-delete-bin-line" />
+                      {t('seasonManagement.actionDelete')}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
 
         {/* Pagination Footer */}
@@ -832,8 +1038,12 @@ export default function SeasonsPage() {
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px 20px',
-            borderTop: '1px solid var(--color-border)',
+            borderTop: viewMode === 'table' ? '1px solid var(--color-border)' : 'none',
             background: '#f8f9fb',
+            borderRadius: viewMode === 'cards' ? 16 : '0 0 16px 16px',
+            border: viewMode === 'cards' ? '1.5px solid var(--color-border)' : 'none',
+            boxShadow: viewMode === 'cards' ? '0 4px 12px rgba(27,43,110,0.04)' : 'none',
+            marginTop: viewMode === 'cards' ? 16 : 0,
             flexWrap: 'wrap',
             gap: 12
           }}>
