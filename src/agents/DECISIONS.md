@@ -34,6 +34,18 @@ El agente debe consultar esto antes de proponer cambios estructurales.
 **Por qué:** Flexibilidad e historial — permite mantener múltiples temporadas (históricas, activas o futuras) de manera concurrente sin destruir el progreso del jugador ni requerir mantenimiento invasivo en producción.
 **Impacto:** `src/agents/backend.md` · `src/agents/DECISIONS.md` · `firestore.rules`
 
+## [2026-06-09] CRUD de Paradas y Preguntas ejecutado directamente en cliente
+**Decisión:** Las operaciones de creación, edición y eliminación de paradas (`/stops`) y sus preguntas asociadas (`/questions`) se realizan directamente a través del SDK de cliente de Firestore, utilizando lotes de escritura transaccionales (`writeBatch`).
+**Alternativa descartada:** Crear un conjunto de Cloud Functions administrativas en el backend para gestionar el CRUD de Paradas y Preguntas.
+**Por qué:** Consistencia arquitectónica con el CRUD de premios (`/prizes`), reducción de latencia, optimización de recursos/costos de Firebase y menor complejidad de mantenimiento en el backend.
+**Impacto:** `src/services/adminService.ts` · `src/pages/admin/StopsPage.tsx` · `firestore.rules`
+
+## [2026-06-09] Integración de subida de imágenes con Firebase Storage
+**Decisión:** Reemplazar los campos de texto plano de URL de imágenes por un componente interactivo `<ImageUpload>` que gestiona la subida directa de archivos a las carpetas `/stops` y `/prizes` en Firebase Storage.
+**Alternativa descartada:** Continuar ingresando manualmente URLs de imágenes externas de servidores de terceros.
+**Por qué:** Mejora la experiencia del usuario administrador, centraliza los recursos del juego en Firebase Storage, evita enlaces rotos de fuentes externas y se asegura la compatibilidad con el emulador de Storage local mediante reglas de seguridad adaptativas.
+**Impacto:** `src/components/ImageUpload.tsx` · `src/pages/admin/PrizesPage.tsx` · `src/pages/admin/StopsPage.tsx` · `storage.rules` · `src/agents/backend.md` · `src/agents/frontend.md`
+
 ---
 
 <!-- Agrega nuevas decisiones arriba de esta línea con el mismo formato -->

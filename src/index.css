@@ -260,3 +260,10 @@ html {
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* === GOOGLE PLACES WEB COMPONENT THEMING === */
+gmp-place-autocomplete {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
+  color-scheme: light !important;
+}

@@ -32,3 +32,8 @@ export {
   updateAdmin,
   deleteAdmin
 } from "./admin/admins";
+export {
+  createSeason,
+  updateSeason,
+  deleteSeason
+} from "./admin/seasons";

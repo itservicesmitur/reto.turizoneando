@@ -15,11 +15,13 @@ const ProfilePage = lazy(() => Promise.resolve({ default: () => <div style={{ pa
 const ScannerPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Scanner (coming soon)</div> }))
 
 const DashboardPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 0 }}>Dashboard (coming soon)</div> }))
-const StopsPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 0 }}>Paradas (coming soon)</div> }))
-const AdminPrizesPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 0 }}>Premios admin (coming soon)</div> }))
+const StopsPage = lazy(() => import('./pages/admin/StopsPage'))
+const AdminPrizesPage = lazy(() => import('./pages/admin/PrizesPage'))
 const PlayersPage = lazy(() => import('./pages/admin/PlayersPage'))
 const PlayerDetailPage = lazy(() => import('./pages/admin/PlayerDetailPage'))
 const AdminsPage = lazy(() => import('./pages/admin/AdminsPage'))
+const SeasonsPage = lazy(() => import('./pages/admin/SeasonsPage'))
+
 
 const router = createBrowserRouter([
   // ── Public landing ─────────────────────────────────────────────
@@ -131,6 +133,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={null}>
                 <AdminsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'seasons',
+            element: (
+              <Suspense fallback={null}>
+                <SeasonsPage />
               </Suspense>
             ),
           },

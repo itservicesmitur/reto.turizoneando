@@ -16,7 +16,7 @@
 /seasons/{seasonId}/stages/{stageId}
   id: string
   number: number               ← siempre 1, 2, o 3
-  prizeId: string              ← relación con /prizes
+  prizeIds: string[]           ← relación con /prizes (segmentos de la ruleta)
   pointsCount: number          ← cantidad de paradas de esta etapa
   createdAt: Timestamp
 
@@ -24,6 +24,8 @@
   seasonId: string             ← relación con /seasons
   stageId: string              ← relación con /seasons/{seasonId}/stages
   name: string
+  narration: string            ← historia/narración que se le muestra al usuario
+  imageUrl: string             ← url de la imagen representativa de la parada
   lat: number
   lng: number
   order: number                ← orden de la parada en esta etapa
@@ -45,7 +47,12 @@
   description: string
   imageUrl: string
   relevance: number            ← relevancia del premio (ej. 1=básico, 2=intermedio, 3=final)
-  stock: number
+  requiresAdult: boolean       ← true si requiere ser mayor de edad (+18)
+  createdAt: Timestamp
+
+/seasons/{seasonId}/prizes/{prizeId}
+  id: string                   ← coincide con el prizeId global
+  stock: number                ← stock del premio para esta temporada
   createdAt: Timestamp
 
 /players/{playerId}
@@ -155,6 +162,12 @@ export const validateAnswer = onCall(async (request) => {
   return { correct: true, pointsAwarded: 100, nextNodeId: 'node_3' };
 });
 ```
+
+## Reglas de Firebase Storage
+Las reglas de almacenamiento se definen en `storage.rules`:
+- Las carpetas `/stops` y `/prizes` son de lectura pública para usuarios autenticados.
+- Las escrituras requieren rol `Admin` en producción (`request.auth.token.role == 'Admin'`).
+- Para facilitar las pruebas locales con el emulador de Storage, las reglas permiten la escritura a cualquier usuario autenticado si el nombre del bucket contiene `localhost`, `emulator` o corresponde al entorno de desarrollo.
 
 ## Reglas de este agente
 1. Nunca devolver `correctIndex` ni datos sensibles al cliente.

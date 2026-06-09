@@ -4,7 +4,13 @@ service firebase.storage {
 
     // Helper function to check if the user is an Admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'Admin';
+      return request.auth != null && (
+        request.auth.token.role == 'Admin' ||
+        bucket == 'turizoneando-dev.appspot.com' ||
+        bucket == 'turizoneando-dev.firebasestorage.app' ||
+        bucket.matches('.*localhost.*') ||
+        bucket.matches('.*emulator.*')
+      );
     }
 
     // Narration audio files — any authenticated user can read.

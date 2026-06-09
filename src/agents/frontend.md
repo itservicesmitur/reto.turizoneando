@@ -61,6 +61,8 @@ Todas las tablas de datos utilizadas en las vistas del panel de administración 
 3. Cuando cambies la interface `GameState`, actualiza este archivo.
 4. Sin `useEffect` para sincronizar estado — usa el store o derivar con selectores.
 5. Todas las tablas en `/admin/*` deben cumplir con el **Estándar de Tablas de Datos Administrativas**.
+6. En formularios complejos de administración (como la asignación de premios a etapas dentro de una temporada), se debe proporcionar un botón de acceso directo o shortcut inline junto al selector que permita crear un nuevo elemento de catálogo de forma rápida (ej. un premio nuevo) a través de un modal superpuesto sin salir ni interrumpir el flujo principal de configuración.
+7. Para gestionar la subida de imágenes en paneles administrativos se debe usar el componente `<ImageUpload>` en lugar de inputs de texto de URL para optimizar la UX y mantener los archivos en Firebase Storage de forma directa y estructurada.
 
 ## Definición de terminado (frontend)
 - [ ] Props y return tipados, sin `any`

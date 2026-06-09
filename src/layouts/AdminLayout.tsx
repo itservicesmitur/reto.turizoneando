@@ -11,15 +11,18 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/admin/dashboard', icon: 'ri-dashboard-line',  labelKey: 'adminNav.dashboard' },
-  { to: '/admin/stops',     icon: 'ri-map-pin-line',    labelKey: 'adminNav.stops' },
-  { to: '/admin/prizes',    icon: 'ri-gift-line',       labelKey: 'adminNav.prizes' },
-  { to: '/admin/players',   icon: 'ri-group-line',      labelKey: 'adminNav.players' },
-  { to: '/admin/admins',    icon: 'ri-shield-user-line', labelKey: 'adminNav.admins' },
+  { to: '/admin/dashboard', icon: 'ri-dashboard-line', labelKey: 'adminNav.dashboard' },
+  { to: '/admin/seasons', icon: 'ri-calendar-event-line', labelKey: 'adminNav.seasons' },
+  { to: '/admin/prizes', icon: 'ri-gift-line', labelKey: 'adminNav.prizes' },
+  { to: '/admin/stops', icon: 'ri-map-pin-line', labelKey: 'adminNav.stops' },
+
+  { to: '/admin/players', icon: 'ri-group-line', labelKey: 'adminNav.players' },
+  { to: '/admin/admins', icon: 'ri-shield-user-line', labelKey: 'adminNav.admins' },
+
 ]
 
 export default function AdminLayout() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -50,49 +53,72 @@ export default function AdminLayout() {
             height: 64,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: sidebarOpen ? 'flex-start' : 'center',
             gap: 10,
-            padding: sidebarOpen ? '0 16px' : '0 20px',
+            padding: sidebarOpen ? '0 16px' : '0 8px',
             borderBottom: '1px solid rgba(255,255,255,0.1)',
             overflow: 'hidden',
           }}
         >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'var(--color-yellow)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <i className="ri-compass-3-line" style={{ color: 'var(--color-navy)', fontSize: 18 }} />
-          </div>
-          {sidebarOpen && (
-            <span style={{ color: '#fff', fontFamily: 'var(--font-display)', fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-              Turizoneando
-            </span>
+          {sidebarOpen ? (
+            <>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: 'var(--color-yellow)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <i className="ri-compass-3-line" style={{ color: 'var(--color-navy)', fontSize: 18 }} />
+              </div>
+              <span style={{ color: '#fff', fontFamily: 'var(--font-display)', fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                Turizoneando
+              </span>
+              <button
+                onClick={() => setSidebarOpen(o => !o)}
+                aria-label="Toggle sidebar"
+                style={{
+                  marginLeft: 'auto',
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  padding: 4,
+                  borderRadius: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <i className="ri-arrow-left-s-line" style={{ fontSize: 18 }} />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              aria-label="Toggle sidebar"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255,255,255,0.6)',
+                cursor: 'pointer',
+                padding: 8,
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+              }}
+            >
+              <i className="ri-arrow-right-s-line" style={{ fontSize: 18 }} />
+            </button>
           )}
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            aria-label="Toggle sidebar"
-            style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              color: 'rgba(255,255,255,0.6)',
-              cursor: 'pointer',
-              padding: 4,
-              borderRadius: 4,
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <i className={sidebarOpen ? 'ri-arrow-left-s-line' : 'ri-arrow-right-s-line'} style={{ fontSize: 18 }} />
-          </button>
         </div>
 
         {/* Nav links */}
@@ -204,6 +230,31 @@ export default function AdminLayout() {
           }}
         >
           <div style={{ flex: 1 }} />
+          
+          {/* Language Switcher */}
+          <button
+            onClick={() => i18n.changeLanguage(i18n.language.startsWith('es') ? 'en' : 'es')}
+            style={{
+              background: 'rgba(27,43,110,0.06)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--color-navy)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'background 150ms ease'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(27,43,110,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(27,43,110,0.06)'}
+          >
+            <i className="ri-global-line" style={{ fontSize: 14 }} />
+            {i18n.language.startsWith('es') ? 'EN' : 'ES'}
+          </button>
+
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--color-gray-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="ri-user-line" style={{ color: 'var(--color-gray-dark)', fontSize: 18 }} />
           </div>
