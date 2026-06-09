@@ -15,6 +15,10 @@ dist-ssr
 .env.*
 !.env.local.example
 
+# Firebase emulator exports
+datos-guardados/
+firebase-export*/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
