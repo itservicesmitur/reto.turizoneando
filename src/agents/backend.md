@@ -99,6 +99,8 @@
 | `validateAnswer` | HTTPS callable | Valida, calcula puntos, desbloquea siguiente nodo |
 | `startGame` | HTTPS callable | Inicializa estado del jugador en Firestore |
 | `onPlayerCreated` | Auth onCreate | Crea documento del jugador con estado inicial |
+| `getPlayers` | HTTPS callable | Devuelve listado de jugadores ordenados por creación |
+| `getAdmins`, `createAdmin`, `updateAdmin`, `deleteAdmin` | HTTPS callable | CRUD completo de administradores agrupado en `admins.ts` |
 
 **Agregar nuevas functions aquí antes de implementarlas.**
 
@@ -161,6 +163,7 @@ export const validateAnswer = onCall(async (request) => {
 4. Sin `.get()` sin `.limit(n)` en colecciones grandes.
 5. Secrets con `defineSecret()`, nunca hardcodeados.
 6. Cuando cambies el esquema, actualiza la sección "Esquema de Firestore" arriba.
+7. Consolidar los métodos de mantenimiento de un mismo dominio en un único archivo (ej. `functions/src/admin/admins.ts` para el CRUD de administradores) en lugar de crear un archivo separado por cada método.
 
 ## Definición de terminado (backend)
 - [ ] Function probada en emulador con casos feliz y error

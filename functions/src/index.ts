@@ -26,7 +26,9 @@ initializeApp();
 setGlobalOptions({ maxInstances: 10 });
 
 export { getPlayers } from "./admin/getPlayers";
-export { getAdmins } from "./admin/getAdmins";
-export { createAdmin } from "./admin/createAdmin";
-export { updateAdmin } from "./admin/updateAdmin";
-export { deleteAdmin } from "./admin/deleteAdmin";
+export {
+  getAdmins,
+  createAdmin,
+  updateAdmin,
+  deleteAdmin
+} from "./admin/admins";
