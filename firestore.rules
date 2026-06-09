@@ -2,38 +2,48 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Participants — read own document only. Write is Functions-only (admin SDK).
+    // Helper function to check if the user is an Admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.role == 'Admin';
+    }
+
+    // Players — client can create their own profile on registration; update/delete via Functions or Admins.
+    match /players/{playerId} {
+      allow read:   if (request.auth != null && request.auth.uid == playerId) || isAdmin();
+      allow create: if request.auth != null && request.auth.uid == playerId;
+      allow update, delete: if isAdmin();
+    }
+
+    // Participants — read own document only. Write is Functions or Admins.
     match /participants/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
+      allow read: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow write: if isAdmin();
     }
 
-    // Stops — authenticated users can read active stops.
+    // Stops — authenticated users can read active stops. Admins can read and write all.
     match /stops/{stopId} {
-      allow read: if request.auth != null && resource.data.active == true;
-      allow write: if false;
+      allow read: if (request.auth != null && resource.data.active == true) || isAdmin();
+      allow write: if isAdmin();
     }
 
-    // Questions — never exposed directly to the client.
-    // Access only via validateStop Cloud Function (strips correctIndex).
+    // Questions — never exposed directly to the client. Admins can read and write all.
     match /questions/{questionId} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
 
-    // Prizes — never exposed directly to the client.
-    // Access only via spinWheel Cloud Function.
+    // Prizes — never exposed directly to the client. Admins can read and write all.
     match /prizes/{prizeId} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
 
-    // Prize codes — Functions only. Client never reads or writes.
+    // Prize codes — Functions or Admins only.
     match /prizeCodes/{codeId} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
 
-    // Sessions — write-only by Cloud Functions via admin SDK.
+    // Sessions — write-only by Cloud Functions or Admins.
     match /sessions/{sessionId} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
   }
 }
