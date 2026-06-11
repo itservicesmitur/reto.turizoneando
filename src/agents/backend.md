@@ -46,6 +46,7 @@
   name: string
   description: string
   imageUrl: string
+  categoria: 'Bares' | 'Hoteles' | 'Restaurantes' | 'Museos' | 'Actividades' | 'Experiencias' | ''
   relevance: number            ← relevancia del premio (ej. 1=básico, 2=intermedio, 3=final)
   requiresAdult: boolean       ← true si requiere ser mayor de edad (+18)
   createdAt: Timestamp

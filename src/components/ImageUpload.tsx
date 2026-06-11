@@ -5,7 +5,7 @@ import { storage } from '../config/firebase'
 interface ImageUploadProps {
   value: string
   onChange: (url: string) => void
-  storagePath: 'stops' | 'prizes'
+  storagePath: 'stops' | 'prizes' | 'admins'
   label?: string
 }
 

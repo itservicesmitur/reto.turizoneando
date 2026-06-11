@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { signOut } from 'firebase/auth'
+import { signOut, onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../config/firebase'
 
 interface NavItem {
@@ -18,13 +18,35 @@ const NAV_ITEMS: NavItem[] = [
 
   { to: '/admin/players', icon: 'ri-group-line', labelKey: 'adminNav.players' },
   { to: '/admin/admins', icon: 'ri-shield-user-line', labelKey: 'adminNav.admins' },
-
+  { to: '/admin/codes', icon: 'ri-ticket-line', labelKey: 'adminNav.codes' },
 ]
 
 export default function AdminLayout() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [userPhoto, setUserPhoto] = useState<string | null>(auth.currentUser?.photoURL || null)
+  const [userName, setUserName] = useState<string | null>(auth.currentUser?.displayName || null)
+
+  useEffect(() => {
+    function updateProfileFromAuth() {
+      const user = auth.currentUser
+      setUserPhoto(user?.photoURL || null)
+      setUserName(user?.displayName || null)
+    }
+
+    updateProfileFromAuth()
+
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      updateProfileFromAuth()
+    })
+
+    window.addEventListener('admin-profile-updated', updateProfileFromAuth)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('admin-profile-updated', updateProfileFromAuth)
+    }
+  }, [])
 
   async function handleLogout() {
     await signOut(auth)
@@ -255,8 +277,41 @@ export default function AdminLayout() {
             {i18n.language.startsWith('es') ? 'EN' : 'ES'}
           </button>
 
-          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--color-gray-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <i className="ri-user-line" style={{ color: 'var(--color-gray-dark)', fontSize: 18 }} />
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: 'var(--color-gray-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            border: '1.5px solid var(--color-border)',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+            flexShrink: 0
+          }}
+          title={userName || 'Admin'}
+          >
+            {userPhoto ? (
+              <img
+                src={userPhoto}
+                alt={userName || 'Admin'}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  const fallback = e.currentTarget.parentElement?.querySelector('.fallback-icon') as HTMLElement
+                  if (fallback) fallback.style.display = 'block'
+                }}
+              />
+            ) : null}
+            <i
+              className="ri-user-line fallback-icon"
+              style={{
+                color: 'var(--color-gray-dark)',
+                fontSize: 18,
+                display: userPhoto ? 'none' : 'block'
+              }}
+            />
           </div>
         </header>
 

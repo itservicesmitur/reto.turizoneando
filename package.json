@@ -10,7 +10,7 @@
     "build:prod": "tsc -b && vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
-    "emulators": "firebase emulators:start --import=./datos-guardados --export-on-exit=./datos-guardados",
+    "emulators": "firebase emulators:start --import=./datos-guardados --export-on-exit=./datos-guardados --project turizoneando-dev",
     "deploy:preprod": "firebase deploy -P preprod",
     "deploy:preprod:hosting": "npm run build:preprod && firebase deploy --only hosting -P preprod",
     "deploy:preprod:functions": "firebase deploy --only functions -P preprod",

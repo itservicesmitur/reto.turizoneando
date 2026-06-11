@@ -7,11 +7,11 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import {setGlobalOptions} from "firebase-functions";
-import {initializeApp} from "firebase-admin/app";
+import { setGlobalOptions } from "firebase-functions";
+import * as admin from "firebase-admin";
+admin.initializeApp();
 
-// Initialize Firebase Admin SDK
-initializeApp();
+
 
 // For cost control, you can set the maximum number of containers that can be
 // running at the same time. This helps mitigate the impact of unexpected
@@ -25,15 +25,24 @@ initializeApp();
 // this will be the maximum concurrent request count.
 setGlobalOptions({ maxInstances: 10 });
 
+
+
+
 export { getPlayers } from "./admin/getPlayers";
 export {
   getAdmins,
   createAdmin,
   updateAdmin,
-  deleteAdmin
+  deleteAdmin,
+  updateSelfAdmin
 } from "./admin/admins";
 export {
   createSeason,
   updateSeason,
   deleteSeason
 } from "./admin/seasons";
+export {
+  generateTestPrizeCode,
+  getPublicPrizeCode,
+  redeemPublicPrizeCode
+} from "./admin/prizeCodes";
