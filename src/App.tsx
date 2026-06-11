@@ -36,7 +36,7 @@ const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      // Full-screen scanner (no bottom nav)
+      // Full-screen routes (no bottom nav)
       {
         path: '/scanner',
         element: (
@@ -45,19 +45,19 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: '/map',
+        element: (
+          <Suspense fallback={null}>
+            <MapPage />
+          </Suspense>
+        ),
+      },
 
       // Main app shell (bottom nav)
       {
         element: <MainLayout />,
         children: [
-          {
-            path: 'map',
-            element: (
-              <Suspense fallback={null}>
-                <MapPage />
-              </Suspense>
-            ),
-          },
           {
             path: 'prizes',
             element: (

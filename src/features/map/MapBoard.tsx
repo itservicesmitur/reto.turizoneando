@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -200,128 +200,516 @@ function createProceduralBoat(theme: BoatColorTheme): THREE.Group {
   return boatGroup
 }
 
+export interface RouteInfo {
+  distanceKm: string
+  durationMin: number
+  travelMode: 'WALK' | 'DRIVE'
+}
+
+export interface MapBoardHandle {
+  rotateLeft: () => void
+  rotateRight: () => void
+  resetRotation: () => void
+  startNavigation: (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void) => void
+  clearNavigation: () => void
+  focusOnUser: () => void
+  returnToOrigin: () => void
+  focusAerial: () => void
+  setNavActive: (active: boolean) => void
+  focusOnStage: (stageIdx: number) => void
+  focusOnStop: (stopIndex: number) => void
+}
+
+// ── Helpers de navegación ─────────────────────────────────────
+function haversineM(a: {lat:number,lng:number}, b: {lat:number,lng:number}): number {
+  const R = 6371000
+  const dLat = (b.lat - a.lat) * Math.PI / 180
+  const dLng = (b.lng - a.lng) * Math.PI / 180
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1-s))
+}
+
+function ptSegDistM(p: {lat:number,lng:number}, a: {lat:number,lng:number}, b: {lat:number,lng:number}): number {
+  const dx = b.lng - a.lng, dy = b.lat - a.lat
+  const lenSq = dx*dx + dy*dy
+  if (lenSq === 0) return haversineM(p, a)
+  const t = Math.max(0, Math.min(1, ((p.lng-a.lng)*dx + (p.lat-a.lat)*dy) / lenSq))
+  return haversineM(p, { lat: a.lat + t*dy, lng: a.lng + t*dx })
+}
+
+function computeLastMilePath(fromLat: number, fromLng: number, toLat: number, toLng: number, stopRatio = 0.80) {
+  const endLat = fromLat + (toLat - fromLat) * stopRatio
+  const endLng = fromLng + (toLng - fromLng) * stopRatio
+  const dLat = endLat - fromLat
+  const dLng = endLng - fromLng
+  const curvature = 0.45
+  const ctrlLat = (fromLat + endLat) / 2 + (-dLng * curvature)
+  const ctrlLng = (fromLng + endLng) / 2 + (dLat * curvature)
+  const pts: { lat: number; lng: number }[] = []
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16
+    pts.push({
+      lat: (1-t)*(1-t)*fromLat + 2*(1-t)*t*ctrlLat + t*t*endLat,
+      lng: (1-t)*(1-t)*fromLng + 2*(1-t)*t*ctrlLng + t*t*endLng,
+    })
+  }
+  return { path: pts, endLat, endLng }
+}
+
+function updateXStroke(map: any, lines: any[]) {
+  const z = map.getZoom() ?? 17
+  const w = z >= 20 ? 12 : z >= 19 ? 9 : z >= 18 ? 6 : z >= 17 ? 3 : 2
+  lines.forEach((l: any) => l.setOptions({ strokeWeight: w }))
+}
+
+function createDotElement(nav = false): HTMLDivElement {
+  const size = nav ? 26 : 18
+  const inset = nav ? -8 : -6
+  const dot = document.createElement('div')
+  dot.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:#e8341a;border:3px solid #fff;box-shadow:0 2px 10px rgba(232,52,26,0.60);position:relative;`
+  const ring = document.createElement('div')
+  ring.style.cssText = `position:absolute;inset:${inset}px;border-radius:50%;background:rgba(232,52,26,0.25);animation:pulse-ring 1.6s ease-out infinite;`
+  dot.appendChild(ring)
+  return dot
+}
+
+function getRemainingRoute(pos: {lat:number,lng:number}, path: Array<{lat:number,lng:number}>): { remainingM: number, offRouteM: number } {
+  let minDist = Infinity, closestIdx = 0
+  for (let i = 0; i < path.length - 1; i++) {
+    const d = ptSegDistM(pos, path[i], path[i+1])
+    if (d < minDist) { minDist = d; closestIdx = i }
+  }
+  let remainingM = haversineM(pos, path[closestIdx + 1] ?? path[path.length - 1])
+  for (let i = closestIdx + 1; i < path.length - 1; i++) remainingM += haversineM(path[i], path[i+1])
+  return { remainingM, offRouteM: minDist }
+}
+
 interface MapBoardProps {
   onSelectMonument: (monumento: Monumento | null) => void
   selectedMonument: Monumento | null
   onLoadComplete?: () => void
   startIntroAnimation?: boolean
+  onHeadingChange?: (heading: number) => void
+  visibleStage?: number
+  completedStops?: boolean[]
+  onLockedStopClick?: (info: { stageIdx: number; isStageBlocked: boolean; availableStopName: string }) => void
+}
+
+function buildMarkerHTML(
+  monumento: Pick<Monumento, 'imagen' | 'nombre'>,
+  index: number,
+  completedStops: boolean[]
+): string {
+  const stageIdx = Math.floor(index / 4)
+  const stageStart = stageIdx * 4
+  const indexWithinStage = index % 4
+  const isCompleted = completedStops[index] ?? false
+  const prevStagesDone = stageIdx === 0 ? true : completedStops.slice(0, stageStart).every(Boolean)
+  const prevInStageDone = indexWithinStage === 0
+    ? true
+    : completedStops.slice(stageStart, index).every(Boolean)
+  const isAvailable = !isCompleted && prevStagesDone && prevInStageDone
+
+  let medallionStyle: string
+  let labelStyle: string
+  let innerBadge: string
+  let outerBadge: string
+  let labelText: string
+
+  if (isCompleted) {
+    medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 18px rgba(252,211,77,0.7),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
+    labelStyle = 'border-color:#a87f2a;background-color:#22150c;color:#fcd34d;'
+    innerBadge = `<div class="treasure-check-badge"><svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
+    outerBadge = ''
+    labelText = `✓ PARADA ${indexWithinStage + 1}`
+  } else if (isAvailable) {
+    medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 14px rgba(252,211,77,0.55),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
+    labelStyle = 'border-color:#fcd34d;background-color:#321e0f;color:#fcd34d;'
+    innerBadge = ''
+    outerBadge = '<div class="treasure-pulse-ring"></div>'
+    labelText = 'DISPONIBLE'
+  } else {
+    medallionStyle = 'filter:brightness(0.6);border-color:#6b4a20;'
+    labelStyle = 'opacity:0.6;border-color:#6b4a20;'
+    innerBadge = `<div class="treasure-lock-badge"><svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>`
+    outerBadge = ''
+    labelText = `PARADA ${indexWithinStage + 1}`
+  }
+
+  return `
+    <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+      ${outerBadge}
+      <div class="treasure-medallion" style="${medallionStyle}">
+        <img src="${monumento.imagen}" alt="${monumento.nombre}" />
+        ${innerBadge}
+      </div>
+    </div>
+    <div class="treasure-label" style="${labelStyle}">${labelText}</div>
+  `
 }
 
 let isGoogleMapsInitialized = false
 
-export default function MapBoard({ onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation }: MapBoardProps) {
+const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
+  { onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick },
+  ref
+) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showRotationControls, setShowRotationControls] = useState(false)
-  const [heading, setHeading] = useState(90)
   const mapInstanceRef = useRef<any>(null)
+  const onHeadingChangeRef = useRef(onHeadingChange)
+  onHeadingChangeRef.current = onHeadingChange
+  const monumentMarkersRef = useRef<Array<{ marker: any; stageIdx: number; markerDiv: HTMLElement; index: number; monumento: Monumento }>>([])
+  const visibleStageRef = useRef<number>(visibleStage ?? 0)
+  visibleStageRef.current = visibleStage ?? 0
+  const completedStopsRef = useRef<boolean[]>(completedStops)
+  completedStopsRef.current = completedStops
+  const onLockedStopClickRef = useRef(onLockedStopClick)
+  onLockedStopClickRef.current = onLockedStopClick
+  const stageFirstPositionsRef = useRef<Array<{ lat: number; lng: number }>>([null!, null!, null!])
+  const advancedMarkerClassRef = useRef<any>(null)
+  const userLocationMarkerRef = useRef<any>(null)
+  const watchIdRef = useRef<number | null>(null)
+  const directionsRendererRef = useRef<any>(null)
+  const routeBorderRef = useRef<any>(null)
+  const navTokenRef = useRef(0)
+  const lastKnownPositionRef = useRef<{ lat: number; lng: number } | null>(null)
+  const navBearingRef = useRef<number>(90)
+  const returnAnimFrameRef = useRef<number | null>(null)
+  const introAnimFrameRef = useRef<number | null>(null)
+  const introCompletedRef = useRef(false)
+  const lastMileRef = useRef<any>(null)
+  const lastMileXRef = useRef<any[]>([])
+  const lastMileZoomListenerRef = useRef<any>(null)
+  const navArrowModeRef = useRef(false)
+  const destPositionRef = useRef<{ lat: number; lng: number } | null>(null)
+  const routeBoundsRef = useRef<any>(null)
+  const routePathRef = useRef<Array<{lat:number,lng:number}>>([])
+  const travelModeRef = useRef<'WALK' | 'DRIVE'>('WALK')
+  const lastRecalcTimeRef = useRef<number>(0)
+  const navActiveRef = useRef<boolean>(false)
+  const onRouteUpdateRef = useRef<((info: RouteInfo) => void) | null>(null)
+  const speedSamplesRef = useRef<number[]>([])
+  const isRecalcingRef = useRef<boolean>(false)
+  const doRecalcRef = useRef<(() => void) | null>(null)
 
-  // Secuencia de animación de introducción cinematográfica AAA
-  useEffect(() => {
-    if (startIntroAnimation && mapInstanceRef.current) {
+  // Función de recálculo de ruta (sin mover cámara)
+  doRecalcRef.current = async () => {
+    if (isRecalcingRef.current) return
+    const pos = lastKnownPositionRef.current
+    const dest = destPositionRef.current
+    if (!pos || !dest || !mapInstanceRef.current) return
+    isRecalcingRef.current = true
+    lastRecalcTimeRef.current = Date.now()
+    const token = ++navTokenRef.current
+    const mode = travelModeRef.current
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    try {
+      const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'routes.polyline.encodedPolyline,routes.legs.distanceMeters,routes.legs.duration',
+        },
+        body: JSON.stringify({
+          origin: { location: { latLng: { latitude: pos.lat, longitude: pos.lng } } },
+          destination: { location: { latLng: { latitude: dest.lat, longitude: dest.lng } } },
+          travelMode: mode,
+        }),
+      })
+      if (navTokenRef.current !== token) return
+      const data = await response.json()
+      const route = data.routes?.[0]
+      const encoded = route?.polyline?.encodedPolyline
+      if (!encoded) return
+      const distanceM: number = route?.legs?.[0]?.distanceMeters ?? 0
+      const durationStr: string = route?.legs?.[0]?.duration ?? '0s'
+      const distanceKm = (distanceM / 1000).toFixed(1)
+      const durationMin = Math.ceil(parseInt(durationStr.replace('s', ''), 10) / 60)
+      const { encoding } = await importLibrary('geometry') as any
+      const decodedPath = encoding.decodePath(encoded)
+      if (navTokenRef.current !== token) return
+      routePathRef.current = decodedPath.map((p: any) => ({ lat: p.lat(), lng: p.lng() }))
+      if (routeBorderRef.current) { routeBorderRef.current.setMap(null); routeBorderRef.current = null }
+      if (directionsRendererRef.current) { directionsRendererRef.current.setMap(null); directionsRendererRef.current = null }
+      if (lastMileRef.current) { lastMileRef.current.setMap(null); lastMileRef.current = null }
+      if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+      lastMileXRef.current.forEach((p: any) => p.setMap(null)); lastMileXRef.current = []
+      const { Polyline } = await importLibrary('maps') as any
       const map = mapInstanceRef.current
-      
-      // Deshabilitar controles de usuario durante la animación de entrada
-      map.setOptions({ gestureHandling: 'none' })
+      if (!map) return
+      routeBorderRef.current = new Polyline({ path: decodedPath, map, strokeColor: '#ffffff', strokeWeight: 18, strokeOpacity: 1.0, zIndex: 9 })
+      directionsRendererRef.current = new Polyline({ path: decodedPath, map, strokeColor: '#e8341a', strokeWeight: 13, strokeOpacity: 1.0, zIndex: 10 })
+      const lastPtRecalc = decodedPath[decodedPath.length - 1]
+      if (lastPtRecalc && dest) {
+        const { path: lmPath, endLat: lmLat, endLng: lmLng } = computeLastMilePath(lastPtRecalc.lat(), lastPtRecalc.lng(), dest.lat, dest.lng)
+        lastMileRef.current = new Polyline({
+          path: lmPath, map, strokeOpacity: 0,
+          icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#c0392b', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
+          zIndex: 11,
+        })
+        const xS = 0.000015
+        lastMileXRef.current = [
+          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+        ]
+        if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+        updateXStroke(map, lastMileXRef.current)
+        lastMileZoomListenerRef.current = map.addListener('zoom_changed', () => updateXStroke(map, lastMileXRef.current))
+      }
+      onRouteUpdateRef.current?.({ distanceKm, durationMin, travelMode: travelModeRef.current })
+    } catch { /* silencioso */ } finally {
+      isRecalcingRef.current = false
+    }
+  }
 
-      const missionCenter = { lat: 18.477485383157326, lng: -69.88274578583231 }
+  // Ubicación en tiempo real
+  useEffect(() => {
+    if (loading) return
+    if (!('geolocation' in navigator)) return
 
-      // Definir la secuencia del archivo JSON
-      const steps = [
-        // Paso 1: Iniciar sobre la ciudad (suficientemente cerca para ver el 3D)
-        {
-          duration: 1000,
-          start: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
-          end: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
-          ease: (t: number) => t
-        },
-        // Paso 2: Giro suave de 360 grados alrededor de la Zona Colonial
-        {
-          duration: 8000,
-          start: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
-          end: { zoom: 17.5, tilt: 65, heading: 360, lat: missionCenter.lat, lng: missionCenter.lng },
-          ease: (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2 // easeInOutCubic
-        },
-        // Paso 3: Descender hacia el centro histórico
-        {
-          duration: 6000,
-          start: { zoom: 17.5, tilt: 65, heading: 360, lat: missionCenter.lat, lng: missionCenter.lng },
-          end: { zoom: 18.8, tilt: 75, heading: 450, lat: missionCenter.lat, lng: missionCenter.lng },
-          ease: (t: number) => 1 - Math.pow(1 - t, 3) // easeOutCubic
+    const placeUserMarker = (lat: number, lng: number) => {
+      if (!mapInstanceRef.current || !advancedMarkerClassRef.current) return
+      if (!userLocationMarkerRef.current) {
+        userLocationMarkerRef.current = new advancedMarkerClassRef.current({
+          map: mapInstanceRef.current,
+          position: { lat, lng },
+          content: createDotElement(),
+          title: 'Tu ubicación',
+          zIndex: 999,
+        })
+        if (introCompletedRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.panTo({ lat, lng })
         }
-      ]
+      } else {
+        userLocationMarkerRef.current.position = { lat, lng }
+      }
+    }
 
-      const startTime = performance.now()
+    const onSuccess = (pos: GeolocationPosition) => {
+      const { latitude: lat, longitude: lng, speed } = pos.coords
+      lastKnownPositionRef.current = { lat, lng }
+      placeUserMarker(lat, lng)
 
-      const animateCamera = (now: number) => {
-        const elapsed = now - startTime
-        
-        let currentElapsed = 0
-        let activeStep = null
-        
-        for (const step of steps) {
-          if (elapsed >= currentElapsed && elapsed < currentElapsed + step.duration) {
-            activeStep = { ...step, offset: elapsed - currentElapsed }
-            break
-          }
-          currentElapsed += step.duration
+      // Detectar modo de viaje por velocidad
+      if (speed != null) {
+        speedSamplesRef.current = [...speedSamplesRef.current.slice(-3), speed]
+        const avg = speedSamplesRef.current.reduce((a, b) => a + b, 0) / speedSamplesRef.current.length
+        const newMode = avg >= 2.2 ? 'DRIVE' : 'WALK'
+        if (newMode !== travelModeRef.current && navActiveRef.current) {
+          travelModeRef.current = newMode
+          doRecalcRef.current?.()
+          return
         }
-
-        if (activeStep) {
-          const t = activeStep.ease(activeStep.offset / activeStep.duration)
-          
-          const zoom = activeStep.start.zoom + (activeStep.end.zoom - activeStep.start.zoom) * t
-          const tilt = activeStep.start.tilt + (activeStep.end.tilt - activeStep.start.tilt) * t
-          const heading = activeStep.start.heading + (activeStep.end.heading - activeStep.start.heading) * t
-          const lat = activeStep.start.lat + (activeStep.end.lat - activeStep.start.lat) * t
-          const lng = activeStep.start.lng + (activeStep.end.lng - activeStep.start.lng) * t
-
-          map.moveCamera({
-            center: { lat, lng },
-            zoom,
-            tilt,
-            heading: heading % 360
-          })
-
-          requestAnimationFrame(animateCamera)
-        } else {
-          // Orientación y posición final del juego
-          map.moveCamera({
-            center: missionCenter,
-            zoom: 18.8,
-            tilt: 75,
-            heading: 90
-          })
-          
-          // Habilitar restricciones y controles de usuario al terminar la animación
-          const colonialBounds = {
-            north: 18.482,
-            south: 18.467,
-            west: -69.8925,
-            east: -69.880
-          }
-          map.setOptions({ 
-            gestureHandling: 'greedy',
-            minZoom: 16.5,
-            restriction: {
-              latLngBounds: colonialBounds,
-              strictBounds: true
-            }
-          })
-        }
+        travelModeRef.current = newMode
       }
 
-      requestAnimationFrame(animateCamera)
+      // Recálculo inteligente durante navegación activa
+      if (!navActiveRef.current || routePathRef.current.length < 2) return
+      const { remainingM, offRouteM } = getRemainingRoute({ lat, lng }, routePathRef.current)
+      const elapsed = Date.now() - lastRecalcTimeRef.current
+      if (offRouteM > 50 || elapsed > 4 * 60 * 1000) {
+        doRecalcRef.current?.()
+      } else {
+        // Actualización local sin API
+        const speedKmh = travelModeRef.current === 'DRIVE' ? 30 : 5
+        const durationMin = Math.max(1, Math.ceil((remainingM / 1000) / speedKmh * 60))
+        const distanceKm = (remainingM / 1000).toFixed(1)
+        onRouteUpdateRef.current?.({ distanceKm, durationMin, travelMode: travelModeRef.current })
+      }
+    }
+
+    let errorCount = 0
+    const onError = () => {
+      errorCount++
+      if (errorCount >= 2 && watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+        // intento único de baja precisión como fallback
+        navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
+          enableHighAccuracy: false, maximumAge: 60000, timeout: 30000,
+        })
+      }
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      onSuccess,
+      onError,
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 }
+    )
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.map = null
+        userLocationMarkerRef.current = null
+      }
+    }
+  }, [loading])
+
+  // Secuencia de animación de introducción cinematográfica
+  useEffect(() => {
+    if (!startIntroAnimation || !mapInstanceRef.current) return
+    const map = mapInstanceRef.current
+    const mapDiv = mapRef.current
+
+    map.setOptions({ gestureHandling: 'none' })
+
+    const missionCenter = { lat: 18.477485383157326, lng: -69.88274578583231 }
+    const dominicanRepublicBounds = { north: 19.93, south: 17.47, west: -72.01, east: -68.32 }
+
+    const enableGestures = () => {
+      introCompletedRef.current = true
+      map.setOptions({
+        gestureHandling: 'greedy',
+        minZoom: 8,
+        restriction: { latLngBounds: dominicanRepublicBounds, strictBounds: true }
+      })
+    }
+
+    // Cancela la intro si el usuario toca el mapa antes de que termine
+    const handleTouch = () => {
+      if (introCompletedRef.current) return
+      if (introAnimFrameRef.current !== null) {
+        cancelAnimationFrame(introAnimFrameRef.current)
+        introAnimFrameRef.current = null
+      }
+      map.moveCamera({ center: missionCenter, zoom: 18.8, tilt: 75, heading: 90 })
+      enableGestures()
+    }
+
+    if (mapDiv) {
+      mapDiv.addEventListener('touchstart', handleTouch, { passive: true })
+      mapDiv.addEventListener('mousedown', handleTouch)
+    }
+
+    const steps = [
+      {
+        duration: 800,
+        start: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
+        end: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
+        ease: (t: number) => t
+      },
+      {
+        duration: 4000,
+        start: { zoom: 17.5, tilt: 65, heading: 0, lat: missionCenter.lat, lng: missionCenter.lng },
+        end: { zoom: 17.5, tilt: 65, heading: 360, lat: missionCenter.lat, lng: missionCenter.lng },
+        ease: (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+      },
+      {
+        duration: 3000,
+        start: { zoom: 17.5, tilt: 65, heading: 360, lat: missionCenter.lat, lng: missionCenter.lng },
+        end: { zoom: 18.8, tilt: 75, heading: 450, lat: missionCenter.lat, lng: missionCenter.lng },
+        ease: (t: number) => 1 - Math.pow(1 - t, 3)
+      }
+    ]
+
+    const startTime = performance.now()
+
+    const animateCamera = (now: number) => {
+      const elapsed = now - startTime
+
+      let currentElapsed = 0
+      let activeStep: typeof steps[0] & { offset: number } | null = null
+
+      for (const step of steps) {
+        if (elapsed >= currentElapsed && elapsed < currentElapsed + step.duration) {
+          activeStep = { ...step, offset: elapsed - currentElapsed }
+          break
+        }
+        currentElapsed += step.duration
+      }
+
+      if (activeStep) {
+        const t = activeStep.ease(activeStep.offset / activeStep.duration)
+        map.moveCamera({
+          center: {
+            lat: activeStep.start.lat + (activeStep.end.lat - activeStep.start.lat) * t,
+            lng: activeStep.start.lng + (activeStep.end.lng - activeStep.start.lng) * t,
+          },
+          zoom: activeStep.start.zoom + (activeStep.end.zoom - activeStep.start.zoom) * t,
+          tilt: activeStep.start.tilt + (activeStep.end.tilt - activeStep.start.tilt) * t,
+          heading: (activeStep.start.heading + (activeStep.end.heading - activeStep.start.heading) * t) % 360
+        })
+        introAnimFrameRef.current = requestAnimationFrame(animateCamera)
+      } else {
+        introAnimFrameRef.current = null
+        if (lastKnownPositionRef.current) {
+          map.panTo(lastKnownPositionRef.current)
+        }
+        map.moveCamera({ center: missionCenter, zoom: 18.8, tilt: 75, heading: 90 })
+        enableGestures()
+        if (mapDiv) {
+          mapDiv.removeEventListener('touchstart', handleTouch)
+          mapDiv.removeEventListener('mousedown', handleTouch)
+        }
+      }
+    }
+
+    requestAnimationFrame(animateCamera)
+
+    return () => {
+      if (introAnimFrameRef.current !== null) {
+        cancelAnimationFrame(introAnimFrameRef.current)
+        introAnimFrameRef.current = null
+      }
+      if (mapDiv) {
+        mapDiv.removeEventListener('touchstart', handleTouch)
+        mapDiv.removeEventListener('mousedown', handleTouch)
+      }
     }
   }, [startIntroAnimation])
 
-  // Centrar si cambia desde fuera (por ejemplo al hacer click en algún botón o restaurar) sin forzar el zoom
+  // Mostrar solo los marcadores de la etapa activa
   useEffect(() => {
-    if (mapInstanceRef.current && selectedMonument) {
-      mapInstanceRef.current.panTo({ lat: selectedMonument.lat, lng: selectedMonument.lng })
-      mapInstanceRef.current.setTilt(67)
+    if (monumentMarkersRef.current.length === 0) return
+    const target = visibleStage ?? 0
+    monumentMarkersRef.current.forEach(({ marker, stageIdx }) => {
+      marker.map = stageIdx === target ? mapInstanceRef.current : null
+    })
+  }, [visibleStage])
+
+  // Actualizar visuals de marcadores cuando cambia el progreso
+  useEffect(() => {
+    if (monumentMarkersRef.current.length === 0) return
+    monumentMarkersRef.current.forEach(({ markerDiv, index, monumento }) => {
+      markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops)
+    })
+  }, [completedStops])
+
+  // Centrar y hacer zoom suave al monumento seleccionado
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !selectedMonument) return
+    const startCenter = map.getCenter()
+    const startZoom = map.getZoom() as number
+    const startTilt = map.getTilt() as number
+    const startHeading = map.getHeading() as number
+    const targetZoom = Math.max(startZoom, 17.5)
+    const targetTilt = 67
+    const duration = 900
+    const startTime = performance.now()
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+    const animate = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      const e = easeOut(t)
+      map.moveCamera({
+        center: {
+          lat: startCenter.lat() + (selectedMonument.lat - startCenter.lat()) * e,
+          lng: startCenter.lng() + (selectedMonument.lng - startCenter.lng()) * e,
+        },
+        zoom: startZoom + (targetZoom - startZoom) * e,
+        tilt: startTilt + (targetTilt - startTilt) * e,
+        heading: startHeading,
+      })
+      if (t < 1) requestAnimationFrame(animate)
     }
+    requestAnimationFrame(animate)
   }, [selectedMonument])
 
   useEffect(() => {
@@ -372,20 +760,13 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
             gestureHandling: 'none' // Deshabilitado inicialmente
           })
 
-          // Mantener la inclinación (tilt) dentro del rango cinematográfico 3D aceptable
-          map.addListener('tilt_changed', () => {
-            const currentTilt = map.getTilt() || 0
-            if (currentTilt < 60 || currentTilt > 85) {
-              map.setTilt(80)
-            }
-          })
-
           // Actualizar orientación de la brújula al girar el mapa
           map.addListener('heading_changed', () => {
-            setHeading(map.getHeading() || 0)
+            onHeadingChangeRef.current?.(map.getHeading() || 0)
           })
 
           mapInstanceRef.current = map
+          advancedMarkerClassRef.current = AdvancedMarkerElement
 
           // Coordenadas precisas suministradas por el usuario
           const colonialZoneCoords = [
@@ -632,8 +1013,7 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
           monumentosZonaColonial.forEach((monumento, index) => {
             const markerDiv = document.createElement('div')
             markerDiv.className = 'treasure-pin-container'
-            
-            // Forzar estilos CSS en línea del contenedor principal del pin
+
             markerDiv.style.width = '120px'
             markerDiv.style.height = '95px'
             markerDiv.style.display = 'flex'
@@ -643,31 +1023,75 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
             markerDiv.style.pointerEvents = 'auto'
             markerDiv.style.cursor = 'pointer'
 
-            markerDiv.innerHTML = `
-              <div class="treasure-medallion">
-                <img src="${monumento.imagen}" alt="${monumento.nombre}" />
-                <div class="treasure-lock-badge">
-                  <!-- Candado de bloqueo SVG -->
-                  <svg style="width: 9px; height: 9px; fill: currentColor;" viewBox="0 0 24 24">
-                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                  </svg>
-                </div>
-              </div>
-              <div class="treasure-label">DESAFÍO ${index + 1}</div>
-            `
+            markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current)
+
+            const stageIdx = Math.floor(index / 4)
+
+            // Guardar posición del primer monumento de cada etapa para focusOnStage
+            if (index % 4 === 0) {
+              stageFirstPositionsRef.current[stageIdx] = { lat: monumento.lat, lng: monumento.lng }
+            }
 
             // Manejador del click
             markerDiv.addEventListener('click', () => {
-              map.panTo({ lat: monumento.lat, lng: monumento.lng })
-              onSelectMonument(monumento)
+              if (introAnimFrameRef.current) {
+                cancelAnimationFrame(introAnimFrameRef.current)
+                introAnimFrameRef.current = null
+                map.setOptions({
+                  gestureHandling: 'greedy',
+                  minZoom: 8,
+                  restriction: {
+                    latLngBounds: { north: 19.93, south: 17.47, west: -72.01, east: -68.32 },
+                    strictBounds: true
+                  }
+                })
+              }
+
+              const current = completedStopsRef.current
+              const stageStart = stageIdx * 4
+              const indexWithinStage = index % 4
+              const isCompleted = current[index] ?? false
+              const prevStagesDone = stageIdx === 0 ? true : current.slice(0, stageStart).every(Boolean)
+              const prevDone = indexWithinStage === 0 ? true : current.slice(stageStart, index).every(Boolean)
+              const isAvailable = !isCompleted && prevStagesDone && prevDone
+
+              if (isAvailable || isCompleted) {
+                onSelectMonument(monumento)
+              } else {
+                // Determinar si la etapa completa está bloqueada
+                const computeActiveStage = (done: boolean[]) => {
+                  for (let s = 0; s < 3; s++) {
+                    if (!done.slice(s * 4, s * 4 + 4).every(Boolean)) return s
+                  }
+                  return 2
+                }
+                const activeStage = computeActiveStage(current)
+                const isStageBlocked = stageIdx !== activeStage
+
+                // Buscar la parada disponible en la etapa activa
+                let availableStopName = 'la parada disponible'
+                const activeStart = activeStage * 4
+                for (const item of monumentMarkersRef.current) {
+                  if (item.stageIdx !== activeStage) continue
+                  const iWithin = item.index % 4
+                  const iPrevDone = iWithin === 0 ? true : current.slice(activeStart, item.index).every(Boolean)
+                  if (!(current[item.index] ?? false) && iPrevDone) {
+                    availableStopName = item.monumento.nombre
+                    break
+                  }
+                }
+
+                onLockedStopClickRef.current?.({ stageIdx, isStageBlocked, availableStopName })
+              }
             })
 
-            new AdvancedMarkerElement({
-              map: map,
+            const markerEl = new AdvancedMarkerElement({
+              map: stageIdx === visibleStageRef.current ? map : null,
               position: { lat: monumento.lat, lng: monumento.lng },
               title: monumento.nombre,
               content: markerDiv,
             })
+            monumentMarkersRef.current.push({ marker: markerEl, stageIdx, markerDiv, index, monumento })
           })
 
           // --- ANIMACIÓN DE MÚLTIPLES BARCOS EN EL RÍO OZAMA ---
@@ -827,16 +1251,6 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
           // --- WebGLOverlayView e integración con Three.js ---
           const threeScene = new THREE.Scene()
           const threeCamera = new THREE.PerspectiveCamera()
-
-          // Modelo 3D de la Fortaleza Ozama (Meshy AI)
-          let fortalezaModel3D: THREE.Group | null = null
-          const fortalezaLat = 18.473195287512446
-          const fortalezaLng = -69.88182453318161
-
-          // Modelo 3D de la Catedral Primada de las Américas
-          let catedralModel3D: THREE.Group | null = null
-          const catedralLat = 18.47308392901038
-          const catedralLng = -69.88394116073748
 
           // Helper para crear gaviota procedural de bajo rendimiento (AAA visuales, móvil-friendly)
           const createSeagullMesh = () => {
@@ -1058,179 +1472,6 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
               }
             )
 
-            // Cargar modelo 3D de castillo en la Fortaleza Ozama
-            const fortalezaLoader = new GLTFLoader()
-            fortalezaLoader.load(
-              '/assets/model/castillo.glb',
-              (gltf) => {
-                const model = gltf.scene
-
-                // Tinte cálido para mezclar con la paleta del mapa (tonos arena/dorado colonial)
-                const warmTint = new THREE.Color(0.95, 0.88, 0.75) // Arena cálido
-                
-                // Configurar materiales del modelo para que se integre con el mapa
-                model.traverse((child) => {
-                  if ((child as any).isMesh) {
-                    const mesh = child as THREE.Mesh
-                    mesh.castShadow = true
-                    mesh.receiveShadow = true
-                    mesh.frustumCulled = false
-
-                    if (mesh.material) {
-                      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-                      materials.forEach((mat: any) => {
-                        mat.side = THREE.DoubleSide
-                        mat.depthWrite = true
-                        mat.transparent = false
-                        mat.opacity = 1.0
-
-                        // Mezclar el color original con el tinte cálido del mapa
-                        if (mat.color) {
-                          mat.color.multiply(warmTint)
-                        }
-
-                        // Reducir la saturación y aumentar la calidez de las texturas
-                        if (mat.emissive) {
-                          mat.emissive.set(0x1a1208) // Emisión sutil dorada
-                          mat.emissiveIntensity = 0.15
-                        }
-
-                        // Suavizar el contraste del modelo
-                        if (mat.roughness !== undefined) {
-                          mat.roughness = Math.min(mat.roughness + 0.15, 1.0)
-                        }
-                        if (mat.metalness !== undefined) {
-                          mat.metalness = Math.max(mat.metalness - 0.1, 0.0)
-                        }
-                      })
-                    }
-                  }
-                })
-
-                // Rotación de Y-up (GLTF) a Z-up (Google Maps)
-                model.rotation.x = Math.PI / 2
-
-                // Forzar actualización de las matrices después de la rotación
-                model.updateMatrixWorld(true)
-
-                // Medir el tamaño real del modelo DESPUÉS de rotar
-                const box = new THREE.Box3().setFromObject(model)
-                const size = new THREE.Vector3()
-                const center = new THREE.Vector3()
-                box.getSize(size)
-                box.getCenter(center)
-                console.log('Tamaño del castillo (x,y,z):', size.x, size.y, size.z)
-                console.log('Centro del castillo:', center.x, center.y, center.z)
-
-                // Centrar el modelo en su propio origen para que la coordenada GPS
-                // coincida con el centro del castillo
-                model.position.set(-center.x, -center.y, -center.z)
-
-                // Escala del modelo - ajustada para que sea bien visible en el mapa
-                const desiredSize = 80 // metros deseados
-                const maxDim = Math.max(size.x, size.y, size.z)
-                const scale = maxDim > 0 ? desiredSize / maxDim : 5.0
-                console.log('Escala aplicada al castillo:', scale)
-
-                const wrapper = new THREE.Group()
-                wrapper.add(model)
-                wrapper.scale.set(scale, scale, scale)
-
-                fortalezaModel3D = wrapper
-                threeScene.add(wrapper)
-                webGLOverlay.requestRedraw()
-                console.log('Modelo castillo (Fortaleza Ozama) cargado correctamente')
-              },
-              (progress) => {
-                console.log('Cargando castillo:', Math.round((progress.loaded / (progress.total || 1)) * 100) + '%')
-              },
-              (error) => {
-                console.error('Error al cargar castillo.glb para la Fortaleza Ozama:', error)
-              }
-            )
-
-            // Cargar modelo 3D de la Catedral Primada
-            const catedralLoader = new GLTFLoader()
-            catedralLoader.load(
-              '/assets/model/castillo.glb',
-              (gltf) => {
-                const model = gltf.scene
-
-                // Tinte cálido para mezclar con la paleta del mapa (tonos arena/dorado colonial)
-                const warmTint = new THREE.Color(0.95, 0.88, 0.75)
-
-                model.traverse((child) => {
-                  if ((child as any).isMesh) {
-                    const mesh = child as THREE.Mesh
-                    mesh.castShadow = true
-                    mesh.receiveShadow = true
-                    mesh.frustumCulled = false
-
-                    if (mesh.material) {
-                      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-                      materials.forEach((mat: any) => {
-                        mat.side = THREE.DoubleSide
-                        mat.depthWrite = true
-                        mat.transparent = false
-                        mat.opacity = 1.0
-
-                        if (mat.color) {
-                          mat.color.multiply(warmTint)
-                        }
-
-                        if (mat.emissive) {
-                          mat.emissive.set(0x1a1208)
-                          mat.emissiveIntensity = 0.15
-                        }
-
-                        if (mat.roughness !== undefined) {
-                          mat.roughness = Math.min(mat.roughness + 0.15, 1.0)
-                        }
-                        if (mat.metalness !== undefined) {
-                          mat.metalness = Math.max(mat.metalness - 0.1, 0.0)
-                        }
-                      })
-                    }
-                  }
-                })
-
-                // Rotación de Y-up (GLTF) a Z-up (Google Maps)
-                model.rotation.x = Math.PI / 2
-                model.updateMatrixWorld(true) 
-
-                // Medir el tamaño real del modelo
-                const box = new THREE.Box3().setFromObject(model)
-                const size = new THREE.Vector3()
-                const center = new THREE.Vector3()
-                box.getSize(size)
-                box.getCenter(center)
-                console.log('Tamaño de la catedral (x,y,z):', size.x, size.y, size.z)
-
-                // Centrar
-                model.position.set(-center.x, -center.y, -center.z)
-
-                // Escalar (deseamos unos 75 metros de tamaño en el mapa para que luzca bien)
-                const desiredSize = 40
-                const maxDim = Math.max(size.x, size.y, size.z)
-                const scale = maxDim > 0 ? desiredSize / maxDim : 5.0
-                console.log('Escala aplicada a la catedral:', scale)
-
-                const wrapper = new THREE.Group()
-                wrapper.add(model)
-                wrapper.scale.set(scale, scale, scale)
-
-                catedralModel3D = wrapper
-                threeScene.add(wrapper)
-                webGLOverlay.requestRedraw()
-                console.log('Modelo catedral (Catedral Primada) cargado correctamente')
-              },
-              (progress) => {
-                console.log('Cargando catedral:', Math.round((progress.loaded / (progress.total || 1)) * 100) + '%')
-              },
-              (error) => {
-                console.error('Error al cargar catedral.glb:', error)
-              }
-            )
           }
 
           webGLOverlay.onContextRestored = ({ gl }: any) => {
@@ -1341,20 +1582,6 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
                   }
                 }
               })
-
-              // Posicionar modelo 3D de la Fortaleza Ozama
-              if (fortalezaModel3D) {
-                const fortDx = (fortalezaLng - anchorLng) * 111139 * Math.cos(latRad)
-                const fortDy = (fortalezaLat - anchorLat) * 111139
-                fortalezaModel3D.position.set(fortDx, fortDy, 2)
-              }
-
-              // Posicionar modelo 3D de la Catedral Primada
-              if (catedralModel3D) {
-                const catDx = (catedralLng - anchorLng) * 111139 * Math.cos(latRad)
-                const catDy = (catedralLat - anchorLat) * 111139
-                catedralModel3D.position.set(catDx, catDy, 2)
-              }
 
               renderer.render(threeScene, threeCamera)
             } catch (err) {
@@ -1486,6 +1713,313 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
     }
   }
 
+  useImperativeHandle(ref, () => ({
+    rotateLeft: handleRotateLeft,
+    rotateRight: handleRotateRight,
+    resetRotation: handleResetRotation,
+    clearNavigation: () => {
+      navTokenRef.current++
+      navActiveRef.current = false
+      routePathRef.current = []
+      onRouteUpdateRef.current = null
+      if (returnAnimFrameRef.current) {
+        cancelAnimationFrame(returnAnimFrameRef.current)
+        returnAnimFrameRef.current = null
+      }
+      if (routeBorderRef.current) {
+        routeBorderRef.current.setMap(null)
+        routeBorderRef.current = null
+      }
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null)
+        directionsRendererRef.current = null
+      }
+      if (lastMileRef.current) {
+        lastMileRef.current.setMap(null)
+        lastMileRef.current = null
+      }
+      if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+      lastMileXRef.current.forEach((p: any) => p.setMap(null))
+      lastMileXRef.current = []
+      if (navArrowModeRef.current && userLocationMarkerRef.current) {
+        navArrowModeRef.current = false
+        userLocationMarkerRef.current.content = createDotElement()
+      }
+    },
+    setNavActive: (active: boolean) => {
+      navActiveRef.current = active
+      if (active && mapInstanceRef.current) {
+        if (introAnimFrameRef.current) {
+          cancelAnimationFrame(introAnimFrameRef.current)
+          introAnimFrameRef.current = null
+        }
+        mapInstanceRef.current.setOptions({
+          gestureHandling: 'greedy',
+          minZoom: 8,
+        })
+        if (userLocationMarkerRef.current) {
+          navArrowModeRef.current = true
+          userLocationMarkerRef.current.content = createDotElement(true)
+        }
+      }
+    },
+    startNavigation: async (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void) => {
+      if (!mapInstanceRef.current) return
+
+      const token = ++navTokenRef.current
+      if (returnAnimFrameRef.current) {
+        cancelAnimationFrame(returnAnimFrameRef.current)
+        returnAnimFrameRef.current = null
+      }
+      const pos = lastKnownPositionRef.current
+      if (!pos) return
+
+      destPositionRef.current = { lat: destLat, lng: destLng }
+      const dy = destLat - pos.lat
+      const dx = (destLng - pos.lng) * Math.cos((pos.lat * Math.PI) / 180)
+      const bearingDeg = (Math.atan2(dx, dy) * (180 / Math.PI) + 360) % 360
+      navBearingRef.current = bearingDeg
+
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+
+      try {
+        const response = await fetch(
+          'https://routes.googleapis.com/directions/v2:computeRoutes',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'routes.polyline.encodedPolyline,routes.legs.distanceMeters,routes.legs.duration',
+            },
+            body: JSON.stringify({
+              origin: { location: { latLng: { latitude: pos.lat, longitude: pos.lng } } },
+              destination: { location: { latLng: { latitude: destLat, longitude: destLng } } },
+              travelMode: travelModeRef.current,
+            }),
+          }
+        )
+
+        if (navTokenRef.current !== token) return
+
+        const data = await response.json()
+        const route = data.routes?.[0]
+        const encoded = route?.polyline?.encodedPolyline
+        if (!encoded) return
+
+        const distanceM: number = route?.legs?.[0]?.distanceMeters ?? 0
+        const durationStr: string = route?.legs?.[0]?.duration ?? '0s'
+        const durationSec = parseInt(durationStr.replace('s', ''), 10)
+        const distanceKm = (distanceM / 1000).toFixed(1)
+        const durationMin = Math.ceil(durationSec / 60)
+
+        const { encoding } = await importLibrary('geometry') as any
+        const path = encoding.decodePath(encoded)
+
+        if (navTokenRef.current !== token) return
+
+        // Limpiar rutas previas
+        if (routeBorderRef.current) { routeBorderRef.current.setMap(null); routeBorderRef.current = null }
+        if (directionsRendererRef.current) { directionsRendererRef.current.setMap(null); directionsRendererRef.current = null }
+        if (lastMileRef.current) { lastMileRef.current.setMap(null); lastMileRef.current = null }
+        if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+        lastMileXRef.current.forEach((p: any) => p.setMap(null)); lastMileXRef.current = []
+
+        const { Polyline } = await importLibrary('maps') as any
+        const map = mapInstanceRef.current
+
+        // Borde blanco (da definición a la línea)
+        routeBorderRef.current = new Polyline({
+          path, map,
+          strokeColor: '#ffffff',
+          strokeWeight: 18,
+          strokeOpacity: 1.0,
+          zIndex: 9,
+        })
+
+        // Línea roja principal
+        directionsRendererRef.current = new Polyline({
+          path, map,
+          strokeColor: '#e8341a',
+          strokeWeight: 13,
+          strokeOpacity: 1.0,
+          zIndex: 10,
+        })
+
+        // Tramo punteado final: del último punto de la ruta al pin exacto
+        const lastPt = path[path.length - 1]
+        if (lastPt) {
+          const { path: lmPath, endLat: lmLat, endLng: lmLng } = computeLastMilePath(lastPt.lat(), lastPt.lng(), destLat, destLng)
+          lastMileRef.current = new Polyline({
+            path: lmPath, map, strokeOpacity: 0,
+            icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#c0392b', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
+            zIndex: 11,
+          })
+          const xS = 0.000015
+          lastMileXRef.current = [
+            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+          ]
+          if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+          updateXStroke(map, lastMileXRef.current)
+          lastMileZoomListenerRef.current = map.addListener('zoom_changed', () => updateXStroke(map, lastMileXRef.current))
+        }
+
+        // Guardar para recálculo inteligente
+        routePathRef.current = path.map((p: any) => ({ lat: p.lat(), lng: p.lng() }))
+        onRouteUpdateRef.current = onReady ?? null
+        lastRecalcTimeRef.current = Date.now()
+
+        onReady?.({ distanceKm, durationMin, travelMode: travelModeRef.current })
+
+        // Mostrar toda la ruta al usuario; la cámara queda aquí hasta que presione INICIAR
+        const bounds = new (window as any).google.maps.LatLngBounds()
+        path.forEach((p: any) => bounds.extend(p))
+        routeBoundsRef.current = bounds
+        map.fitBounds(bounds, { top: 80, bottom: 220, left: 60, right: 60 })
+
+      } catch (err) {
+        console.warn('Error al trazar ruta:', err)
+      }
+    },
+    focusOnUser: () => {
+      const map = mapInstanceRef.current
+      const pos = lastKnownPositionRef.current
+      if (!map || !pos) return
+      if (returnAnimFrameRef.current) cancelAnimationFrame(returnAnimFrameRef.current)
+      const startCenter = map.getCenter()
+      const startZoom = map.getZoom() as number
+      const startTilt = map.getTilt() as number
+      const startHeading = map.getHeading() as number
+      const targetHeading = navBearingRef.current
+      const duration = 1200
+      const startTime = performance.now()
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      const animate = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1)
+        const e = easeOut(t)
+        map.moveCamera({
+          center: {
+            lat: startCenter.lat() + (pos.lat - startCenter.lat()) * e,
+            lng: startCenter.lng() + (pos.lng - startCenter.lng()) * e,
+          },
+          zoom: startZoom + (18 - startZoom) * e,
+          tilt: startTilt + (65 - startTilt) * e,
+          heading: startHeading + (targetHeading - startHeading) * e,
+        })
+        if (t < 1) {
+          returnAnimFrameRef.current = requestAnimationFrame(animate)
+        } else {
+          returnAnimFrameRef.current = null
+        }
+      }
+      returnAnimFrameRef.current = requestAnimationFrame(animate)
+    },
+    returnToOrigin: () => {
+      const map = mapInstanceRef.current
+      if (!map) return
+      const missionCenter = { lat: 18.477485383157326, lng: -69.88274578583231 }
+      const startCenter = map.getCenter()
+      const startZoom = map.getZoom() as number
+      const startTilt = map.getTilt() as number
+      const startHeading = map.getHeading() as number
+      const targetZoom = 18.8
+      const targetTilt = 75
+      const targetHeading = 90
+      const duration = 1400
+      const startTime = performance.now()
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      if (returnAnimFrameRef.current) cancelAnimationFrame(returnAnimFrameRef.current)
+      const animate = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1)
+        const e = easeOut(t)
+        map.moveCamera({
+          center: {
+            lat: startCenter.lat() + (missionCenter.lat - startCenter.lat()) * e,
+            lng: startCenter.lng() + (missionCenter.lng - startCenter.lng()) * e,
+          },
+          zoom: startZoom + (targetZoom - startZoom) * e,
+          tilt: startTilt + (targetTilt - startTilt) * e,
+          heading: startHeading + (targetHeading - startHeading) * e,
+        })
+        if (t < 1) {
+          returnAnimFrameRef.current = requestAnimationFrame(animate)
+        } else {
+          returnAnimFrameRef.current = null
+        }
+      }
+      returnAnimFrameRef.current = requestAnimationFrame(animate)
+    },
+    focusAerial: () => {
+      const map = mapInstanceRef.current
+      if (!map) return
+      if (returnAnimFrameRef.current) {
+        cancelAnimationFrame(returnAnimFrameRef.current)
+        returnAnimFrameRef.current = null
+      }
+      if (routeBoundsRef.current) {
+        map.fitBounds(routeBoundsRef.current, { top: 80, bottom: 120, left: 60, right: 60 })
+      }
+    },
+    focusOnStage: (stageIdx: number) => {
+      const map = mapInstanceRef.current
+      if (!map) return
+      const pos = stageFirstPositionsRef.current[stageIdx]
+      if (!pos) return
+      const startCenter = map.getCenter()
+      const startZoom = map.getZoom() as number
+      const startTilt = map.getTilt() as number
+      const startHeading = map.getHeading() as number
+      const duration = 900
+      const startTime = performance.now()
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      const animate = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1)
+        const e = easeOut(t)
+        map.moveCamera({
+          center: {
+            lat: startCenter.lat() + (pos.lat - startCenter.lat()) * e,
+            lng: startCenter.lng() + (pos.lng - startCenter.lng()) * e,
+          },
+          zoom: startZoom + (18.5 - startZoom) * e,
+          tilt: startTilt + (65 - startTilt) * e,
+          heading: startHeading,
+        })
+        if (t < 1) requestAnimationFrame(animate)
+      }
+      requestAnimationFrame(animate)
+    },
+    focusOnStop: (stopIndex: number) => {
+      const map = mapInstanceRef.current
+      if (!map) return
+      const entry = monumentMarkersRef.current.find(m => m.index === stopIndex)
+      if (!entry) return
+      const pos = { lat: entry.monumento.lat, lng: entry.monumento.lng }
+      const startCenter = map.getCenter()
+      const startZoom = map.getZoom() as number
+      const startTilt = map.getTilt() as number
+      const startHeading = map.getHeading() as number
+      const duration = 900
+      const startTime = performance.now()
+      const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      const animate = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1)
+        const e = easeOut(t)
+        map.moveCamera({
+          center: {
+            lat: startCenter.lat() + (pos.lat - startCenter.lat()) * e,
+            lng: startCenter.lng() + (pos.lng - startCenter.lng()) * e,
+          },
+          zoom: startZoom + (18.5 - startZoom) * e,
+          tilt: startTilt + (65 - startTilt) * e,
+          heading: startHeading,
+        })
+        if (t < 1) requestAnimationFrame(animate)
+      }
+      requestAnimationFrame(animate)
+    },
+  }))
+
   if (mapError) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center p-6 text-center text-red-600">
@@ -1532,95 +2066,8 @@ export default function MapBoard({ onSelectMonument, selectedMonument, onLoadCom
 
       
     
-      {/* Controles de Rotación 360 grados Flotantes */}
-      {!loading && (
-        <div className="absolute right-6 bottom-6 z-10 flex flex-col items-center gap-3">
-          {/* Sub-botones desplegables de rotación */}
-          {showRotationControls && (
-            <div className="flex flex-col gap-3 transition-all duration-300 animate-in slide-in-from-bottom-2 fade-in">
-              {/* Botón Girar Izquierda */}
-              <button
-                onClick={handleRotateLeft}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#a87f2a] bg-[#321e0f]/95 text-[#fcd34d] shadow-lg backdrop-blur-md transition-all hover:bg-[#4a2e18] active:scale-90"
-                title="Girar Izquierda (45°)"
-              >
-                <i className="ri-anticlockwise-fill text-lg text-[#fcd34d]"></i>
-              </button>
-
-              {/* Botón Restablecer Orientación (Brújula) */}
-              <button
-                onClick={handleResetRotation}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#a87f2a] bg-[#321e0f]/95 text-[#fcd34d] shadow-lg backdrop-blur-md transition-all hover:bg-[#4a2e18] active:scale-90"
-                title="Restablecer Brújula (90°)"
-              >
-                <i className="ri-compass-3-fill text-lg text-[#fcd34d]"></i>
-              </button>
-
-              {/* Botón Girar Derecha */}
-              <button
-                onClick={handleRotateRight}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#a87f2a] bg-[#321e0f]/95 text-[#fcd34d] shadow-lg backdrop-blur-md transition-all hover:bg-[#4a2e18] active:scale-90"
-                title="Girar Derecha (45°)"
-              >
-                <i className="ri-clockwise-fill text-lg text-[#fcd34d]"></i>
-              </button>
-            </div>
-          )}
-
-          {/* Botón Maestro "360" (Brújula Interactiva) */}
-          <button
-            onClick={() => setShowRotationControls(!showRotationControls)}
-            className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#a87f2a] shadow-2xl transition-all active:scale-90 bg-transparent p-0 overflow-hidden"
-            title="Mostrar Controles 360"
-          >
-            <svg className="w-full h-full select-none" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Fondo y Anillo Dorado Externo Estático */}
-              <circle cx="50" cy="50" r="45" stroke="#a87f2a" strokeWidth="2.5" fill="#22150c" />
-              <circle cx="50" cy="50" r="41" stroke="#a87f2a" strokeDasharray="1, 3" strokeWidth="1" />
-              
-              {/* Rosa de los Vientos Giratoria que se alinea con el norte real del mapa */}
-              <g style={{ transform: `rotate(${-heading}deg)`, transformOrigin: '50px 50px', transition: 'transform 0.15s ease-out' }}>
-                {/* Puntas principales */}
-                {/* Norte (N) */}
-                <polygon points="50,50 50,15 46,50" fill="#fcd34d" />
-                <polygon points="50,50 50,15 54,50" fill="#a87f2a" />
-                {/* Sur (S) */}
-                <polygon points="50,50 50,85 54,50" fill="#fcd34d" />
-                <polygon points="50,50 50,85 46,50" fill="#a87f2a" />
-                {/* Este (E) */}
-                <polygon points="50,50 85,50 50,54" fill="#fcd34d" />
-                <polygon points="50,50 85,50 50,46" fill="#a87f2a" />
-                {/* Oeste (O) */}
-                <polygon points="50,50 15,50 50,46" fill="#fcd34d" />
-                <polygon points="50,50 15,50 50,54" fill="#a87f2a" />
-                
-                {/* Puntas secundarias */}
-                <polygon points="50,50 25,25 29,25" fill="#d97706" />
-                <polygon points="50,50 25,25 25,29" fill="#78350f" />
-                
-                <polygon points="50,50 75,25 75,29" fill="#d97706" />
-                <polygon points="50,50 75,25 71,25" fill="#78350f" />
-                
-                <polygon points="50,50 75,75 71,75" fill="#d97706" />
-                <polygon points="50,50 75,75 75,71" fill="#78350f" />
-                
-                <polygon points="50,50 25,75 25,71" fill="#d97706" />
-                <polygon points="50,50 25,75 29,75" fill="#78350f" />
-                
-                {/* Centro */}
-                <circle cx="50" cy="50" r="6" fill="#22150c" stroke="#a87f2a" strokeWidth="2" />
-                <circle cx="50" cy="50" r="2.5" fill="#fcd34d" />
-                
-                {/* Letras cardinales en español (N, S, E, O) */}
-                <text x="50" y="24" fill="#fcd34d" fontFamily="Georgia, serif" fontSize="8" fontWeight="bold" textAnchor="middle">N</text>
-                <text x="50" y="82" fill="#fcd34d" fontFamily="Georgia, serif" fontSize="8" fontWeight="bold" textAnchor="middle">S</text>
-                <text x="81" y="53" fill="#fcd34d" fontFamily="Georgia, serif" fontSize="8" fontWeight="bold" textAnchor="middle">E</text>
-                <text x="19" y="53" fill="#fcd34d" fontFamily="Georgia, serif" fontSize="8" fontWeight="bold" textAnchor="middle">O</text>
-              </g>
-            </svg>
-          </button>
-        </div>
-      )}
     </div>
   )
-}
+})
+
+export default MapBoard
