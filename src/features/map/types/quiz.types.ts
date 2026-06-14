@@ -1,7 +1,9 @@
 export interface QuizQuestion {
+  id: string
   text: string
   options: [string, string, string, string]
-  correctIndex: number
+  isBonus?: boolean
+  pointsAwarded?: number
 }
 
 export interface StopPrize {

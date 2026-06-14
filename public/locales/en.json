@@ -310,6 +310,9 @@
   },
   "map": {
     "loading_title": "Loading the Treasure Map",
+    "no_season_title": "No active season",
+    "no_season_subtitle": "No season is currently running. Come back soon!",
+    "no_season_back": "Back to home",
     "no_stops": "No data",
     "location_gate_title": "Activate your location",
     "location_gate_desc": "Activate your location to explore the map.",
