@@ -152,3 +152,79 @@ export const deleteAdmin = onCall(async (request) => {
     throw new HttpsError("internal", message);
   }
 });
+
+// ── UPDATE SELF ADMIN ──────────────────────────────────────────────────────
+export const updateSelfAdmin = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  if (request.auth.token.role !== "Admin") {
+    throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
+  }
+
+  const uid = request.auth.uid;
+  const { displayName, photoURL, email, deactivate, deleteAccount } = request.data;
+
+  try {
+    const auth = getAuth();
+
+    // 1. Check for deletion
+    if (deleteAccount === true) {
+      await auth.deleteUser(uid);
+      return { success: true, action: "deleted" };
+    }
+
+    // 2. Check for deactivation (disabling)
+    if (deactivate === true) {
+      await auth.updateUser(uid, { disabled: true });
+      return { success: true, action: "deactivated" };
+    }
+
+    // 3. Normal profile/email update
+    const updateParams: { displayName?: string; photoURL?: string; email?: string } = {};
+
+    if (typeof displayName === "string") {
+      updateParams.displayName = displayName.trim();
+    }
+
+    if (typeof photoURL === "string") {
+      updateParams.photoURL = photoURL.trim();
+    }
+
+    let emailChanged = false;
+    if (typeof email === "string" && email.trim()) {
+      const targetEmail = email.trim().toLowerCase();
+      if (!targetEmail.includes("@")) {
+        throw new HttpsError("invalid-argument", "Valid email is required.");
+      }
+
+      const currentEmail = request.auth.token.email ? request.auth.token.email.toLowerCase() : "";
+      if (targetEmail !== currentEmail) {
+        updateParams.email = targetEmail;
+        emailChanged = true;
+      }
+    }
+
+    if (Object.keys(updateParams).length > 0) {
+      await auth.updateUser(uid, updateParams);
+
+      if (emailChanged) {
+        await auth.setCustomUserClaims(uid, { role: "Admin" });
+      }
+    }
+
+    return { success: true, action: "updated", emailChanged };
+  } catch (error) {
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    const err = error as { code?: string; message?: string };
+    if (err && err.code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "The email address is already in use by another account.");
+    }
+    const message = err.message || "Failed to update your administrator profile.";
+    throw new HttpsError("internal", message);
+  }
+});
+

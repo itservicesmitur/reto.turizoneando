@@ -36,7 +36,7 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
     throw new Error('El jugador no existe.')
   }
   const data = snap.data()
-  
+
   // Format Timestamp to ISO String
   let createdAtStr: string | null = null
   if (data.createdAt && typeof data.createdAt.toDate === 'function') {
@@ -44,7 +44,7 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
   } else if (data.createdAt && typeof data.createdAt.seconds === 'number') {
     createdAtStr = new Date(data.createdAt.seconds * 1000).toISOString()
   }
-  
+
   return {
     uid: snap.id,
     displayName: data.displayName || '',
@@ -109,6 +109,24 @@ export async function deleteAdmin(uid: string): Promise<void> {
   await deleteAdminFn({ uid })
 }
 
+export interface UpdateSelfAdminInput {
+  displayName?: string
+  photoURL?: string
+  email?: string
+  deactivate?: boolean
+  deleteAccount?: boolean
+}
+
+export async function updateSelfAdminProfile(input: UpdateSelfAdminInput): Promise<{ success: boolean; action: string; emailChanged?: boolean }> {
+  const updateSelfAdminFn = httpsCallable<UpdateSelfAdminInput, { success: boolean; action: string; emailChanged?: boolean }>(
+    functions,
+    'updateSelfAdmin'
+  )
+  const response = await updateSelfAdminFn(input)
+  return response.data
+}
+
+
 export interface StagePrizeConfig {
   prizeId: string
   stock: number
@@ -134,11 +152,18 @@ export interface SeasonData {
   prizeStocks?: Record<string, number>
 }
 
+export type PrizeCategoria = 'Bares' | 'Hoteles' | 'Restaurantes' | 'Museos' | 'Actividades' | 'Experiencias'
+
+export const PRIZE_CATEGORIAS: PrizeCategoria[] = [
+  'Bares', 'Hoteles', 'Restaurantes', 'Museos', 'Actividades', 'Experiencias'
+]
+
 export interface PrizeData {
   id: string
   name: string
   description: string
   imageUrl: string
+  categoria: PrizeCategoria | ''
   relevance: number
   requiresAdult: boolean
   createdAt: string | null
@@ -175,12 +200,12 @@ export interface UpdateSeasonInput {
 export async function fetchSeasons(): Promise<SeasonData[]> {
   const seasonsCol = collection(db, 'seasons')
   const seasonsSnap = await getDocs(seasonsCol)
-  
+
   const seasons: SeasonData[] = []
-  
+
   for (const sDoc of seasonsSnap.docs) {
     const sData = sDoc.data()
-    
+
     // Fetch stages subcollection
     const stagesCol = collection(db, 'seasons', sDoc.id, 'stages')
     const stagesSnap = await getDocs(stagesCol)
@@ -194,7 +219,7 @@ export async function fetchSeasons(): Promise<SeasonData[]> {
         pointsCount: typeof stageData.pointsCount === 'number' ? stageData.pointsCount : 0,
       } as StageData
     })
-    
+
     // Sort stages by stage number
     stages.sort((a, b) => a.number - b.number)
 
@@ -267,6 +292,7 @@ export async function fetchPrizesList(): Promise<PrizeData[]> {
       name: data.name || '',
       description: data.description || '',
       imageUrl: data.imageUrl || '',
+      categoria: data.categoria || '',
       relevance: typeof data.relevance === 'number' ? data.relevance : 1,
       requiresAdult: data.requiresAdult === true,
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
@@ -322,14 +348,18 @@ export async function deleteSeason(id: string): Promise<{ success: boolean }> {
   return response.data
 }
 
+
 export interface QuestionData {
   id: string
   stopId: string
   text: string
+  textEn: string
   options: string[]
+  optionsEn: string[]
   correctIndex: number
   difficulty: 'easy' | 'medium' | 'hard'
   explanation: string
+  explanationEn: string
   createdAt?: string | null
 }
 
@@ -338,8 +368,12 @@ export interface StopData {
   seasonId: string
   stageId: string
   name: string
+  nameEn: string
   narration: string
+  narrationEn: string
   imageUrl: string
+  audioUrl?: string
+  audioUrlEn?: string
   lat: number
   lng: number
   order: number
@@ -358,8 +392,12 @@ export async function fetchStopsList(): Promise<StopData[]> {
       seasonId: data.seasonId || '',
       stageId: data.stageId || '',
       name: data.name || '',
+      nameEn: data.nameEn || '',
       narration: data.narration || '',
+      narrationEn: data.narrationEn || '',
       imageUrl: data.imageUrl || '',
+      audioUrl: data.audioUrl || '',
+      audioUrlEn: data.audioUrlEn || '',
       lat: typeof data.lat === 'number' ? data.lat : 0,
       lng: typeof data.lng === 'number' ? data.lng : 0,
       order: typeof data.order === 'number' ? data.order : 0,
@@ -381,10 +419,13 @@ export async function fetchQuestionsForStop(stopId: string): Promise<QuestionDat
       id: doc.id,
       stopId: data.stopId || '',
       text: data.text || '',
+      textEn: data.textEn || '',
       options: Array.isArray(data.options) ? data.options : [],
+      optionsEn: Array.isArray(data.optionsEn) ? data.optionsEn : [],
       correctIndex: typeof data.correctIndex === 'number' ? data.correctIndex : 0,
       difficulty: data.difficulty || 'easy',
       explanation: data.explanation || '',
+      explanationEn: data.explanationEn || '',
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
@@ -392,18 +433,27 @@ export async function fetchQuestionsForStop(stopId: string): Promise<QuestionDat
   })
 }
 
+export async function getStopWithQuestions(stopId: string): Promise<{ stop: StopData; questions: Omit<QuestionData, 'correctIndex'>[] }> {
+  const getStopWithQuestionsFn = httpsCallable<{ stopId: string }, { stop: StopData; questions: Omit<QuestionData, 'correctIndex'>[] }>(
+    functions,
+    'getStopWithQuestions'
+  )
+  const response = await getStopWithQuestionsFn({ stopId })
+  return response.data
+}
+
 export async function createStop(
   stop: Omit<StopData, 'id' | 'createdAt' | 'questions'>,
   questions: Omit<QuestionData, 'id' | 'stopId' | 'createdAt'>[]
 ): Promise<string> {
   const batch = writeBatch(db)
-  
+
   const stopRef = doc(collection(db, 'stops'))
   batch.set(stopRef, {
     ...stop,
     createdAt: new Date()
   })
-  
+
   for (const q of questions) {
     const qRef = doc(collection(db, 'questions'))
     batch.set(qRef, {
@@ -412,7 +462,7 @@ export async function createStop(
       createdAt: new Date()
     })
   }
-  
+
   await batch.commit()
   return stopRef.id
 }
@@ -424,11 +474,11 @@ export async function updateStop(
   deletedQuestionIds: string[]
 ): Promise<void> {
   const batch = writeBatch(db)
-  
+
   // 1. Update stop
   const stopRef = doc(db, 'stops', stopId)
   batch.update(stopRef, stop)
-  
+
   // 2. Add/Update questions
   for (const q of questions) {
     if (q.id) {
@@ -436,10 +486,13 @@ export async function updateStop(
       const qRef = doc(db, 'questions', q.id)
       const updateData: any = {
         text: q.text,
+        textEn: q.textEn,
         options: q.options,
+        optionsEn: q.optionsEn,
         correctIndex: q.correctIndex,
         difficulty: q.difficulty,
         explanation: q.explanation,
+        explanationEn: q.explanationEn,
       }
       batch.update(qRef, updateData)
     } else {
@@ -448,41 +501,170 @@ export async function updateStop(
       batch.set(qRef, {
         stopId,
         text: q.text,
+        textEn: q.textEn,
         options: q.options,
+        optionsEn: q.optionsEn,
         correctIndex: q.correctIndex,
         difficulty: q.difficulty,
         explanation: q.explanation,
+        explanationEn: q.explanationEn,
         createdAt: new Date()
       })
     }
   }
-  
+
   // 3. Delete questions
   for (const dId of deletedQuestionIds) {
     const qRef = doc(db, 'questions', dId)
     batch.delete(qRef)
   }
-  
+
   await batch.commit()
 }
 
 export async function deleteStop(stopId: string): Promise<void> {
   const batch = writeBatch(db)
-  
+
   // Delete stop document
   const stopRef = doc(db, 'stops', stopId)
   batch.delete(stopRef)
-  
+
   // Fetch and delete all related questions
   const questionsCol = collection(db, 'questions')
   const q = query(questionsCol, where('stopId', '==', stopId))
   const snap = await getDocs(q)
-  
+
   for (const qDoc of snap.docs) {
     batch.delete(qDoc.ref)
   }
-  
+
   await batch.commit()
 }
+
+export interface PrizeCodeData {
+  code: string
+  playerId: string | null
+  playerEmail: string
+  playerDisplayName: string
+  seasonId: string
+  seasonName: string
+  stageId: string
+  prizeId: string
+  prizeName: string
+  prizeCategory: string
+  prizeImageUrl: string
+  status: 'active' | 'inactive' | 'claimed'
+  createdAt: string | null
+  claimedAt: string | null
+  claimedBy?: string | null
+}
+
+export async function fetchPrizeCodes(): Promise<PrizeCodeData[]> {
+  const codesCol = collection(db, 'prizeCodes')
+  const snap = await getDocs(codesCol)
+
+  return snap.docs.map(doc => {
+    const data = doc.data()
+
+    let createdAtStr: string | null = null
+    if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+      createdAtStr = data.createdAt.toDate().toISOString()
+    } else if (data.createdAt && typeof data.createdAt.seconds === 'number') {
+      createdAtStr = new Date(data.createdAt.seconds * 1000).toISOString()
+    }
+
+    let claimedAtStr: string | null = null
+    if (data.claimedAt && typeof data.claimedAt.toDate === 'function') {
+      claimedAtStr = data.claimedAt.toDate().toISOString()
+    } else if (data.claimedAt && typeof data.claimedAt.seconds === 'number') {
+      claimedAtStr = new Date(data.claimedAt.seconds * 1000).toISOString()
+    }
+
+    return {
+      code: doc.id,
+      playerId: data.playerId || null,
+      playerEmail: data.playerEmail || '',
+      playerDisplayName: data.playerDisplayName || '',
+      seasonId: data.seasonId || '',
+      seasonName: data.seasonName || '',
+      stageId: data.stageId || '',
+      prizeId: data.prizeId || '',
+      prizeName: data.prizeName || '',
+      prizeCategory: data.prizeCategory || '',
+      prizeImageUrl: data.prizeImageUrl || '',
+      status: data.status || 'active',
+      createdAt: createdAtStr,
+      claimedAt: claimedAtStr,
+      claimedBy: data.claimedBy || null
+    }
+  })
+}
+
+export async function updatePrizeCodeStatus(code: string, status: 'active' | 'inactive' | 'claimed'): Promise<void> {
+  const docRef = doc(db, 'prizeCodes', code)
+  const updates: any = { status }
+  if (status === 'claimed') {
+    updates.claimedAt = new Date()
+    updates.claimedBy = 'admin'
+  }
+  await updateDoc(docRef, updates)
+}
+
+export async function generateTestPrizeCode(input: {
+  email: string
+  prizeId: string
+  seasonId: string
+  stageId: string
+}): Promise<{ code: string }> {
+  const generateTestPrizeCodeFn = httpsCallable<typeof input, { success: boolean; code: string }>(
+    functions,
+    'generateTestPrizeCode'
+  )
+  const response = await generateTestPrizeCodeFn(input)
+  return { code: response.data.code }
+}
+
+export async function getPublicPrizeCode(code: string): Promise<PrizeCodeData> {
+  const getPublicPrizeCodeFn = httpsCallable<{ code: string }, PrizeCodeData>(
+    functions,
+    'getPublicPrizeCode'
+  )
+  const response = await getPublicPrizeCodeFn({ code })
+  return response.data
+}
+
+export async function redeemPublicPrizeCode(code: string): Promise<{ success: boolean; claimedAt: string }> {
+  const redeemPublicPrizeCodeFn = httpsCallable<{ code: string }, { success: boolean; claimedAt: string }>(
+    functions,
+    'redeemPublicPrizeCode'
+  )
+  const response = await redeemPublicPrizeCodeFn({ code })
+  return response.data
+}
+
+export interface ElevenLabsVoice {
+  voice_id: string
+  name: string
+  category: string
+}
+
+export async function fetchElevenLabsVoices(): Promise<{ voices: ElevenLabsVoice[] }> {
+  const getVoicesFn = httpsCallable<unknown, { voices: ElevenLabsVoice[] }>(
+    functions,
+    'getElevenLabsVoices'
+  )
+  const response = await getVoicesFn()
+  return response.data
+}
+
+export async function generateElevenLabsAudio(text: string, voiceId: string): Promise<{ downloadUrl: string }> {
+  const generateAudioFn = httpsCallable<{ text: string; voiceId: string }, { downloadUrl: string }>(
+    functions,
+    'generateElevenLabsAudio'
+  )
+  const response = await generateAudioFn({ text, voiceId })
+  return response.data
+}
+
 
 

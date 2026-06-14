@@ -21,6 +21,9 @@ const PlayersPage = lazy(() => import('./pages/admin/PlayersPage'))
 const PlayerDetailPage = lazy(() => import('./pages/admin/PlayerDetailPage'))
 const AdminsPage = lazy(() => import('./pages/admin/AdminsPage'))
 const SeasonsPage = lazy(() => import('./pages/admin/SeasonsPage'))
+const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
+const CodesPage = lazy(() => import('./pages/admin/CodesPage'))
+const PublicValidationPage = lazy(() => import('./pages/PublicValidationPage'))
 
 
 const router = createBrowserRouter([
@@ -31,6 +34,22 @@ const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/admin/login', element: <AdminLoginPage /> },
+  {
+    path: '/validar/:code',
+    element: (
+      <Suspense fallback={null}>
+        <PublicValidationPage />
+      </Suspense>
+    )
+  },
+  {
+    path: '/validar',
+    element: (
+      <Suspense fallback={null}>
+        <PublicValidationPage />
+      </Suspense>
+    )
+  },
 
   // ── Protected client routes ────────────────────────────────────
   {
@@ -141,6 +160,22 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={null}>
                 <SeasonsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'settings',
+            element: (
+              <Suspense fallback={null}>
+                <SettingsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'codes',
+            element: (
+              <Suspense fallback={null}>
+                <CodesPage />
               </Suspense>
             ),
           },

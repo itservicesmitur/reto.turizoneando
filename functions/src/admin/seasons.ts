@@ -22,56 +22,56 @@ function parseTimestamp(dateInput: any): Timestamp {
   throw new HttpsError("invalid-argument", "Unsupported date type.");
 }
 
-// ── CREATE SEASON ────────────────────────────────────────────────────────
 export const createSeason = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Authentication required");
-  }
-
-  if (request.auth.token.role !== "Admin") {
-    throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
-  }
-
-  const { name, status, startDate, endDate, stages } = request.data;
-
-  // Validation
-  if (!name || typeof name !== "string" || !name.trim()) {
-    throw new HttpsError("invalid-argument", "Season name is required.");
-  }
-  if (status !== "active" && status !== "upcoming" && status !== "archived") {
-    throw new HttpsError("invalid-argument", "Status must be 'active', 'upcoming', or 'archived'.");
-  }
-
-  const startTS = parseTimestamp(startDate);
-  const endTS = parseTimestamp(endDate);
-  if (startTS.toMillis() > endTS.toMillis()) {
-    throw new HttpsError("invalid-argument", "Start date must be before or equal to End date.");
-  }
-
-  if (!Array.isArray(stages) || stages.length !== 3) {
-    throw new HttpsError("invalid-argument", "Season must have exactly 3 stages.");
-  }
-
-  for (let i = 0; i < 3; i++) {
-    const s = stages[i];
-    if (typeof s.pointsCount !== "number" || s.pointsCount < 0) {
-      throw new HttpsError("invalid-argument", `Stage ${i + 1} pointsCount must be a non-negative number.`);
-    }
-    if (!Array.isArray(s.prizes) || s.prizes.length === 0) {
-      throw new HttpsError("invalid-argument", `Stage ${i + 1} must have at least one prize configured.`);
-    }
-    for (let j = 0; j < s.prizes.length; j++) {
-      const p = s.prizes[j];
-      if (!p.prizeId || typeof p.prizeId !== "string") {
-        throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} must have a valid prizeId.`);
-      }
-      if (typeof p.stock !== "number" || p.stock < 0) {
-        throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} stock must be a non-negative number.`);
-      }
-    }
-  }
-
+  console.log("createSeason triggered with data:", request.data);
   try {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Authentication required");
+    }
+
+    if (request.auth.token.role !== "Admin") {
+      throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
+    }
+
+    const { name, status, startDate, endDate, stages } = request.data;
+
+    // Validation
+    if (!name || typeof name !== "string" || !name.trim()) {
+      throw new HttpsError("invalid-argument", "Season name is required.");
+    }
+    if (status !== "active" && status !== "upcoming" && status !== "archived") {
+      throw new HttpsError("invalid-argument", "Status must be 'active', 'upcoming', or 'archived'.");
+    }
+
+    const startTS = parseTimestamp(startDate);
+    const endTS = parseTimestamp(endDate);
+    if (startTS.toMillis() > endTS.toMillis()) {
+      throw new HttpsError("invalid-argument", "Start date must be before or equal to End date.");
+    }
+
+    if (!Array.isArray(stages) || stages.length !== 3) {
+      throw new HttpsError("invalid-argument", "Season must have exactly 3 stages.");
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const s = stages[i];
+      if (typeof s.pointsCount !== "number" || s.pointsCount < 0) {
+        throw new HttpsError("invalid-argument", `Stage ${i + 1} pointsCount must be a non-negative number.`);
+      }
+      if (!Array.isArray(s.prizes) || s.prizes.length === 0) {
+        throw new HttpsError("invalid-argument", `Stage ${i + 1} must have at least one prize configured.`);
+      }
+      for (let j = 0; j < s.prizes.length; j++) {
+        const p = s.prizes[j];
+        if (!p.prizeId || typeof p.prizeId !== "string") {
+          throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} must have a valid prizeId.`);
+        }
+        if (typeof p.stock !== "number" || p.stock < 0) {
+          throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} stock must be a non-negative number.`);
+        }
+      }
+    }
+
     const db = getFirestore();
     const seasonRef = db.collection("seasons").doc();
     const uid = request.auth.uid;
@@ -132,6 +132,10 @@ export const createSeason = onCall(async (request) => {
 
     return { id: seasonRef.id };
   } catch (error) {
+    console.error("Error in createSeason handler:", error);
+    if (error instanceof HttpsError) {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : "Failed to create season.";
     throw new HttpsError("internal", message);
   }

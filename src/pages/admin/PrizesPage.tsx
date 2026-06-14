@@ -5,7 +5,9 @@ import {
   createPrize,
   updatePrize,
   deletePrize,
-  type PrizeData
+  PRIZE_CATEGORIAS,
+  type PrizeData,
+  type PrizeCategoria
 } from '../../services/adminService'
 import ImageUpload from '../../components/ImageUpload'
 
@@ -20,6 +22,7 @@ export default function PrizesPage() {
   // Search & filter states
   const [search, setSearch] = useState('')
   const [relevanceFilter, setRelevanceFilter] = useState('')
+  const [categoriaFilter, setCategoriaFilter] = useState('')
   const [ageFilter, setAgeFilter] = useState('') // '', 'adult', 'all'
   const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'relevance-desc' | 'relevance-asc'>('name-asc')
 
@@ -36,6 +39,7 @@ export default function PrizesPage() {
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formImageUrl, setFormImageUrl] = useState('')
+  const [formCategoria, setFormCategoria] = useState<PrizeCategoria | ''>('')
   const [formRelevance, setFormRelevance] = useState<number>(1)
   const [formRequiresAdult, setFormRequiresAdult] = useState(false)
   const [formLoading, setFormLoading] = useState(false)
@@ -79,6 +83,11 @@ export default function PrizesPage() {
       result = result.filter(p => p.relevance === relevanceNum)
     }
 
+    // Category filter
+    if (categoriaFilter) {
+      result = result.filter(p => p.categoria === categoriaFilter)
+    }
+
     // Age requirement filter
     if (ageFilter === 'adult') {
       result = result.filter(p => p.requiresAdult === true)
@@ -104,7 +113,7 @@ export default function PrizesPage() {
     })
 
     return result
-  }, [prizes, search, relevanceFilter, ageFilter, sortBy])
+  }, [prizes, search, relevanceFilter, categoriaFilter, ageFilter, sortBy])
 
   // Pagination bounds
   const totalPages = Math.ceil(processedPrizes.length / pageSize)
@@ -117,6 +126,7 @@ export default function PrizesPage() {
   function handleClearFilters() {
     setSearch('')
     setRelevanceFilter('')
+    setCategoriaFilter('')
     setAgeFilter('')
     setSortBy('name-asc')
     setCurrentPage(1)
@@ -127,6 +137,7 @@ export default function PrizesPage() {
     setFormName('')
     setFormDescription('')
     setFormImageUrl('')
+    setFormCategoria('')
     setFormRelevance(1)
     setFormRequiresAdult(false)
     setFormError(null)
@@ -150,6 +161,7 @@ export default function PrizesPage() {
         name: formName.trim(),
         description: formDescription.trim(),
         imageUrl: formImageUrl.trim(),
+        categoria: formCategoria,
         relevance: Number(formRelevance),
         requiresAdult: formRequiresAdult
       })
@@ -168,6 +180,7 @@ export default function PrizesPage() {
     setFormName(prize.name)
     setFormDescription(prize.description)
     setFormImageUrl(prize.imageUrl)
+    setFormCategoria(prize.categoria || '')
     setFormRelevance(prize.relevance)
     setFormRequiresAdult(prize.requiresAdult)
     setFormError(null)
@@ -192,6 +205,7 @@ export default function PrizesPage() {
         name: formName.trim(),
         description: formDescription.trim(),
         imageUrl: formImageUrl.trim(),
+        categoria: formCategoria,
         relevance: Number(formRelevance),
         requiresAdult: formRequiresAdult
       })
@@ -360,6 +374,29 @@ export default function PrizesPage() {
           </select>
         </div>
 
+        {/* Category Filter */}
+        <div style={{ flex: '1 1 160px' }}>
+          <select
+            value={categoriaFilter}
+            onChange={e => {
+              setCategoriaFilter(e.target.value)
+              setCurrentPage(1)
+            }}
+            style={{
+              width: '100%', height: 40, borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              paddingLeft: 12, paddingRight: 12, fontSize: 14,
+              fontFamily: 'var(--font-body)', color: 'var(--color-text)',
+              background: '#f8f9fb', outline: 'none', cursor: 'pointer'
+            }}
+          >
+            <option value="">Categoría (Todas)</option>
+            {PRIZE_CATEGORIAS.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Age Restriction Filter */}
         <div style={{ flex: '1 1 160px' }}>
           <select
@@ -406,7 +443,7 @@ export default function PrizesPage() {
         </div>
 
         {/* Clear filters */}
-        {(search || relevanceFilter || ageFilter || sortBy !== 'name-asc') && (
+        {(search || relevanceFilter || categoriaFilter || ageFilter || sortBy !== 'name-asc') && (
           <button
             onClick={handleClearFilters}
             style={{
@@ -477,6 +514,9 @@ export default function PrizesPage() {
                     {t('prizeManagement.colName')}
                   </th>
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Categoría
+                  </th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     {t('prizeManagement.colRelevance')}
                   </th>
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -528,6 +568,20 @@ export default function PrizesPage() {
                             </div>
                           </div>
                         </div>
+                      </td>
+
+                      {/* Category badge */}
+                      <td style={{ padding: '14px 20px' }}>
+                        {prize.categoria ? (
+                          <span style={{
+                            background: 'rgba(43,191,184,0.12)', color: '#1a8b86',
+                            padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 800
+                          }}>
+                            {prize.categoria}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--color-gray-mid)', fontSize: 12, fontStyle: 'italic' }}>—</span>
+                        )}
                       </td>
 
                       {/* Relevance badge */}
@@ -795,6 +849,26 @@ export default function PrizesPage() {
                 label={t('prizeManagement.formImageUrl')}
               />
 
+              {/* Categoria */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Categoría
+                </label>
+                <select
+                  value={formCategoria}
+                  onChange={e => setFormCategoria(e.target.value as PrizeCategoria | '')}
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Sin categoría</option>
+                  {PRIZE_CATEGORIAS.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Relevance Level */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
@@ -937,6 +1011,26 @@ export default function PrizesPage() {
                 storagePath="prizes"
                 label={t('prizeManagement.formImageUrl')}
               />
+
+              {/* Categoria */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Categoría
+                </label>
+                <select
+                  value={formCategoria}
+                  onChange={e => setFormCategoria(e.target.value as PrizeCategoria | '')}
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Sin categoría</option>
+                  {PRIZE_CATEGORIAS.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
 
               {/* Relevance Level */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

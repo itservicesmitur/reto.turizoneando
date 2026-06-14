@@ -10,6 +10,8 @@ import {
   type SeasonData,
   type PrizeData
 } from '../../services/adminService'
+import ImageUpload from '../../components/ImageUpload'
+import { PRIZE_CATEGORIAS, type PrizeCategoria } from '../../services/adminService'
 
 interface FormStagePrize {
   prizeId: string
@@ -67,6 +69,7 @@ export default function SeasonsPage() {
   const [quickPrizeName, setQuickPrizeName] = useState('')
   const [quickPrizeDesc, setQuickPrizeDesc] = useState('')
   const [quickPrizeImg, setQuickPrizeImg] = useState('')
+  const [quickPrizeCategoria, setQuickPrizeCategoria] = useState<PrizeCategoria | ''>('')
   const [quickPrizeRelevance, setQuickPrizeRelevance] = useState<number>(1)
   const [quickPrizeRequiresAdult, setQuickPrizeRequiresAdult] = useState(false)
   const [quickPrizeTarget, setQuickPrizeTarget] = useState<{ stageIndex: number; prizeIndex: number } | null>(null)
@@ -207,6 +210,7 @@ export default function SeasonsPage() {
     setQuickPrizeName('')
     setQuickPrizeDesc('')
     setQuickPrizeImg('')
+    setQuickPrizeCategoria('')
     setQuickPrizeRelevance(1)
     setQuickPrizeRequiresAdult(false)
     setQuickPrizeTarget({ stageIndex, prizeIndex })
@@ -233,6 +237,7 @@ export default function SeasonsPage() {
         name: quickPrizeName,
         description: quickPrizeDesc,
         imageUrl: quickPrizeImg,
+        categoria: quickPrizeCategoria,
         relevance: quickPrizeRelevance,
         requiresAdult: quickPrizeRequiresAdult
       })
@@ -456,7 +461,7 @@ export default function SeasonsPage() {
 
   return (
     <div style={{ animation: 'fade-in 0.3s ease-out' }}>
-      
+
       {/* Header section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
@@ -925,7 +930,7 @@ export default function SeasonsPage() {
                       <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-mid)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                         Etapas y Premios
                       </div>
-                      
+
                       {season.stages && season.stages.map(stage => {
                         return (
                           <div
@@ -949,7 +954,7 @@ export default function SeasonsPage() {
                                 {stage.pointsCount} paradas
                               </span>
                             </div>
-                            
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               {stage.prizes && stage.prizes.map((sp, pIdx) => {
                                 const prize = prizes.find(p => p.id === sp.prizeId)
@@ -1096,10 +1101,10 @@ export default function SeasonsPage() {
               </button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                const isPageVisible = 
-                  totalPages <= 5 || 
-                  page === 1 || 
-                  page === totalPages || 
+                const isPageVisible =
+                  totalPages <= 5 ||
+                  page === 1 ||
+                  page === totalPages ||
                   Math.abs(page - currentPage) <= 1
 
                 if (!isPageVisible) {
@@ -2005,7 +2010,7 @@ export default function SeasonsPage() {
               </button>
             </div>
             <form onSubmit={handleQuickPrizeSubmit} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-              
+
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
@@ -2039,21 +2044,33 @@ export default function SeasonsPage() {
                 />
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
+              <ImageUpload
+                value={quickPrizeImg}
+                onChange={setQuickPrizeImg}
+                storagePath="prizes"
+                label="Imagen del Premio"
+              />
+
+              {/* Categoria */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  URL de la Imagen
+                  Categoría
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://ejemplo.com/imagen.png"
-                  value={quickPrizeImg}
-                  onChange={e => setQuickPrizeImg(e.target.value)}
+                <select
+                  value={quickPrizeCategoria}
+                  onChange={e => setQuickPrizeCategoria(e.target.value as PrizeCategoria | '')}
                   style={{
                     height: 36, borderRadius: 8, border: '1.5px solid var(--color-border)',
-                    padding: '0 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none'
+                    padding: '0 8px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                    background: '#fff', cursor: 'pointer'
                   }}
-                />
+                >
+                  <option value="">Sin categoría</option>
+                  {PRIZE_CATEGORIAS.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Relevance & Age restriction row */}
