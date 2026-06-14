@@ -49,6 +49,8 @@ export default function SeasonsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedSeason, setSelectedSeason] = useState<SeasonData | null>(null)
+  const [showToggleModal, setShowToggleModal] = useState(false)
+  const [seasonToToggle, setSeasonToToggle] = useState<SeasonData | null>(null)
 
   // Form states
   const [formName, setFormName] = useState('')
@@ -63,6 +65,23 @@ export default function SeasonsPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [activeStageTab, setActiveStageTab] = useState<number>(0)
+
+  // Helper to build a blank stage
+  const blankStage = (): FormStageState => ({ pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] })
+
+  function handleAddStage() {
+    if (formStages.length >= 10) return
+    setFormStages([...formStages, blankStage()])
+    setActiveStageTab(formStages.length) // focus new tab
+  }
+
+  function handleRemoveStage() {
+    if (formStages.length <= 1) return
+    const next = formStages.slice(0, -1)
+    setFormStages(next)
+    setActiveStageTab(Math.min(activeStageTab, next.length - 1))
+  }
+
 
   // Quick Create Prize States
   const [showQuickPrizeModal, setShowQuickPrizeModal] = useState(false)
@@ -164,7 +183,7 @@ export default function SeasonsPage() {
       { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
       { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
       { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-    ])
+    ]) // default 3 stages; admin can add/remove
     setFormError(null)
     setFormLoading(false)
     setActiveStageTab(0)
@@ -184,7 +203,7 @@ export default function SeasonsPage() {
     setFormStatus(season.status)
     setFormStartDate(formatDateForInput(season.startDate))
     setFormEndDate(formatDateForInput(season.endDate))
-    if (season.stages && season.stages.length === 3) {
+    if (season.stages && season.stages.length > 0) {
       setFormStages(season.stages.map(s => ({
         id: s.id,
         pointsCount: s.pointsCount,
@@ -331,7 +350,12 @@ export default function SeasonsPage() {
       return false
     }
 
-    for (let i = 0; i < 3; i++) {
+    if (formStages.length < 1) {
+      setFormError('La temporada debe tener al menos 1 etapa.')
+      return false
+    }
+
+    for (let i = 0; i < formStages.length; i++) {
       const s = formStages[i]
       if (typeof s.pointsCount !== 'number' || s.pointsCount < 0) {
         setFormError(t('seasonManagement.errStagePoints'))
@@ -420,6 +444,44 @@ export default function SeasonsPage() {
       setFormError(message)
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  // Handle toggle season active status
+  function handleToggleStatus(season: SeasonData) {
+    setSeasonToToggle(season)
+    setShowToggleModal(true)
+  }
+
+  async function confirmToggleStatus() {
+    if (!seasonToToggle) return
+    const season = seasonToToggle
+    const nextStatus = season.status === 'active' ? 'archived' : 'active'
+
+    try {
+      setLoading(true)
+      setError(null)
+      setShowToggleModal(false)
+      await updateSeason({
+        id: season.id,
+        name: season.name,
+        status: nextStatus,
+        startDate: season.startDate,
+        endDate: season.endDate,
+        stages: season.stages.map(s => ({
+          id: s.id,
+          pointsCount: s.pointsCount,
+          prizes: s.prizes.map(p => ({
+            prizeId: p.prizeId,
+            stock: p.stock
+          }))
+        }))
+      })
+      await load()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al cambiar el estado de la temporada'
+      alert(message)
+      setLoading(false)
     }
   }
 
@@ -822,6 +884,27 @@ export default function SeasonsPage() {
                       <td style={{ padding: '14px 20px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                           <button
+                            onClick={() => handleToggleStatus(season)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 6,
+                              background: season.status === 'active' ? 'rgba(244,118,43,0.06)' : 'rgba(60,173,66,0.06)',
+                              border: season.status === 'active' ? '1px solid rgba(244,118,43,0.15)' : '1px solid rgba(60,173,66,0.15)',
+                              color: season.status === 'active' ? '#b74f11' : 'var(--color-green)',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <i className={season.status === 'active' ? 'ri-toggle-fill text-base' : 'ri-toggle-line text-base'} />
+                            {season.status === 'active' 
+                              ? t('seasonManagement.actionDeactivate') 
+                              : t('seasonManagement.actionActivate')}
+                          </button>
+                          <button
                             onClick={() => handleOpenEdit(season)}
                             style={{
                               padding: '6px 12px',
@@ -987,6 +1070,29 @@ export default function SeasonsPage() {
 
                   {/* Actions Footer inside Card */}
                   <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 14, marginTop: 4 }}>
+                    <button
+                      onClick={() => handleToggleStatus(season)}
+                      style={{
+                        flex: 1,
+                        height: 34,
+                        borderRadius: 8,
+                        background: season.status === 'active' ? 'rgba(244,118,43,0.06)' : 'rgba(60,173,66,0.06)',
+                        border: season.status === 'active' ? '1px solid rgba(244,118,43,0.15)' : '1px solid rgba(60,173,66,0.15)',
+                        color: season.status === 'active' ? '#b74f11' : 'var(--color-green)',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4
+                      }}
+                    >
+                      <i className={season.status === 'active' ? 'ri-toggle-fill text-base' : 'ri-toggle-line text-base'} />
+                      {season.status === 'active' 
+                        ? t('seasonManagement.actionDeactivate') 
+                        : t('seasonManagement.actionActivate')}
+                    </button>
                     <button
                       onClick={() => handleOpenEdit(season)}
                       style={{
@@ -1156,6 +1262,52 @@ export default function SeasonsPage() {
         )}
       </div>
 
+      {/* ── TOGGLE STATUS MODAL ─────────────────── */}
+      {showToggleModal && seasonToToggle && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.5)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 100, padding: 16
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 16,
+            width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-pop)',
+            padding: 24, animation: 'slide-up 0.2s ease-out'
+          }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 20, margin: '0 0 16px 0' }}>
+              {seasonToToggle.status === 'active' ? 'Desactivar Temporada' : 'Activar Temporada'}
+            </h3>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 16, marginBottom: 24, lineHeight: 1.5 }}>
+              {seasonToToggle.status === 'active' 
+                ? t('seasonManagement.confirmDeactivate')
+                : t('seasonManagement.confirmActivate')}
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowToggleModal(false)}
+                style={{
+                  padding: '10px 16px', borderRadius: 8, background: 'var(--color-gray-light)',
+                  color: 'var(--color-text-muted)', border: 'none', cursor: 'pointer',
+                  fontWeight: 600, fontSize: 14
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmToggleStatus}
+                style={{
+                  padding: '10px 16px', borderRadius: 8, background: 'var(--color-yellow)',
+                  color: 'var(--color-navy)', border: 'none', cursor: 'pointer',
+                  fontWeight: 600, fontSize: 14
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── CREATE SEASON MODAL ─────────────────── */}
       {showCreateModal && (
         <div style={{
@@ -1252,16 +1404,47 @@ export default function SeasonsPage() {
                 </div>
               </div>
 
-              {/* 3 Stages config */}
+              {/* Stages config — variable count */}
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, marginTop: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-navy)', display: 'block', marginBottom: 12 }}>
-                  Configuración de Etapas (Exactamente 3)
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-navy)' }}>
+                    Configuración de Etapas ({formStages.length} {formStages.length === 1 ? 'etapa' : 'etapas'})
+                  </span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={handleRemoveStage}
+                      disabled={formStages.length <= 1}
+                      title="Eliminar última etapa"
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                        background: formStages.length <= 1 ? 'rgba(0,0,0,0.04)' : '#fff',
+                        color: formStages.length <= 1 ? 'var(--color-text-muted)' : 'var(--color-error)',
+                        fontWeight: 800, fontSize: 18, cursor: formStages.length <= 1 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 150ms ease'
+                      }}
+                    >−</button>
+                    <button
+                      type="button"
+                      onClick={handleAddStage}
+                      disabled={formStages.length >= 10}
+                      title="Agregar etapa"
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                        background: formStages.length >= 10 ? 'rgba(0,0,0,0.04)' : '#fff',
+                        color: formStages.length >= 10 ? 'var(--color-text-muted)' : 'var(--color-navy)',
+                        fontWeight: 800, fontSize: 18, cursor: formStages.length >= 10 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 150ms ease'
+                      }}
+                    >+</button>
+                  </div>
+                </div>
 
                 {/* Tab switcher */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid var(--color-border)', paddingBottom: 10 }}>
-                  {[0, 1, 2].map(idx => {
-                    const stage = formStages[idx]
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid var(--color-border)', paddingBottom: 10, flexWrap: 'wrap' }}>
+                  {formStages.map((stage, idx) => {
                     const isActive = activeStageTab === idx
                     const prizeCount = stage.prizes.length
                     return (
@@ -1270,7 +1453,7 @@ export default function SeasonsPage() {
                         type="button"
                         onClick={() => setActiveStageTab(idx)}
                         style={{
-                          flex: 1,
+                          minWidth: 90,
                           padding: '10px 12px',
                           borderRadius: 10,
                           border: isActive ? '1.5px solid var(--color-navy)' : '1px solid var(--color-border)',
@@ -1668,15 +1851,47 @@ export default function SeasonsPage() {
                 </div>
               </div>
 
-              {/* 3 Stages config */}
+              {/* Stages config — variable count */}
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, marginTop: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-navy)', display: 'block', marginBottom: 12 }}>
-                  Configuración de Etapas (Exactamente 3)
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-navy)' }}>
+                    Configuración de Etapas ({formStages.length} {formStages.length === 1 ? 'etapa' : 'etapas'})
+                  </span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      type="button"
+                      onClick={handleRemoveStage}
+                      disabled={formStages.length <= 1}
+                      title="Eliminar última etapa"
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                        background: formStages.length <= 1 ? 'rgba(0,0,0,0.04)' : '#fff',
+                        color: formStages.length <= 1 ? 'var(--color-text-muted)' : 'var(--color-error)',
+                        fontWeight: 800, fontSize: 18, cursor: formStages.length <= 1 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 150ms ease'
+                      }}
+                    >−</button>
+                    <button
+                      type="button"
+                      onClick={handleAddStage}
+                      disabled={formStages.length >= 10}
+                      title="Agregar etapa"
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                        background: formStages.length >= 10 ? 'rgba(0,0,0,0.04)' : '#fff',
+                        color: formStages.length >= 10 ? 'var(--color-text-muted)' : 'var(--color-navy)',
+                        fontWeight: 800, fontSize: 18, cursor: formStages.length >= 10 ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 150ms ease'
+                      }}
+                    >+</button>
+                  </div>
+                </div>
 
                 {/* Tab switcher */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid var(--color-border)', paddingBottom: 10 }}>
-                  {[0, 1, 2].map(idx => {
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, borderBottom: '1px solid var(--color-border)', paddingBottom: 10, flexWrap: 'wrap' }}>
+                  {formStages.map((_, idx) => {
                     const stage = formStages[idx]
                     const isActive = activeStageTab === idx
                     const prizeCount = stage.prizes.length
@@ -1938,6 +2153,88 @@ export default function SeasonsPage() {
                         <i className="ri-add-line" style={{ fontSize: 14 }} />
                         {t('seasonManagement.btnAddPrize')}
                       </button>
+
+                      {/* List of stops assigned to this stage in selectedSeason */}
+                      <div style={{ marginTop: 20 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            Paradas de esta Etapa
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                            {(selectedSeason?.stages?.[activeStageTab]?.stops || []).length} parada(s)
+                          </span>
+                        </div>
+                        
+                        <div style={{
+                          background: '#fff',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 10,
+                          padding: 12,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.01)'
+                        }}>
+                          {(selectedSeason?.stages?.[activeStageTab]?.stops || []).length > 0 ? (
+                            (selectedSeason?.stages?.[activeStageTab]?.stops || []).map((stop: any, stopIdx: number, arr: any[]) => (
+                              <div
+                                key={stop.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 10,
+                                  padding: '8px 0',
+                                  borderBottom: stopIdx === arr.length - 1 ? 'none' : '1px solid #f0f2f5'
+                                }}
+                              >
+                                {stop.imageUrl ? (
+                                  <img
+                                    src={stop.imageUrl}
+                                    alt={stop.name}
+                                    style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--color-border)' }}
+                                  />
+                                ) : (
+                                  <div style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 6,
+                                    background: 'rgba(27,43,110,0.05)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'var(--color-navy)'
+                                  }}>
+                                    <i className="ri-map-pin-line" style={{ fontSize: 16 }} />
+                                  </div>
+                                )}
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)' }}>
+                                    {stop.name}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                                    Orden: #{stop.order} • Coordenadas: {stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}
+                                  </div>
+                                </div>
+                                <div>
+                                  {stop.active ? (
+                                    <span style={{ background: 'rgba(60,173,66,0.1)', color: 'var(--color-green)', padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 800 }}>
+                                      Activa
+                                    </span>
+                                  ) : (
+                                    <span style={{ background: 'rgba(160,168,184,0.15)', color: 'var(--color-gray-dark)', padding: '2px 8px', borderRadius: 12, fontSize: 10, fontWeight: 800 }}>
+                                      Inactiva
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '6px 0', textAlign: 'center' }}>
+                              No hay paradas asignadas a esta etapa en esta temporada.
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )
                 })()}

@@ -22,6 +22,7 @@
     "forgotPassword":  "Forgot your password?",
     "errorInvalid":    "Incorrect email or password.",
     "errorGeneric":    "Something went wrong. Please try again.",
+    "errorDifferentCredential": "This email is already registered with a different sign-in method (e.g. password). Please log in with your email and password.",
     "bannedError":     "Error 403: This account has been suspended. You cannot access the rally."
   },
   "adminLogin": {
@@ -122,7 +123,15 @@
     "accept":        "I accept the rules and participation conditions",
     "must_accept":   "You must accept the rules to continue",
     "fill_all":      "Please fill in all required fields",
+    "err_firstname_empty": "Please enter your first name.",
+    "err_lastname_empty": "Please enter your last name.",
+    "err_nationality_empty": "Please select your nationality.",
+    "err_gender_empty": "Please select your gender.",
+    "err_age_empty": "Please enter your age.",
+    "err_age_invalid": "Please enter a valid age (1 - 120).",
     "err_exists":    "This email is already registered.",
+    "err_different_credential": "This email is already registered with a different sign-in method (e.g. password). Please log in with your email and password on the login page.",
+    "err_exists_google_hint": "This email is already in use. If you created your account with Google, please log in with Google.",
     "err_email":     "Please enter a valid email.",
     "err_weak_pw":   "Password is too weak.",
     "err_generic":   "Something went wrong. Please try again."
@@ -204,7 +213,11 @@
     "errStageNoPrizes": "You must configure at least one prize for each stage.",
     "confirmDelete": "Are you sure you want to delete this season and all of its stages? This action cannot be undone.",
     "totalSeasons": "Total Seasons",
-    "activeNotice": "Note: Activating this season will automatically archive any other currently active season."
+    "activeNotice": "Note: Activating this season will automatically archive any other currently active season.",
+    "actionActivate": "Activate",
+    "actionDeactivate": "Deactivate",
+    "confirmActivate": "Activating this season will automatically deactivate (archive) any other currently active season. Do you want to continue?",
+    "confirmDeactivate": "Are you sure you want to deactivate this season? It will be archived and there will be no active season."
   },
   "prizeManagement": {
     "title": "Prizes Management",

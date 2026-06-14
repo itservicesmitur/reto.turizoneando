@@ -132,12 +132,24 @@ export interface StagePrizeConfig {
   stock: number
 }
 
+export interface StageStopData {
+  id: string
+  name: string
+  nameEn: string
+  lat: number
+  lng: number
+  imageUrl: string
+  order: number
+  active: boolean
+}
+
 export interface StageData {
   id: string
   number: number
   pointsCount: number
   prizeIds: string[]
   prizes: StagePrizeConfig[]
+  stops?: StageStopData[]
 }
 
 export interface SeasonData {
@@ -209,14 +221,42 @@ export async function fetchSeasons(): Promise<SeasonData[]> {
     // Fetch stages subcollection
     const stagesCol = collection(db, 'seasons', sDoc.id, 'stages')
     const stagesSnap = await getDocs(stagesCol)
+
+    // Fetch stops for this season
+    const stopsCol = collection(db, 'stops')
+    const stopsQ = query(stopsCol, where('seasonIds', 'array-contains', sDoc.id))
+    const stopsSnap = await getDocs(stopsQ)
+    const seasonStops = stopsSnap.docs.map(stopDoc => {
+      const stopData = stopDoc.data()
+      return {
+        id: stopDoc.id,
+        stageId: stopData.stageId || '',
+        name: stopData.name || '',
+        nameEn: stopData.nameEn || '',
+        lat: typeof stopData.lat === 'number' ? stopData.lat : 0,
+        lng: typeof stopData.lng === 'number' ? stopData.lng : 0,
+        imageUrl: stopData.imageUrl || '',
+        order: typeof stopData.order === 'number' ? stopData.order : 0,
+        active: stopData.active === true
+      }
+    })
+
     const stages = stagesSnap.docs.map(stageDoc => {
       const stageData = stageDoc.data()
+      const stageStops = seasonStops
+        .filter(stop => stop.stageId === stageDoc.id)
+        .sort((a, b) => a.order - b.order)
+        .map(({ id, name, nameEn, lat, lng, imageUrl, order, active }) => ({
+          id, name, nameEn, lat, lng, imageUrl, order, active
+        }))
+
       return {
         id: stageDoc.id,
         number: stageData.number || 0,
         prizeIds: Array.isArray(stageData.prizeIds) ? stageData.prizeIds : [],
         prizes: Array.isArray(stageData.prizes) ? stageData.prizes : [],
         pointsCount: typeof stageData.pointsCount === 'number' ? stageData.pointsCount : 0,
+        stops: stageStops,
       } as StageData
     })
 
@@ -365,7 +405,9 @@ export interface QuestionData {
 
 export interface StopData {
   id: string
-  seasonId: string
+  /** @deprecated Use seasonIds (array). Kept for backwards-compat reads from old documents. */
+  seasonId?: string
+  seasonIds: string[]   // ← relación muchos-a-muchos con /seasons
   stageId: string
   name: string
   nameEn: string
@@ -387,9 +429,16 @@ export async function fetchStopsList(): Promise<StopData[]> {
   const stopsSnap = await getDocs(stopsCol)
   return stopsSnap.docs.map(doc => {
     const data = doc.data()
+    // Support legacy docs that still have seasonId (single string)
+    const seasonIds: string[] = Array.isArray(data.seasonIds)
+      ? data.seasonIds
+      : data.seasonId
+        ? [data.seasonId]
+        : []
     return {
       id: doc.id,
-      seasonId: data.seasonId || '',
+      seasonId: data.seasonId || '',   // kept for backward compat display
+      seasonIds,
       stageId: data.stageId || '',
       name: data.name || '',
       nameEn: data.nameEn || '',
@@ -443,14 +492,17 @@ export async function getStopWithQuestions(stopId: string): Promise<{ stop: Stop
 }
 
 export async function createStop(
-  stop: Omit<StopData, 'id' | 'createdAt' | 'questions'>,
+  stop: Omit<StopData, 'id' | 'createdAt' | 'questions' | 'seasonId'>,
   questions: Omit<QuestionData, 'id' | 'stopId' | 'createdAt'>[]
 ): Promise<string> {
   const batch = writeBatch(db)
 
   const stopRef = doc(collection(db, 'stops'))
+  // Persist only seasonIds (array); drop legacy seasonId field
+  const { seasonId: _ignored, ...stopFields } = stop as any
   batch.set(stopRef, {
-    ...stop,
+    ...stopFields,
+    seasonIds: Array.isArray(stop.seasonIds) ? stop.seasonIds : [],
     createdAt: new Date()
   })
 
@@ -469,15 +521,19 @@ export async function createStop(
 
 export async function updateStop(
   stopId: string,
-  stop: Partial<Omit<StopData, 'id' | 'createdAt' | 'questions'>>,
+  stop: Partial<Omit<StopData, 'id' | 'createdAt' | 'questions' | 'seasonId'>>,
   questions: (Partial<QuestionData> & Omit<QuestionData, 'stopId'>)[],
   deletedQuestionIds: string[]
 ): Promise<void> {
   const batch = writeBatch(db)
 
-  // 1. Update stop
+  // 1. Update stop — ensure seasonIds is always an array, remove legacy seasonId
+  const { seasonId: _ignored, ...stopFields } = stop as any
   const stopRef = doc(db, 'stops', stopId)
-  batch.update(stopRef, stop)
+  batch.update(stopRef, {
+    ...stopFields,
+    ...(stop.seasonIds !== undefined ? { seasonIds: stop.seasonIds } : {})
+  })
 
   // 2. Add/Update questions
   for (const q of questions) {

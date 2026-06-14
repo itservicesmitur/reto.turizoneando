@@ -15,13 +15,14 @@
 
 /seasons/{seasonId}/stages/{stageId}
   id: string
-  number: number               ← siempre 1, 2, o 3
+  number: number               ← número de la etapa (1, 2, 3... hasta 10; variable por temporada)
   prizeIds: string[]           ← relación con /prizes (segmentos de la ruleta)
   pointsCount: number          ← cantidad de paradas de esta etapa
   createdAt: Timestamp
+  (Nota: El get/fetch de temporada en frontend mapea y adjunta un arreglo `stops: StageStopData[]` a cada etapa con: id, name, nameEn, lat, lng, imageUrl, order, active)
 
 /stops/{stopId}
-  seasonId: string             ← relación con /seasons
+  seasonIds: string[]          ← relación muchos-a-muchos con /seasons (usa array-contains para queries)
   stageId: string              ← relación con /seasons/{seasonId}/stages
   name: string
   narration: string            ← historia/narración que se le muestra al usuario
@@ -178,6 +179,7 @@ Las reglas de almacenamiento se definen en `storage.rules`:
 5. Secrets con `defineSecret()`, nunca hardcodeados.
 6. Cuando cambies el esquema, actualiza la sección "Esquema de Firestore" arriba.
 7. Consolidar los métodos de mantenimiento de un mismo dominio en un único archivo (ej. `functions/src/admin/admins.ts` para el CRUD de administradores) en lugar de crear un archivo separado por cada método.
+8. En la gestión de temporadas (`/seasons`), solo se permite **una única temporada activa a la vez** (`status: 'active'`). Al crear o actualizar una temporada para que sea activa, cualquier otra temporada que tuviera estado activo debe ser archivada (`status: 'archived'`) automáticamente en la misma transacción de base de datos para garantizar la consistencia.
 
 ## Definición de terminado (backend)
 - [ ] Function probada en emulador con casos feliz y error

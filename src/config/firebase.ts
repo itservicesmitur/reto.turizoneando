@@ -21,11 +21,18 @@ export const functions = getFunctions(app)
 export const storage = getStorage(app)
 
 // Connect to emulators in development
-const emulatorHost = window.location.hostname;
-connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
-connectFirestoreEmulator(db, emulatorHost, 8080)
-connectFunctionsEmulator(functions, emulatorHost, 5001)
-connectStorageEmulator(storage, emulatorHost, 9199)
+const isLocal = window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.');
+
+if (isLocal) {
+  const emulatorHost = window.location.hostname;
+  connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
+  connectFirestoreEmulator(db, emulatorHost, 8080)
+  connectFunctionsEmulator(functions, emulatorHost, 5001)
+  connectStorageEmulator(storage, emulatorHost, 9199)
+}
 
 if (import.meta.env.DEV) {
 

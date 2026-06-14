@@ -49,11 +49,11 @@ export const createSeason = onCall(async (request) => {
       throw new HttpsError("invalid-argument", "Start date must be before or equal to End date.");
     }
 
-    if (!Array.isArray(stages) || stages.length !== 3) {
-      throw new HttpsError("invalid-argument", "Season must have exactly 3 stages.");
+    if (!Array.isArray(stages) || stages.length < 1) {
+      throw new HttpsError("invalid-argument", "Season must have at least 1 stage.");
     }
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < stages.length; i++) {
       const s = stages[i];
       if (typeof s.pointsCount !== "number" || s.pointsCount < 0) {
         throw new HttpsError("invalid-argument", `Stage ${i + 1} pointsCount must be a non-negative number.`);
@@ -97,8 +97,8 @@ export const createSeason = onCall(async (request) => {
         createdBy: uid,
       });
 
-      // Create the 3 stages
-      for (let i = 0; i < 3; i++) {
+      // Create stages (variable count: 1–10)
+      for (let i = 0; i < stages.length; i++) {
         const s = stages[i];
         const stageId = `stage_${i + 1}`;
         const stageRef = seasonRef.collection("stages").doc(stageId);
@@ -169,11 +169,11 @@ export const updateSeason = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Start date must be before or equal to End date.");
   }
 
-  if (!Array.isArray(stages) || stages.length !== 3) {
-    throw new HttpsError("invalid-argument", "Season must have exactly 3 stages.");
+  if (!Array.isArray(stages) || stages.length < 1) {
+    throw new HttpsError("invalid-argument", "Season must have at least 1 stage.");
   }
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < stages.length; i++) {
     const s = stages[i];
     if (typeof s.pointsCount !== "number" || s.pointsCount < 0) {
       throw new HttpsError("invalid-argument", `Stage ${i + 1} pointsCount must be a non-negative number.`);
@@ -192,20 +192,29 @@ export const updateSeason = onCall(async (request) => {
     }
   }
 
+
   try {
     const db = getFirestore();
     const seasonRef = db.collection("seasons").doc(id);
 
     await db.runTransaction(async (transaction) => {
+      // 1. All Reads First
       const seasonSnap = await transaction.get(seasonRef);
       if (!seasonSnap.exists) {
         throw new HttpsError("not-found", "Season not found.");
       }
 
-      // If setting this season to active, archive other active seasons
+      let activeSeasonsSnap: any = null;
       if (status === "active") {
         const activeSeasonsQuery = db.collection("seasons").where("status", "==", "active");
-        const activeSeasonsSnap = await transaction.get(activeSeasonsQuery);
+        activeSeasonsSnap = await transaction.get(activeSeasonsQuery);
+      }
+
+      const oldPrizesCol = seasonRef.collection("prizes");
+      const oldPrizesSnap = await transaction.get(oldPrizesCol);
+
+      // 2. All Writes Second
+      if (status === "active" && activeSeasonsSnap) {
         for (const doc of activeSeasonsSnap.docs) {
           if (doc.id !== id) {
             transaction.update(doc.ref, { status: "archived" });
@@ -221,8 +230,8 @@ export const updateSeason = onCall(async (request) => {
         endDate: endTS,
       });
 
-      // Update stages
-      for (let i = 0; i < 3; i++) {
+      // Update stages (variable count)
+      for (let i = 0; i < stages.length; i++) {
         const s = stages[i];
         const stageId = s.id || `stage_${i + 1}`;
         const stageRef = seasonRef.collection("stages").doc(stageId);
@@ -237,8 +246,6 @@ export const updateSeason = onCall(async (request) => {
       }
 
       // Delete existing prizes subcollection docs
-      const oldPrizesCol = seasonRef.collection("prizes");
-      const oldPrizesSnap = await transaction.get(oldPrizesCol);
       for (const doc of oldPrizesSnap.docs) {
         transaction.delete(doc.ref);
       }
@@ -287,6 +294,7 @@ export const deleteSeason = onCall(async (request) => {
     const seasonRef = db.collection("seasons").doc(id);
 
     await db.runTransaction(async (transaction) => {
+      // 1. All Reads First
       const seasonSnap = await transaction.get(seasonRef);
       if (!seasonSnap.exists) {
         throw new HttpsError("not-found", "Season not found.");
@@ -296,14 +304,15 @@ export const deleteSeason = onCall(async (request) => {
       const stagesQuery = seasonRef.collection("stages");
       const stagesSnap = await transaction.get(stagesQuery);
 
+      // Read prizes to delete them
+      const prizesQuery = seasonRef.collection("prizes");
+      const prizesSnap = await transaction.get(prizesQuery);
+
+      // 2. All Writes Second
       // Delete stages subcollection docs
       for (const doc of stagesSnap.docs) {
         transaction.delete(doc.ref);
       }
-
-      // Read prizes to delete them
-      const prizesQuery = seasonRef.collection("prizes");
-      const prizesSnap = await transaction.get(prizesQuery);
 
       // Delete prizes subcollection docs
       for (const doc of prizesSnap.docs) {

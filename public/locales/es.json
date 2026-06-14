@@ -22,6 +22,7 @@
     "forgotPassword":  "¿Olvidaste tu contraseña?",
     "errorInvalid":    "Correo o contraseña incorrectos.",
     "errorGeneric":    "Ocurrió un error. Intenta de nuevo.",
+    "errorDifferentCredential": "Este correo ya está registrado con otro método de inicio de sesión (ej. contraseña). Inicia sesión con tu correo y contraseña.",
     "bannedError":     "Error 403: Esta cuenta ha sido suspendida. No puedes ingresar al rally."
   },
   "adminLogin": {
@@ -122,7 +123,15 @@
     "accept":        "Acepto las reglas y condiciones de participación",
     "must_accept":   "Debes aceptar las reglas para continuar",
     "fill_all":      "Completa todos los campos requeridos",
+    "err_firstname_empty": "Por favor ingresa tu nombre.",
+    "err_lastname_empty": "Por favor ingresa tu apellido.",
+    "err_nationality_empty": "Por favor selecciona tu nacionalidad.",
+    "err_gender_empty": "Por favor selecciona tu género.",
+    "err_age_empty": "Por favor ingresa tu edad.",
+    "err_age_invalid": "Por favor ingresa una edad válida (1 - 120).",
     "err_exists":    "Este correo ya está registrado.",
+    "err_different_credential": "Este correo ya está registrado con otro método de inicio de sesión (ej. contraseña). Inicia sesión con tu correo y contraseña en la página de login.",
+    "err_exists_google_hint": "Este correo ya está en uso. Si creaste tu cuenta con Google, por favor inicia sesión con Google.",
     "err_email":     "Ingresa un correo válido.",
     "err_weak_pw":   "La contraseña es muy débil.",
     "err_generic":   "Ocurrió un error. Intenta de nuevo."
@@ -204,7 +213,11 @@
     "errStageNoPrizes": "Debes configurar al menos un premio para cada etapa.",
     "confirmDelete": "¿Estás seguro de que deseas eliminar esta temporada y todas sus etapas? Esta acción no se puede deshacer.",
     "totalSeasons": "Total Temporadas",
-    "activeNotice": "Nota: Al activar esta temporada, cualquier otra temporada actualmente activa se archivará automáticamente."
+    "activeNotice": "Nota: Al activar esta temporada, cualquier otra temporada actualmente activa se archivará automáticamente.",
+    "actionActivate": "Activar",
+    "actionDeactivate": "Desactivar",
+    "confirmActivate": "Al activar esta temporada, se desactivará (archivará) cualquier otra temporada activa. ¿Deseas continuar?",
+    "confirmDeactivate": "¿Estás seguro de que deseas desactivar esta temporada? Quedará como archivada y no habrá ninguna temporada activa."
   },
   "prizeManagement": {
     "title": "Mantenimiento de Premios",

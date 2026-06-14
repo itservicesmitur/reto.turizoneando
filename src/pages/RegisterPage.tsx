@@ -11,6 +11,7 @@ import {
 import type { User } from 'firebase/auth'
 import logoImg   from '../assets/logo1.png'
 import mascotImg from '../assets/mascota.png'
+import CountrySelect from '../components/CountrySelect'
 
 // ── helpers ──────────────────────────────────────────────────────────────
 function pwStrength(pwd: string): 0 | 1 | 2 | 3 {
@@ -159,7 +160,7 @@ export default function RegisterPage() {
     } catch (err) {
       const code = (err as AuthError).code
       setError(
-        code === 'auth/email-already-in-use' ? t('register.err_exists')
+        code === 'auth/email-already-in-use' ? t('register.err_exists_google_hint')
         : code === 'auth/invalid-email'      ? t('register.err_email')
         : code === 'auth/weak-password'      ? t('register.err_weak_pw')
         : t('register.err_generic'),
@@ -194,7 +195,9 @@ export default function RegisterPage() {
       goForward(2)
     } catch (err) {
       const code = (err as AuthError).code
-      if (code !== 'auth/popup-closed-by-user') {
+      if (code === 'auth/account-exists-with-different-credential') {
+        setError(t('register.err_different_credential'))
+      } else if (code !== 'auth/popup-closed-by-user') {
         setError(t('register.err_generic'))
       }
     } finally {
@@ -204,8 +207,29 @@ export default function RegisterPage() {
 
   // ── Step 2: validate profile fields ───────────────────────────────────
   function handleProfileNext() {
-    if (!firstName.trim() || !lastName.trim() || !gender || !nationality.trim() || !ageRange) {
-      setError(t('register.fill_all'))
+    if (!firstName.trim()) {
+      setError(t('register.err_firstname_empty'))
+      return
+    }
+    if (!lastName.trim()) {
+      setError(t('register.err_lastname_empty'))
+      return
+    }
+    if (!nationality.trim()) {
+      setError(t('register.err_nationality_empty'))
+      return
+    }
+    if (!gender) {
+      setError(t('register.err_gender_empty'))
+      return
+    }
+    if (!ageRange.trim()) {
+      setError(t('register.err_age_empty'))
+      return
+    }
+    const ageNum = parseInt(ageRange, 10)
+    if (isNaN(ageNum) || ageNum <= 0 || ageNum > 120) {
+      setError(t('register.err_age_invalid'))
       return
     }
     setError(null)
@@ -226,6 +250,7 @@ export default function RegisterPage() {
         gender, nationality: nationality.trim(),
         ageRange, preferredLang: prefLang,
         email: email || fbUser.email || '',
+        photoURL: fbUser.photoURL || undefined,
       })
       navigate('/map', { replace: true })
     } catch (err) {
@@ -258,15 +283,6 @@ export default function RegisterPage() {
     { key: 'F',    label: t('register.g_female') },
     { key: 'NB',   label: t('register.g_nb') },
     { key: 'PNTS', label: t('register.g_pnts') },
-  ]
-  const ageOpts = [
-    { key: '<12',  label: t('register.age_u12') },
-    { key: '12-17',label: t('register.age_12') },
-    { key: '18-24',label: t('register.age_18') },
-    { key: '25-34',label: t('register.age_25') },
-    { key: '35-44',label: t('register.age_35') },
-    { key: '45-54',label: t('register.age_45') },
-    { key: '55+',  label: t('register.age_55') },
   ]
 
   return (
@@ -640,22 +656,22 @@ export default function RegisterPage() {
                   {/* Nacionalidad */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label htmlFor="reg-nat" style={labelStyle}>{t('register.nationality')}</label>
-                    <FieldInput
-                      id="reg-nat" icon="ri-map-pin-2-line"
-                      value={nationality} onChange={setNationality}
-                      placeholder={t('register.nat_hint')}
-                      autoComplete="country-name"
+                    <CountrySelect
+                      id="reg-nat"
+                      value={nationality}
+                      onChange={setNationality}
                     />
                   </div>
 
-                  {/* Rango de edad */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <span style={labelStyle}>{t('register.age_range')}</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {ageOpts.map(opt => (
-                        <Chip key={opt.key} label={opt.label} selected={ageRange === opt.key} onClick={() => setAgeRange(opt.key)} />
-                      ))}
-                    </div>
+                  {/* Edad */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label htmlFor="reg-age" style={labelStyle}>{t('register.age') || (i18n.language === 'en' ? 'Age' : 'Edad')}</label>
+                    <FieldInput
+                      id="reg-age" type="number" icon="ri-calendar-line"
+                      value={ageRange} onChange={setAgeRange}
+                      placeholder={i18n.language === 'en' ? 'Enter your age...' : 'Digita tu edad...'}
+                      inputMode="numeric"
+                    />
                   </div>
 
                   {/* Idioma preferido */}

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import CountrySelect from '../../../components/CountrySelect'
 
 interface Props { onBack: () => void }
 
 const GENDER_KEYS = ['g_male', 'g_female', 'g_nb', 'g_pnts'] as const
-const AGE_RANGES  = ['<12', '12–17', '18–24', '25–34', '35–44', '45–54', '55+']
 
 export default function EditProfile({ onBack }: Props) {
   const { t } = useTranslation()
@@ -53,7 +53,7 @@ export default function EditProfile({ onBack }: Props) {
 
         <div>
           <label className={labelCls} style={{ color: 'var(--color-map-gold)' }}>{t('register.nationality')}</label>
-          <input type="text" value={nationality} onChange={e => setNationality(e.target.value)} className={inputCls} style={inputStyle} />
+          <CountrySelect value={nationality} onChange={setNationality} isMapTheme />
         </div>
 
         <div>
@@ -71,17 +71,16 @@ export default function EditProfile({ onBack }: Props) {
         </div>
 
         <div>
-          <label className={labelCls} style={{ color: 'var(--color-map-gold)' }}>{t('register.age_range')}</label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {AGE_RANGES.map(a => (
-              <button key={a} onClick={() => setAgeRange(a)}
-                className="py-2 rounded-xl text-[11px] font-bold transition-all"
-                style={ageRange === a ? chipActive : chipIdle}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
+          <label className={labelCls} style={{ color: 'var(--color-map-gold)' }}>{t('register.age') || 'Edad'}</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={ageRange}
+            onChange={e => setAgeRange(e.target.value)}
+            placeholder="Ej: 25"
+            className={inputCls}
+            style={inputStyle}
+          />
         </div>
       </div>
 

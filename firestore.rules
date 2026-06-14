@@ -7,11 +7,15 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.role == 'Admin';
     }
 
-    // Players — client can create their own profile on registration; update/delete via Functions or Admins.
+    // Players — client can create/update their own profile fields; sensitive fields locked to Functions/Admins.
     match /players/{playerId} {
       allow read:   if (request.auth != null && request.auth.uid == playerId) || isAdmin();
-      allow create: if request.auth != null && request.auth.uid == playerId;
-      allow update, delete: if isAdmin();
+      allow create: if request.auth != null && request.auth.uid == playerId &&
+                        (!('score' in request.resource.data) || request.resource.data.score == 0) &&
+                        (!('banned' in request.resource.data) || request.resource.data.banned == false);
+      allow update: if (request.auth != null && request.auth.uid == playerId &&
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'banned'])) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Participants — read own document only. Write is Functions or Admins.

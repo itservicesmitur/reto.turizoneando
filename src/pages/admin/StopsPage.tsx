@@ -57,7 +57,7 @@ export default function StopsPage() {
   const [formLat, setFormLat] = useState<number>(18.4735)
   const [formLng, setFormLng] = useState<number>(-69.8863)
   const [formOrder, setFormOrder] = useState<number>(1)
-  const [formSeasonId, setFormSeasonId] = useState('')
+  const [formSeasonIds, setFormSeasonIds] = useState<string[]>([])
   const [formStageId, setFormStageId] = useState('stage_1')
   const [formActive, setFormActive] = useState(true)
   const [formLoading, setFormLoading] = useState(false)
@@ -335,9 +335,9 @@ export default function StopsPage() {
       )
     }
 
-    // Season filter
+    // Season filter — a stop belongs to a season if its seasonIds includes it
     if (seasonFilter) {
-      result = result.filter(s => s.seasonId === seasonFilter)
+      result = result.filter(s => Array.isArray(s.seasonIds) ? s.seasonIds.includes(seasonFilter) : s.seasonId === seasonFilter)
     }
 
     // Stage filter
@@ -401,7 +401,7 @@ export default function StopsPage() {
     setFormLat(18.4735)
     setFormLng(-69.8863)
     setFormOrder(1)
-    setFormSeasonId(seasons[0]?.id || '')
+    setFormSeasonIds(seasons.length > 0 ? [seasons[0].id] : [])
     setFormStageId('stage_1')
     setFormActive(true)
     setFormQuestions([])
@@ -425,7 +425,13 @@ export default function StopsPage() {
     setFormLat(stop.lat)
     setFormLng(stop.lng)
     setFormOrder(stop.order)
-    setFormSeasonId(stop.seasonId)
+    // Normalize legacy seasonId to seasonIds array
+    const existingSeasonIds: string[] = Array.isArray(stop.seasonIds) && stop.seasonIds.length > 0
+      ? stop.seasonIds
+      : stop.seasonId
+        ? [stop.seasonId]
+        : []
+    setFormSeasonIds(existingSeasonIds)
     setFormStageId(stop.stageId)
     setFormActive(stop.active)
     setDeletedQuestionIds([])
@@ -524,6 +530,10 @@ export default function StopsPage() {
     setFormError(null)
 
     // Form Validations
+    if (formSeasonIds.length === 0) {
+      setFormError('Debes asignar la parada a al menos una temporada.')
+      return
+    }
     if (!formName.trim() || !formNameEn.trim()) {
       setFormError('El nombre de la parada es obligatorio en ambos idiomas.')
       return
@@ -581,7 +591,7 @@ export default function StopsPage() {
         lat: formLat,
         lng: formLng,
         order: Number(formOrder),
-        seasonId: formSeasonId,
+        seasonIds: formSeasonIds,
         stageId: formStageId,
         active: formActive
       }
@@ -673,15 +683,51 @@ export default function StopsPage() {
     setFormQuestions(updated)
   }
 
-  // Format Stage display ID
+  // Format Stage display label — handles any stageId format
   function getStageLabel(stageId: string) {
-    switch (stageId) {
-      case 'stage_1': return 'Etapa 1'
-      case 'stage_2': return 'Etapa 2'
-      case 'stage_3': return 'Etapa 3'
-      default: return stageId
+    // Try to match stage_N pattern first
+    const match = stageId.match(/stage_(\d+)/)
+    if (match) return `Etapa ${match[1]}`
+    // Try to find in loaded seasons
+    for (const s of seasons) {
+      const found = s.stages?.find(st => st.id === stageId)
+      if (found) return `Etapa ${found.number}`
     }
+    return stageId
   }
+
+  // Compute unique stages available across all loaded seasons (for filter dropdown)
+  const availableStageOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const result: { id: string; label: string; number: number }[] = []
+    for (const s of seasons) {
+      for (const stage of (s.stages || [])) {
+        if (!seen.has(stage.id)) {
+          seen.add(stage.id)
+          result.push({ id: stage.id, label: `Etapa ${stage.number}`, number: stage.number })
+        }
+      }
+    }
+    result.sort((a, b) => a.number - b.number)
+    return result
+  }, [seasons])
+
+  // Compute stages for the currently selected season(s) in the form
+  const formAvailableStages = useMemo(() => {
+    const seen = new Set<string>()
+    const result: { id: string; label: string; number: number }[] = []
+    for (const sid of formSeasonIds) {
+      const season = seasons.find(s => s.id === sid)
+      for (const stage of (season?.stages || [])) {
+        if (!seen.has(stage.id)) {
+          seen.add(stage.id)
+          result.push({ id: stage.id, label: `Etapa ${stage.number}`, number: stage.number })
+        }
+      }
+    }
+    result.sort((a, b) => a.number - b.number)
+    return result
+  }, [formSeasonIds, seasons])
 
   // Resolve audio storage URLs to the local emulator when running in development
   function resolveAudioUrl(url: string) {
@@ -826,9 +872,9 @@ export default function StopsPage() {
             }}
           >
             <option value="">{t('stopsManagement.filterStage')}</option>
-            <option value="stage_1">Etapa 1</option>
-            <option value="stage_2">Etapa 2</option>
-            <option value="stage_3">Etapa 3</option>
+            {availableStageOptions.map(opt => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
           </select>
         </div>
 
@@ -963,7 +1009,13 @@ export default function StopsPage() {
               </thead>
               <tbody>
                 {paginatedStops.map((stop, idx) => {
-                  const sName = seasons.find(s => s.id === stop.seasonId)?.name || stop.seasonId
+                  const seasonIds: string[] = Array.isArray(stop.seasonIds) && stop.seasonIds.length > 0
+                    ? stop.seasonIds
+                    : stop.seasonId
+                      ? [stop.seasonId]
+                      : []
+                  const seasonNames = seasonIds
+                    .map(sid => seasons.find(s => s.id === sid)?.name || sid)
                   return (
                     <tr
                       key={stop.id}
@@ -1007,10 +1059,24 @@ export default function StopsPage() {
                         {stop.lat.toFixed(6)}, {stop.lng.toFixed(6)}
                       </td>
 
-                      {/* Season / Stage */}
+                      {/* Season(s) / Stage */}
                       <td style={{ padding: '14px 20px', fontSize: 13, color: 'var(--color-text)' }}>
-                        <div style={{ fontWeight: 600 }}>{sName}</div>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{getStageLabel(stop.stageId)}</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                          {seasonNames.length === 0 ? (
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>—</span>
+                          ) : seasonNames.map((name, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                                background: 'rgba(27,43,110,0.08)', color: 'var(--color-navy)'
+                              }}
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{getStageLabel(stop.stageId)}</div>
                       </td>
 
                       {/* Order */}
@@ -1274,6 +1340,14 @@ export default function StopsPage() {
                   <div style={{ background: 'rgba(230,51,41,0.08)', color: 'var(--color-red)', padding: '12px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
                     <i className="ri-error-warning-line" style={{ marginRight: 6 }} />
                     {formError}
+                  </div>
+                )}
+
+                {/* Seasons Empty Alert */}
+                {seasons.length === 0 && (
+                  <div style={{ background: 'rgba(245,158,11,0.08)', color: '#d97706', padding: '12px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16, border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <i className="ri-alert-line" style={{ marginRight: 6 }} />
+                    No hay temporadas registradas. Por favor, crea una temporada en el módulo de Temporadas primero para poder crear una parada.
                   </div>
                 )}
 
@@ -1685,23 +1759,60 @@ export default function StopsPage() {
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
-                      {/* Season */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {/* Season — multi-select checkboxes */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, gridColumn: '1 / -1' }}>
                         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                          {t('stopsManagement.formSeason')}
+                          {t('stopsManagement.formSeason')} <span style={{ color: 'var(--color-error)', fontWeight: 400, fontSize: 11 }}>(selecciona una o más)</span>
                         </label>
-                        <select
-                          value={formSeasonId}
-                          onChange={e => setFormSeasonId(e.target.value)}
-                          style={{
-                            height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
-                            padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer'
-                          }}
-                        >
-                          {seasons.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
+                        {seasons.length === 0 ? (
+                          <div style={{
+                            padding: '10px 14px', borderRadius: 8, background: 'rgba(230,51,41,0.06)',
+                            border: '1.5px solid rgba(230,51,41,0.25)', fontSize: 13, color: 'var(--color-error)'
+                          }}>
+                            ⚠️ No hay temporadas disponibles. Crea una temporada primero.
+                          </div>
+                        ) : (
+                          <div style={{
+                            border: '1.5px solid var(--color-border)', borderRadius: 8,
+                            maxHeight: 140, overflowY: 'auto', padding: '6px 2px'
+                          }}>
+                            {seasons.map(s => {
+                              const checked = formSeasonIds.includes(s.id)
+                              return (
+                                <label
+                                  key={s.id}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '7px 14px', cursor: 'pointer', borderRadius: 6,
+                                    background: checked ? 'rgba(27,43,110,0.06)' : 'transparent',
+                                    transition: 'background 120ms ease'
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={e => {
+                                      if (e.target.checked) {
+                                        setFormSeasonIds([...formSeasonIds, s.id])
+                                      } else {
+                                        setFormSeasonIds(formSeasonIds.filter(id => id !== s.id))
+                                      }
+                                    }}
+                                    style={{ width: 15, height: 15, accentColor: 'var(--color-navy)', cursor: 'pointer' }}
+                                  />
+                                  <span style={{ fontSize: 13, fontWeight: checked ? 700 : 400, color: checked ? 'var(--color-navy)' : 'var(--color-text)' }}>
+                                    {s.name}
+                                    {s.status === 'active' && (
+                                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: 'var(--color-green)', background: 'rgba(60,173,66,0.1)', padding: '1px 6px', borderRadius: 10 }}>
+                                        ACTIVA
+                                      </span>
+                                    )}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
 
                       {/* Stage */}
@@ -1717,9 +1828,13 @@ export default function StopsPage() {
                             padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer'
                           }}
                         >
-                          <option value="stage_1">Etapa 1</option>
-                          <option value="stage_2">Etapa 2</option>
-                          <option value="stage_3">Etapa 3</option>
+                          {formAvailableStages.length === 0 ? (
+                            <option value="">— selecciona temporada primero —</option>
+                          ) : (
+                            formAvailableStages.map(opt => (
+                              <option key={opt.id} value={opt.id}>{opt.label}</option>
+                            ))
+                          )}
                         </select>
                       </div>
 
@@ -2070,13 +2185,13 @@ export default function StopsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={formLoading}
+                  disabled={formLoading || seasons.length === 0}
                   style={{
                     height: 38, padding: '0 24px', borderRadius: 8,
-                    border: 'none', background: 'var(--color-navy)',
+                    border: 'none', background: seasons.length === 0 ? 'var(--color-gray-mid)' : 'var(--color-navy)',
                     color: '#fff', fontSize: 13, fontWeight: 700,
-                    cursor: formLoading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 10px rgba(27,43,110,0.2)',
+                    cursor: (formLoading || seasons.length === 0) ? 'not-allowed' : 'pointer',
+                    boxShadow: seasons.length === 0 ? 'none' : '0 4px 10px rgba(27,43,110,0.2)',
                     display: 'flex', alignItems: 'center', gap: 6
                   }}
                 >

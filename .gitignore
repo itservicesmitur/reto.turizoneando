@@ -29,3 +29,10 @@ firebase-export*/
 *.njsproj
 *.sln
 *.sw?
+
+# Service Accounts / Credentials
+service-account.json
+service-account*.json
+scripts/createAdmin.js
+
+

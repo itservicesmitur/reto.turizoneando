@@ -12,6 +12,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import logoImg from '../assets/logo1.png'
 import mascotImg from '../assets/mascota.png'
+import { syncPlayerSocialProfile } from '../services/authService'
 
 const googleProvider = new GoogleAuthProvider()
 const appleProvider = new OAuthProvider('apple.com')
@@ -60,6 +61,10 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const userCredential = await signInWithPopup(auth, googleProvider)
+      
+      // Sync Google profile data (email, name, photo) to Firestore
+      await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
+
       const snap = await getDoc(doc(db, 'players', userCredential.user.uid))
       if (snap.exists() && snap.data().banned === true) {
         await auth.signOut()
@@ -67,8 +72,13 @@ export default function LoginPage() {
         return
       }
       navigate('/map', { replace: true })
-    } catch {
-      setError(t('login.errorGeneric'))
+    } catch (err) {
+      const code = (err as AuthError).code
+      if (code === 'auth/account-exists-with-different-credential') {
+        setError(t('login.errorDifferentCredential'))
+      } else if (code !== 'auth/popup-closed-by-user') {
+        setError(t('login.errorGeneric'))
+      }
     } finally {
       setLoading(false)
     }
@@ -79,6 +89,10 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const userCredential = await signInWithPopup(auth, appleProvider)
+
+      // Sync Apple profile data to Firestore
+      await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
+
       const snap = await getDoc(doc(db, 'players', userCredential.user.uid))
       if (snap.exists() && snap.data().banned === true) {
         await auth.signOut()
@@ -86,8 +100,13 @@ export default function LoginPage() {
         return
       }
       navigate('/map', { replace: true })
-    } catch {
-      setError(t('login.errorGeneric'))
+    } catch (err) {
+      const code = (err as AuthError).code
+      if (code === 'auth/account-exists-with-different-credential') {
+        setError(t('login.errorDifferentCredential'))
+      } else if (code !== 'auth/popup-closed-by-user') {
+        setError(t('login.errorGeneric'))
+      }
     } finally {
       setLoading(false)
     }
