@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchPlayerDetail, updatePlayerBannedStatus, updatePlayerActiveStatus, fetchPlayerAttempts, type PlayerData, type QuestionAttemptSummary } from '../../services/adminService'
+import { fetchPlayerDetail, updatePlayerBannedStatus, updatePlayerActiveStatus, fetchPlayerAttempts, resetPlayerProgress, type PlayerData, type QuestionAttemptSummary } from '../../services/adminService'
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>()
@@ -11,6 +11,9 @@ export default function PlayerDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [activeLoading, setActiveLoading] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null)
   const [attempts, setAttempts] = useState<QuestionAttemptSummary[]>([])
   const [attemptsLoading, setAttemptsLoading] = useState(true)
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
@@ -76,6 +79,23 @@ export default function PlayerDetailPage() {
       alert(err instanceof Error ? err.message : 'Error al actualizar el estado del jugador')
     } finally {
       setActiveLoading(false)
+    }
+  }
+
+  async function handleReset() {
+    if (!playerId) return
+    try {
+      setResetLoading(true)
+      const { attemptsDeleted } = await resetPlayerProgress(playerId)
+      setPlayer(prev => prev ? { ...prev, score: 0, mapProgress: {}, currentNodeId: null } : null)
+      setAttempts([])
+      setResetConfirm(false)
+      setResetSuccess(`Jugador reiniciado correctamente. ${attemptsDeleted} intento(s) eliminado(s).`)
+      setTimeout(() => setResetSuccess(null), 5000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al reiniciar el jugador')
+    } finally {
+      setResetLoading(false)
     }
   }
 
@@ -491,6 +511,96 @@ export default function PlayerDetailPage() {
             </div>
           </div>
 
+          {/* Card 4: Reset player */}
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: 'var(--shadow-card)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
+              Reiniciar Jugador
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
+              Borra todos los intentos, reinicia el puntaje a 0, el progreso del mapa y la parada actual. Esta acción es irreversible.
+            </p>
+
+            {resetSuccess && (
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(60,173,66,0.08)', border: '1.5px solid rgba(60,173,66,0.25)', color: 'var(--color-green)', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <i className="ri-checkbox-circle-line" style={{ fontSize: 16 }} />
+                {resetSuccess}
+              </div>
+            )}
+
+            {!resetConfirm ? (
+              <button
+                onClick={() => setResetConfirm(true)}
+                style={{
+                  height: 40, padding: '0 18px', borderRadius: 10,
+                  border: '1.5px solid rgba(230,51,41,0.35)',
+                  background: 'rgba(230,51,41,0.05)',
+                  color: 'var(--color-error)', fontSize: 13, fontWeight: 800,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  alignSelf: 'flex-start',
+                  transition: 'background 150ms ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(230,51,41,0.1)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(230,51,41,0.05)' }}
+              >
+                <i className="ri-restart-line" style={{ fontSize: 16 }} />
+                Reiniciar desde cero
+              </button>
+            ) : (
+              <div style={{ background: 'rgba(230,51,41,0.05)', border: '1.5px solid rgba(230,51,41,0.25)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <i className="ri-alert-line" style={{ fontSize: 18 }} />
+                  ¿Confirmar reinicio de <span style={{ fontStyle: 'italic' }}>{player?.displayName || 'este jugador'}</span>?
+                </div>
+                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                  Se eliminarán todos sus intentos y su progreso volverá a cero. No se puede deshacer.
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={handleReset}
+                    disabled={resetLoading}
+                    style={{
+                      height: 38, padding: '0 18px', borderRadius: 8,
+                      border: 'none', background: 'var(--color-error)',
+                      color: '#fff', fontSize: 13, fontWeight: 800,
+                      cursor: resetLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      opacity: resetLoading ? 0.7 : 1,
+                      transition: 'opacity 150ms ease',
+                    }}
+                  >
+                    {resetLoading ? (
+                      <><i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} /> Reiniciando...</>
+                    ) : (
+                      <><i className="ri-restart-line" /> Sí, reiniciar</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setResetConfirm(false)}
+                    disabled={resetLoading}
+                    style={{
+                      height: 38, padding: '0 18px', borderRadius: 8,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text)', fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>
@@ -574,7 +684,14 @@ export default function PlayerDetailPage() {
                             <span style={{ background: 'rgba(251,191,36,0.15)', color: '#d97706', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>BONUS</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginTop: 2 }}>Stop: {q.stopId}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {q.stageNumber != null && (
+                            <span style={{ background: 'rgba(27,43,110,0.08)', color: 'var(--color-navy)', padding: '1px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                              Etapa {q.stageNumber}
+                            </span>
+                          )}
+                          <span>{q.stopName || q.stopId}</span>
+                        </div>
                       </div>
                       <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: q.totalAttempts > 1 ? 'var(--color-orange)' : 'var(--color-text)' }}>
                         {q.totalAttempts}
@@ -623,9 +740,9 @@ export default function PlayerDetailPage() {
                               <span style={{ fontSize: 12, fontWeight: 700, color: a.pointsAwarded > 0 ? 'var(--color-navy)' : 'var(--color-gray-mid)' }}>
                                 {a.pointsAwarded > 0 ? `+${a.pointsAwarded} pts` : '0 pts'}
                               </span>
-                              {a.answeredAt && (
+                              {(a.clientAnsweredAt || a.answeredAt) && (
                                 <span style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginLeft: 'auto' }}>
-                                  {new Date(a.answeredAt).toLocaleString('es-DO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(a.clientAnsweredAt ?? a.answeredAt!).toLocaleString('es-DO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                 </span>
                               )}
                             </div>

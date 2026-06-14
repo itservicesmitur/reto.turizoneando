@@ -7,12 +7,13 @@ export const registerAttempt = onCall(async (request) => {
   }
 
   const playerId = request.auth.uid;
-  const { questionId, selectedIndex, timeMs, seasonId, stopId } = request.data as {
+  const { questionId, selectedIndex, timeMs, seasonId, stopId, clientAnsweredAt } = request.data as {
     questionId?: string;
     selectedIndex?: number;
     timeMs?: number;
     seasonId?: string;
     stopId?: string;
+    clientAnsweredAt?: number;
   };
   console.log("request", request.data, playerId);
 
@@ -58,6 +59,7 @@ export const registerAttempt = onCall(async (request) => {
       isBonus,
       attemptNumber,
       answeredAt: FieldValue.serverTimestamp(),
+      clientAnsweredAt: typeof clientAnsweredAt === "number" ? new Date(clientAnsweredAt) : null,
     });
 
     // 4. Accumulate score on player document (only when points are actually awarded)

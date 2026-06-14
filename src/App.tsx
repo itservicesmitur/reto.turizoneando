@@ -23,6 +23,7 @@ const AdminsPage = lazy(() => import('./pages/admin/AdminsPage'))
 const SeasonsPage = lazy(() => import('./pages/admin/SeasonsPage'))
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
 const CodesPage = lazy(() => import('./pages/admin/CodesPage'))
+const AttemptsLogPage = lazy(() => import('./pages/admin/AttemptsLogPage'))
 const PublicValidationPage = lazy(() => import('./pages/PublicValidationPage'))
 
 
@@ -176,6 +177,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={null}>
                 <CodesPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'live',
+            element: (
+              <Suspense fallback={null}>
+                <AttemptsLogPage />
               </Suspense>
             ),
           },

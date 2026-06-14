@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/players', icon: 'ri-group-line', labelKey: 'adminNav.players' },
   { to: '/admin/admins', icon: 'ri-shield-user-line', labelKey: 'adminNav.admins' },
   { to: '/admin/codes', icon: 'ri-ticket-line', labelKey: 'adminNav.codes' },
+  { to: '/admin/live', icon: 'ri-pulse-line', labelKey: 'adminNav.live' },
 ]
 
 export default function AdminLayout() {

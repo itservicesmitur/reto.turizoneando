@@ -29,6 +29,8 @@ setGlobalOptions({ maxInstances: 10 });
 
 
 export { getPlayers } from "./admin/getPlayers";
+export { getPlayerAttempts } from "./admin/getPlayerAttempts";
+export { resetPlayer } from "./admin/resetPlayer";
 export {
   getAdmins,
   createAdmin,

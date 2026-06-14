@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions'
-import { doc, getDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where, orderBy } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore'
 import { functions, db } from '../config/firebase'
 
 
@@ -65,6 +65,15 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
   }
 }
 
+export async function resetPlayerProgress(uid: string): Promise<{ attemptsDeleted: number }> {
+  const fn = httpsCallable<{ playerId: string }, { success: boolean; attemptsDeleted: number }>(
+    functions,
+    'resetPlayer'
+  )
+  const response = await fn({ playerId: uid })
+  return { attemptsDeleted: response.data.attemptsDeleted }
+}
+
 export async function updatePlayerBannedStatus(uid: string, banned: boolean): Promise<void> {
   const docRef = doc(db, 'players', uid)
   await updateDoc(docRef, { banned })
@@ -89,6 +98,10 @@ export interface AttemptData {
   isBonus: boolean
   attemptNumber: number
   answeredAt: string | null
+  clientAnsweredAt: string | null
+  stopName: string
+  stopNameEn: string
+  stageNumber: number | null
 }
 
 export interface QuestionAttemptSummary {
@@ -96,6 +109,9 @@ export interface QuestionAttemptSummary {
   questionText: string
   questionTextEn: string
   stopId: string
+  stopName: string
+  stopNameEn: string
+  stageNumber: number | null
   isBonus: boolean
   totalAttempts: number
   solved: boolean
@@ -105,30 +121,12 @@ export interface QuestionAttemptSummary {
 }
 
 export async function fetchPlayerAttempts(playerId: string): Promise<QuestionAttemptSummary[]> {
-  const attemptsRef = collection(db, 'players', playerId, 'attempts')
-  const snap = await getDocs(query(attemptsRef, orderBy('answeredAt', 'asc')))
-
-  const attempts: AttemptData[] = snap.docs.map(docSnap => {
-    const d = docSnap.data()
-    let answeredAt: string | null = null
-    if (d.answeredAt?.toDate) answeredAt = d.answeredAt.toDate().toISOString()
-    else if (typeof d.answeredAt?.seconds === 'number') answeredAt = new Date(d.answeredAt.seconds * 1000).toISOString()
-    return {
-      id: docSnap.id,
-      questionId: d.questionId || '',
-      stopId: d.stopId || '',
-      seasonId: d.seasonId || '',
-      questionText: d.questionText || '',
-      questionTextEn: d.questionTextEn || '',
-      selectedIndex: typeof d.selectedIndex === 'number' ? d.selectedIndex : -1,
-      correct: d.correct === true,
-      timeMs: typeof d.timeMs === 'number' ? d.timeMs : 0,
-      pointsAwarded: typeof d.pointsAwarded === 'number' ? d.pointsAwarded : 0,
-      isBonus: d.isBonus === true,
-      attemptNumber: typeof d.attemptNumber === 'number' ? d.attemptNumber : 1,
-      answeredAt,
-    }
-  })
+  const getPlayerAttemptsFn = httpsCallable<{ playerId: string }, { attempts: AttemptData[] }>(
+    functions,
+    'getPlayerAttempts'
+  )
+  const response = await getPlayerAttemptsFn({ playerId })
+  const attempts: AttemptData[] = response.data.attempts
 
   // Group by questionId preserving first-seen order
   const order: string[] = []
@@ -155,6 +153,9 @@ export async function fetchPlayerAttempts(playerId: string): Promise<QuestionAtt
       questionText: first.questionText,
       questionTextEn: first.questionTextEn,
       stopId: first.stopId,
+      stopName: first.stopName,
+      stopNameEn: first.stopNameEn,
+      stageNumber: first.stageNumber,
       isBonus: first.isBonus,
       totalAttempts: qAttempts.length,
       solved,
