@@ -32,6 +32,7 @@ interface MapBoardProps {
   visibleStage?: number
   completedStops?: boolean[]
   onLockedStopClick?: (info: { stageIdx: number; isStageBlocked: boolean; availableStopName: string }) => void
+  stageGroups?: number[][]
 }
 
 interface BoatInstance {
@@ -72,7 +73,7 @@ interface SeagullInstance {
 let isGoogleMapsInitialized = false
 
 const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
-  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick },
+  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [] },
   ref
 ) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -88,7 +89,9 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
   completedStopsRef.current = completedStops
   const onLockedStopClickRef = useRef(onLockedStopClick)
   onLockedStopClickRef.current = onLockedStopClick
-  const stageFirstPositionsRef = useRef<Array<{ lat: number; lng: number }>>([null!, null!, null!])
+  const stageGroupsRef = useRef<number[][]>(stageGroups)
+  stageGroupsRef.current = stageGroups
+  const stageFirstPositionsRef = useRef<Array<{ lat: number; lng: number }>>([]);
   const monumentsRef = useRef<Monumento[]>(monuments)
   const advancedMarkerClassRef = useRef<any>(null)
   const userLocationMarkerRef = useRef<any>(null)
@@ -500,9 +503,13 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             markerDiv.style.cssText = 'width:120px;height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'
             markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current)
 
-            const stageIdx = Math.floor(index / 4)
+            const gs = stageGroupsRef.current
+            const stageIdx = gs.length > 0
+              ? gs.findIndex(g => g.includes(index))
+              : Math.floor(index / 4)
 
-            if (index % 4 === 0) {
+            const isFirstInStage = gs.length > 0 ? gs[stageIdx]?.[0] === index : index % 4 === 0
+            if (isFirstInStage) {
               stageFirstPositionsRef.current[stageIdx] = { lat: monumento.lat, lng: monumento.lng }
             }
 
@@ -518,12 +525,23 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
               }
 
               const current = completedStopsRef.current
-              const stageStart = stageIdx * 4
+              const gsCurrent = stageGroupsRef.current
               const isCompleted = current[index] ?? false
-              const prevStagesDone = stageIdx === 0 ? true : current.slice(0, stageStart).every(Boolean)
-              let activeStage = 2
-              for (let s = 0; s < 3; s++) {
-                if (!current.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStage = s; break }
+              const prevStagesDone = stageIdx === 0 ? true
+                : gsCurrent.length > 0
+                  ? gsCurrent.slice(0, stageIdx).every(g => g.every(i => current[i]))
+                  : current.slice(0, stageIdx * 4).every(Boolean)
+              let activeStage: number
+              if (gsCurrent.length > 0) {
+                activeStage = gsCurrent.length - 1
+                for (let s = 0; s < gsCurrent.length; s++) {
+                  if (!gsCurrent[s].every(i => current[i])) { activeStage = s; break }
+                }
+              } else {
+                activeStage = 2
+                for (let s = 0; s < 3; s++) {
+                  if (!current.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStage = s; break }
+                }
               }
               const isAvailable = !isCompleted && prevStagesDone && stageIdx === activeStage
 

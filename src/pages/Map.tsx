@@ -19,7 +19,6 @@ import RallyRules from '../features/map/menu/RallyRules'
 import PrivacyTerms from '../features/map/menu/PrivacyTerms'
 import AboutApp from '../features/map/menu/AboutApp'
 
-const STOPS_PER_STAGE = 4
 const COINS_PER_STOP  = 100
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
@@ -239,6 +238,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const mapControlsRef = useRef<MapBoardHandle>(null)
 
   const [firestoreStops, setFirestoreStops] = useState<StopData[]>([])
+  const [stageGroups, setStageGroups] = useState<number[][]>([])
   const [monuments, setMonuments] = useState<Monumento[] | null>(null)
 
   useEffect(() => {
@@ -292,7 +292,16 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         console.log('Payload completo:', { season: activeSeason, stops: stopsWithQuestions })
         console.groupEnd()
 
+        // Agrupar índices de paradas por etapa, respetando el orden de activeSeason.stages
+        const stageOrder = activeSeason.stages.map(s => s.id)
+        const groups: number[][] = activeSeason.stages.map(() => [])
+        stopsWithQuestions.forEach((stop, idx) => {
+          const si = stageOrder.indexOf(stop.stageId)
+          if (si >= 0) groups[si].push(idx)
+        })
+
         setFirestoreStops(stopsWithQuestions)
+        setStageGroups(groups)
         const mapped = stopsWithQuestions.map(stopToMonumento)
         setMonuments(mapped)
         setCompletedStops(Array(mapped.length).fill(false))
@@ -312,25 +321,23 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   >(null)
 
   const activeStageIndex = useMemo(() => {
-    const stageCount = Math.ceil((monuments?.length ?? 0) / STOPS_PER_STAGE) || 1
-    for (let s = 0; s < stageCount - 1; s++) {
-      if (!completedStops.slice(s * STOPS_PER_STAGE, (s + 1) * STOPS_PER_STAGE).every(Boolean)) return s
+    for (let s = 0; s < stageGroups.length; s++) {
+      if (!stageGroups[s].every(i => completedStops[i])) return s
     }
-    return stageCount - 1
-  }, [completedStops, monuments])
+    return Math.max(stageGroups.length - 1, 0)
+  }, [completedStops, stageGroups])
 
   useEffect(() => {
     setExpandedStage(activeStageIndex)
   }, [activeStageIndex])
 
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
-    const stageCount = Math.ceil((monuments?.length ?? 0) / STOPS_PER_STAGE)
-    return Array.from({ length: stageCount }, (_, idx) => {
-      const allDone = completedStops.slice(idx * STOPS_PER_STAGE, (idx + 1) * STOPS_PER_STAGE).every(Boolean)
+    return stageGroups.map((group, idx) => {
+      const allDone = group.length > 0 && group.every(i => completedStops[i])
       const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
       return { roman: ROMAN[idx] ?? String(idx + 1), status }
     })
-  }, [completedStops, activeStageIndex, monuments])
+  }, [completedStops, activeStageIndex, stageGroups])
 
   const { t, i18n } = useTranslation()
 
@@ -355,10 +362,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   const selectedMonumentIsAvailable = useMemo(() => {
     if (!selectedMonument || selectedStopIndex < 0 || completedStops[selectedStopIndex]) return false
-    const stageIdx = Math.floor(selectedStopIndex / STOPS_PER_STAGE)
-    const prevStagesDone = stageIdx === 0 ? true : completedStops.slice(0, stageIdx * STOPS_PER_STAGE).every(Boolean)
+    const stageIdx = stageGroups.findIndex(g => g.includes(selectedStopIndex))
+    if (stageIdx < 0) return false
+    const prevStagesDone = stageIdx === 0 || stageGroups.slice(0, stageIdx).every(g => g.every(i => completedStops[i]))
     return prevStagesDone && stageIdx === activeStageIndex
-  }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex])
+  }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups])
 
   useEffect(() => {
     if (!selectedMonument || !selectedMonumentIsAvailable || locationGranted) return
@@ -448,14 +456,14 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     const prev = prevCompletedStopsRef.current
     prevCompletedStopsRef.current = completedStops
     if (prev === completedStops) return
-    const stageStart = activeStageIndex * STOPS_PER_STAGE
-    for (let i = stageStart; i < stageStart + STOPS_PER_STAGE; i++) {
+    const stageStops = stageGroups[activeStageIndex] ?? []
+    for (const i of stageStops) {
       if (!completedStops[i]) {
         mapControlsRef.current?.focusOnStop(i)
         break
       }
     }
-  }, [completedStops, activeStageIndex])
+  }, [completedStops, activeStageIndex, stageGroups])
 
   const handleLockedStopClick = useCallback((info: {
     stageIdx: number
@@ -803,6 +811,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             visibleStage={expandedStage ?? 0}
             completedStops={completedStops}
             onLockedStopClick={handleLockedStopClick}
+            stageGroups={stageGroups}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>
