@@ -1,16 +1,18 @@
 import { useTranslation } from 'react-i18next'
 import { useQuizFlow } from './useQuizFlow'
 import GameButton from './GameButton'
+import type { QuizQuestion } from '../types/quiz.types'
 
 interface Props {
-  stopIndex: number
+  stopId: string
+  questions: QuizQuestion[]
   onComplete: () => void
   onClose: () => void
 }
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
-export default function QuizCard({ stopIndex, onComplete, onClose }: Props) {
+export default function QuizCard({ stopId, questions, onComplete, onClose }: Props) {
   const { t } = useTranslation()
   const {
     question,
@@ -25,7 +27,7 @@ export default function QuizCard({ stopIndex, onComplete, onClose }: Props) {
     skipIntro,
     handleCheck,
     handleContinueWrong,
-  } = useQuizFlow({ stopIndex, onComplete })
+  } = useQuizFlow({ stopId, questions, onComplete })
 
   return (
     <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-xs p-0">
@@ -147,7 +149,7 @@ export default function QuizCard({ stopIndex, onComplete, onClose }: Props) {
                 className="text-center font-bold leading-relaxed mt-1"
                 style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '18px' }}
               >
-                ¿{question.question.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
+                ¿{question.text.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
               </p>
 
               {/* Options */}

@@ -4,8 +4,8 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 import type { Monumento, RouteInfo, MapBoardHandle } from './types/map.types'
-import { COLONIAL_ZONE_COORDS, MONUMENTS_DATA } from './data/monumentsData'
-import { haversineM, ptSegDistM, computeLastMilePath, getRemainingRoute } from './utils/geo'
+import { COLONIAL_ZONE_COORDS } from './data/monumentsData'
+import { computeLastMilePath, getRemainingRoute } from './utils/geo'
 import { updateXStroke, createDotElement, buildMarkerHTML } from './utils/mapHelpers'
 import { createProceduralBoat } from './three/boat'
 import type { BoatColorTheme } from './three/boat'
@@ -23,6 +23,7 @@ declare global {
 }
 
 interface MapBoardProps {
+  monuments: Monumento[]
   onSelectMonument: (monumento: Monumento | null) => void
   selectedMonument: Monumento | null
   onLoadComplete?: () => void
@@ -71,7 +72,7 @@ interface SeagullInstance {
 let isGoogleMapsInitialized = false
 
 const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
-  { onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick },
+  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick },
   ref
 ) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -88,6 +89,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
   const onLockedStopClickRef = useRef(onLockedStopClick)
   onLockedStopClickRef.current = onLockedStopClick
   const stageFirstPositionsRef = useRef<Array<{ lat: number; lng: number }>>([null!, null!, null!])
+  const monumentsRef = useRef<Monumento[]>(monuments)
   const advancedMarkerClassRef = useRef<any>(null)
   const userLocationMarkerRef = useRef<any>(null)
   const watchIdRef = useRef<number | null>(null)
@@ -492,7 +494,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             map,
           })
 
-          MONUMENTS_DATA.forEach((monumento, index) => {
+          monumentsRef.current.forEach((monumento, index) => {
             const markerDiv = document.createElement('div')
             markerDiv.className = 'treasure-pin-container'
             markerDiv.style.cssText = 'width:120px;height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'

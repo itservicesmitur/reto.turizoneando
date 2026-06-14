@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import MapBoard, { type MapBoardHandle, type RouteInfo } from '../features/map/MapBoard'
+import LocationGate from '../features/map/LocationGate'
 import type { Monumento } from '../features/map/types/map.types'
-import { MONUMENTS_DATA } from '../features/map/data/monumentsData'
+import { fetchStopsList, fetchQuestionsForStop, type StopData } from '../services/adminService'
+import type { QuizQuestion } from '../features/map/types/quiz.types'
 import QuizCard from '../features/map/quiz/QuizCard'
 import HistoryCard from '../features/map/quiz/HistoryCard'
 import RouletteCard from '../features/map/quiz/RouletteCard'
@@ -19,6 +21,26 @@ import AboutApp from '../features/map/menu/AboutApp'
 
 const STOPS_PER_STAGE = 4
 const COINS_PER_STOP  = 100
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+
+function stopToMonumento(stop: StopData): Monumento {
+  return {
+    nombre: stop.name,
+    lat: stop.lat,
+    lng: stop.lng,
+    icono: '⚓',
+    imagen: stop.imageUrl || '',
+    categoria: '',
+    horario: '',
+    abiertoInfo: '',
+    esGratis: false,
+    costo: '',
+    rating: 0,
+    reviews: 0,
+    descripcion: stop.narration,
+    stopId: stop.id,
+  }
+}
 
 function formatDuration(min: number): string {
   if (min < 60) return `${min} min`
@@ -39,15 +61,172 @@ type MenuView =
   | 'progress' | 'my_prizes'
   | 'rally_rules' | 'privacy' | 'about'
 
+type QuizStopData = {
+  stopId: string
+  narration: string
+  audioUrl?: string
+  questions: QuizQuestion[]
+}
+
 type QuizStep =
   | { step: 'idle' }
-  | { step: 'history';  stopIndex: number; monument: Monumento }
-  | { step: 'quiz';     stopIndex: number; monument: Monumento }
+  | { step: 'history';  stopIndex: number; monument: Monumento; quizData: QuizStopData }
+  | { step: 'quiz';     stopIndex: number; monument: Monumento; quizData: QuizStopData }
   | { step: 'roulette'; stopIndex: number; monument: Monumento }
   | { step: 'prize';    stopIndex: number; monument: Monumento }
   | { step: 'levelup';  stopIndex: number; monument: Monumento }
 
 export default function Map() {
+  const [locationGranted, setLocationGranted] = useState(false)
+  const [locationDenied, setLocationDenied] = useState(false)
+  const [showLocationGate, setShowLocationGate] = useState(false)
+  const [locationToggleMsg, setLocationToggleMsg] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [menuView, setMenuView] = useState<MenuView>('main')
+  const [menuBtnAnimating, setMenuBtnAnimating] = useState(false)
+
+  // ── Geolocation: initial check (runs once on mount, controls LocationGate modal) ──
+  useEffect(() => {
+    if (!navigator.geolocation) { setLocationGranted(true); return }
+
+    const tryCurrentPosition = () => {
+      navigator.geolocation.getCurrentPosition(
+        () => setLocationGranted(true),
+        () => { setLocationDenied(true); setShowLocationGate(true) },
+        { enableHighAccuracy: false, timeout: 3000 }
+      )
+    }
+
+    const query = navigator.permissions?.query
+    if (typeof query === 'function') {
+      query({ name: 'geolocation' as PermissionName })
+        .then(status => {
+          if (status.state === 'granted') {
+            // Verificar que la ubicación del dispositivo también esté activa
+            navigator.geolocation.getCurrentPosition(
+              () => setLocationGranted(true),
+              () => { setLocationDenied(true); setShowLocationGate(true) },
+              { enableHighAccuracy: false, timeout: 3000 }
+            )
+          } else if (status.state === 'denied') {
+            setLocationDenied(true)
+            setShowLocationGate(true)
+          }
+          // 'prompt' → no mostrar banner, el usuario explora libremente
+        })
+        .catch(tryCurrentPosition)
+    } else {
+      // Fallback (Safari): intentar silenciosamente
+      tryCurrentPosition()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Geolocation: real-time sync (toggle only, NEVER the modal) ──
+  useEffect(() => {
+    if (!navigator.geolocation) return
+
+    let permissionStatus: PermissionStatus | null = null
+
+    const syncToggle = () => {
+      const query = navigator.permissions?.query
+      if (typeof query === 'function') {
+        query({ name: 'geolocation' as PermissionName })
+          .then(s => {
+            setLocationGranted(s.state === 'granted')
+            setLocationDenied(s.state === 'denied')
+            setLocationToggleMsg(false)
+          })
+          .catch(() => {})
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          () => { setLocationGranted(true); setLocationDenied(false); setLocationToggleMsg(false) },
+          () => { setLocationGranted(false); setLocationToggleMsg(false) },
+          { enableHighAccuracy: false, timeout: 2000 }
+        )
+      }
+    }
+
+    // Listener nativo del PermissionStatus (instantáneo en Chrome)
+    const handleChange = (e: Event) => {
+      const s = (e.target as PermissionStatus).state
+      setLocationGranted(s === 'granted')
+      setLocationDenied(s === 'denied')
+      setLocationToggleMsg(false)
+    }
+
+    const query = navigator.permissions?.query
+    if (typeof query === 'function') {
+      query({ name: 'geolocation' as PermissionName })
+        .then(status => {
+          permissionStatus = status
+          if (typeof status.addEventListener === 'function') {
+            status.addEventListener('change', handleChange)
+          } else {
+            status.onchange = handleChange
+          }
+        })
+        .catch(() => {})
+    }
+
+    // Fallback: re-check cuando el usuario vuelve a la ventana o a la pestaña
+    const handleVisibility = () => { if (document.visibilityState === 'visible') syncToggle() }
+    window.addEventListener('focus', syncToggle)
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      window.removeEventListener('focus', syncToggle)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      if (permissionStatus) {
+        if (typeof permissionStatus.removeEventListener === 'function') {
+          permissionStatus.removeEventListener('change', handleChange)
+        } else {
+          permissionStatus.onchange = null
+        }
+      }
+    }
+  }, [])
+
+  // Re-sync toggle mientras el menú esté abierto (polling cada 1.5s)
+  useEffect(() => {
+    if (!showMenu || !navigator.geolocation) return
+
+    let prevGranted: boolean | null = null
+
+    const checkPermission = () => {
+      const query = navigator.permissions?.query
+      if (typeof query === 'function') {
+        query({ name: 'geolocation' as PermissionName })
+          .then(s => {
+            const nowGranted = s.state === 'granted'
+            if (prevGranted !== null && prevGranted !== nowGranted) setLocationToggleMsg(false)
+            prevGranted = nowGranted
+            setLocationGranted(nowGranted)
+            setLocationDenied(s.state === 'denied')
+          })
+          .catch(() => {})
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            if (prevGranted !== null && !prevGranted) setLocationToggleMsg(false)
+            prevGranted = true
+            setLocationGranted(true)
+          },
+          () => {
+            if (prevGranted !== null && prevGranted) setLocationToggleMsg(false)
+            prevGranted = false
+            setLocationGranted(false)
+          },
+          { enableHighAccuracy: false, timeout: 2000 }
+        )
+      }
+    }
+
+    checkPermission() // inmediato al abrir
+    const interval = setInterval(checkPermission, 1500)
+    return () => clearInterval(interval)
+  }, [showMenu])
+
   const [selectedMonument, setSelectedMonument] = useState<Monumento | null>(null)
   const [mapLoading, setMapLoading] = useState(true)
   const [mapReady, setMapReady] = useState(false)
@@ -59,7 +238,26 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [expandedStage, setExpandedStage] = useState<number | null>(0)
   const mapControlsRef = useRef<MapBoardHandle>(null)
 
-  const [completedStops, setCompletedStops] = useState<boolean[]>(Array(MONUMENTS_DATA.length).fill(false))
+  const [firestoreStops, setFirestoreStops] = useState<StopData[]>([])
+  const [monuments, setMonuments] = useState<Monumento[] | null>(null)
+
+  useEffect(() => {
+    fetchStopsList()
+      .then(stops => {
+        const sorted = [...stops].sort((a, b) => a.order - b.order)
+        const active = sorted.filter(s => s.active)
+        setFirestoreStops(active)
+        const mapped = active.map(stopToMonumento)
+        setMonuments(mapped)
+        setCompletedStops(Array(mapped.length).fill(false))
+      })
+      .catch(() => {
+        setMonuments([])
+        setCompletedStops([])
+      })
+  }, [])
+
+  const [completedStops, setCompletedStops] = useState<boolean[]>([])
   const [lockedAlert, setLockedAlert] = useState<
     { type: 'stage'; blockedStageIdx: number } |
     { type: 'stop'; availableStopName: string } |
@@ -67,35 +265,30 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   >(null)
 
   const activeStageIndex = useMemo(() => {
-    const stageCount = MONUMENTS_DATA.length / STOPS_PER_STAGE
+    const stageCount = Math.ceil((monuments?.length ?? 0) / STOPS_PER_STAGE) || 1
     for (let s = 0; s < stageCount - 1; s++) {
       if (!completedStops.slice(s * STOPS_PER_STAGE, (s + 1) * STOPS_PER_STAGE).every(Boolean)) return s
     }
     return stageCount - 1
-  }, [completedStops])
+  }, [completedStops, monuments])
 
   useEffect(() => {
     setExpandedStage(activeStageIndex)
   }, [activeStageIndex])
 
-  const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => [
-    { roman: 'I'   },
-    { roman: 'II'  },
-    { roman: 'III' },
-  ].map((s, idx) => {
-    const allDone = completedStops.slice(idx * STOPS_PER_STAGE, (idx + 1) * STOPS_PER_STAGE).every(Boolean)
-    const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
-    return { ...s, status }
-  }), [completedStops, activeStageIndex])
+  const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
+    const stageCount = Math.ceil((monuments?.length ?? 0) / STOPS_PER_STAGE)
+    return Array.from({ length: stageCount }, (_, idx) => {
+      const allDone = completedStops.slice(idx * STOPS_PER_STAGE, (idx + 1) * STOPS_PER_STAGE).every(Boolean)
+      const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
+      return { roman: ROMAN[idx] ?? String(idx + 1), status }
+    })
+  }, [completedStops, activeStageIndex, monuments])
 
   const { t, i18n } = useTranslation()
 
   // ── Menu pantalla completa ────────────────────────────────────
-  const [showMenu, setShowMenu] = useState(false)
-  const [menuView, setMenuView] = useState<MenuView>('main')
-  const [menuBtnAnimating, setMenuBtnAnimating] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [locationEnabled, setLocationEnabled] = useState(true)
   const [soundLevel, setSoundLevel] = useState(75)
 
   const openMenu = useCallback(() => {
@@ -109,9 +302,9 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [quizFlow, setQuizFlow] = useState<QuizStep>({ step: 'idle' })
 
   const selectedStopIndex = useMemo(() => {
-    if (!selectedMonument) return -1
-    return MONUMENTS_DATA.findIndex(m => m.nombre === selectedMonument.nombre)
-  }, [selectedMonument])
+    if (!selectedMonument || !monuments) return -1
+    return monuments.findIndex(m => m.nombre === selectedMonument.nombre)
+  }, [selectedMonument, monuments])
 
   const selectedMonumentIsAvailable = useMemo(() => {
     if (!selectedMonument || selectedStopIndex < 0 || completedStops[selectedStopIndex]) return false
@@ -120,13 +313,67 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     return prevStagesDone && stageIdx === activeStageIndex
   }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex])
 
-  const handleStartQuiz = useCallback(() => {
+  useEffect(() => {
+    if (!selectedMonument || !selectedMonumentIsAvailable || locationGranted) return
+    if (locationDenied) {
+      setShowLocationGate(true)
+    } else {
+      // 'prompt': pedir permiso con diálogo nativo directamente
+      navigator.geolocation?.getCurrentPosition(
+        () => setLocationGranted(true),
+        () => { setLocationDenied(true); setShowLocationGate(true) },
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    }
+  }, [selectedMonument, selectedMonumentIsAvailable, locationGranted, locationDenied])
+
+  const handleStartQuiz = useCallback(async () => {
     if (!selectedMonument || selectedStopIndex < 0) return
-    setQuizFlow({ step: 'history', stopIndex: selectedStopIndex, monument: selectedMonument })
-  }, [selectedMonument, selectedStopIndex])
+
+    const stopId = selectedMonument.stopId
+    if (!stopId) return
+
+    let narration = ''
+    let audioUrl: string | undefined = undefined
+    let questions: QuizQuestion[] = []
+
+    try {
+      const lang = i18n.language
+      const firestoreStop = firestoreStops.find(s => s.id === stopId)
+      const firestoreQuestions = await fetchQuestionsForStop(stopId)
+
+      if (firestoreStop) {
+        narration = (lang === 'en' && firestoreStop.narrationEn)
+          ? firestoreStop.narrationEn
+          : firestoreStop.narration
+        audioUrl = (lang === 'en' ? firestoreStop.audioUrlEn : firestoreStop.audioUrl) || undefined
+      }
+
+      if (firestoreQuestions.length > 0) {
+        questions = firestoreQuestions.map(q => ({
+          text: (lang === 'en' && q.textEn) ? q.textEn : q.text,
+          options: (lang === 'en' && q.optionsEn?.length ? q.optionsEn : q.options) as [string, string, string, string],
+          correctIndex: q.correctIndex,
+        }))
+      }
+    } catch {
+      // si Firestore falla, questions queda vacío
+    }
+
+    if (questions.length === 0) return
+
+    const quizData: QuizStopData = {
+      stopId,
+      narration,
+      audioUrl,
+      questions,
+    }
+
+    setQuizFlow({ step: 'history', stopIndex: selectedStopIndex, monument: selectedMonument, quizData })
+  }, [selectedMonument, selectedStopIndex, firestoreStops, i18n])
 
   const handleQuizComplete = useCallback((stopIndex: number, monument: Monumento) => {
-    const isLastStop = stopIndex === MONUMENTS_DATA.length - 1
+    const isLastStop = stopIndex === (monuments?.length ?? 0) - 1
     if (isLastStop) {
       setQuizFlow({ step: 'roulette', stopIndex, monument })
     } else {
@@ -321,7 +568,19 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           >
             {/* Etapas */}
             <div className="flex items-center gap-2">
-              {stages.map((stage, idx) => {
+              {monuments === null && (
+                <div className="flex items-center gap-1.5 px-3">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--color-map-gold)', borderTopColor: 'transparent' }} />
+                  <span className="text-[10px] font-bold text-map-gold uppercase tracking-wider">{t('map.loading_title')}</span>
+                </div>
+              )}
+              {monuments !== null && monuments.length === 0 && (
+                <div className="h-8 flex items-center gap-1.5 px-4 rounded-full border border-map-gold bg-map-wood-mid">
+                  <i className="ri-map-pin-off-line text-xs text-map-gold shrink-0" />
+                  <span className="text-[10px] font-bold text-map-gold uppercase tracking-wider whitespace-nowrap">{t('map.no_stops')}</span>
+                </div>
+              )}
+              {monuments !== null && monuments.length > 0 && stages.map((stage, idx) => {
                 const open = expandedStage === idx
                 const toggle = () => {
                   if (stage.status === 'locked') {
@@ -481,16 +740,23 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       {/* ── Tablero del Mapa ─────────────────────────────────────── */}
       <main className="h-full w-full">
-        <MapBoard
-          ref={mapControlsRef}
-          onSelectMonument={setSelectedMonument}
-          selectedMonument={selectedMonument}
-          onLoadComplete={() => setMapReady(true)}
-          startIntroAnimation={!mapLoading}
-visibleStage={expandedStage ?? 0}
-          completedStops={completedStops}
-          onLockedStopClick={handleLockedStopClick}
-        />
+        {monuments !== null ? (
+          <MapBoard
+            ref={mapControlsRef}
+            monuments={monuments}
+            onSelectMonument={setSelectedMonument}
+            selectedMonument={selectedMonument}
+            onLoadComplete={() => setMapReady(true)}
+            startIntroAnimation={!mapLoading}
+            visibleStage={expandedStage ?? 0}
+            completedStops={completedStops}
+            onLockedStopClick={handleLockedStopClick}
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: 'var(--color-map-gold)', borderTopColor: 'transparent' }} />
+          </div>
+        )}
       </main>
 
 
@@ -608,10 +874,12 @@ visibleStage={expandedStage ?? 0}
 
       {/* ── Quiz Flow ────────────────────────────────────────────── */}
       {quizFlow.step === 'history' && (() => {
-        const advance = () => setQuizFlow({ step: 'quiz', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument })
+        const advance = () => setQuizFlow({ step: 'quiz', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, quizData: quizFlow.quizData })
         return (
           <HistoryCard
             stopIndex={quizFlow.stopIndex}
+            narration={quizFlow.quizData.narration}
+            audioUrl={quizFlow.quizData.audioUrl}
             monumentName={quizFlow.monument.nombre}
             monumentImage={quizFlow.monument.imagen}
             onSkip={advance}
@@ -621,7 +889,8 @@ visibleStage={expandedStage ?? 0}
       })()}
       {quizFlow.step === 'quiz' && (
         <QuizCard
-          stopIndex={quizFlow.stopIndex}
+          stopId={quizFlow.quizData.stopId}
+          questions={quizFlow.quizData.questions}
           onComplete={() => handleQuizComplete(quizFlow.stopIndex, quizFlow.monument)}
           onClose={() => setQuizFlow({ step: 'idle' })}
         />
@@ -747,19 +1016,63 @@ visibleStage={expandedStage ?? 0}
                   </button>
                 </div>
                 {/* Ubicación */}
-                <div className="flex items-center gap-3.5 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(168,127,42,0.12)' }}>
-                  <i className="ri-map-pin-2-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
-                  <span className="text-sm font-semibold text-map-wood-dark flex-1">{t('map.menu_location')}</span>
-                  <button
-                    onClick={() => setLocationEnabled(p => !p)}
-                    className="relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    style={{ background: locationEnabled ? 'var(--color-map-wood-dark)' : 'var(--color-map-tan)' }}
-                  >
-                    <span
-                      className="absolute top-0.5 rounded-full shadow transition-all duration-200"
-                      style={{ width: '20px', height: '20px', background: 'var(--color-map-gold-light)', left: locationEnabled ? 'calc(100% - 22px)' : '2px' }}
-                    />
-                  </button>
+                <div className="flex flex-col" style={{ borderBottom: '1px solid rgba(168,127,42,0.12)' }}>
+                  <div className="flex items-center gap-3.5 px-4 py-3.5">
+                    <i className="ri-map-pin-2-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
+                    <span className="text-sm font-semibold text-map-wood-dark flex-1">{t('map.menu_location')}</span>
+                    <button
+                      onClick={() => {
+                        if (locationGranted) {
+                          // No se puede revocar por JS — mostrar/ocultar hint
+                          setLocationToggleMsg(p => !p)
+                        } else if (!navigator.geolocation) {
+                          setLocationGranted(true)
+                        } else {
+                          navigator.permissions?.query({ name: 'geolocation' as PermissionName })
+                            .then(result => {
+                              if (result.state === 'granted') {
+                                // Ya tiene permiso — sincronizar toggle sin popup
+                                setLocationGranted(true)
+                                setLocationToggleMsg(false)
+                              } else if (result.state === 'prompt') {
+                                // Lanza el diálogo nativo del navegador
+                                navigator.geolocation.getCurrentPosition(
+                                  () => { setLocationGranted(true); setLocationToggleMsg(false) },
+                                  () => {},
+                                  { enableHighAccuracy: true, timeout: 10000 }
+                                )
+                              } else {
+                                // denied — solo hint inline, sin popup
+                                setLocationToggleMsg(true)
+                              }
+                            })
+                            .catch(() => {
+                              // Sin API de permisos (Safari) — intentar directamente
+                              navigator.geolocation.getCurrentPosition(
+                                () => { setLocationGranted(true); setLocationToggleMsg(false) },
+                                () => { setLocationToggleMsg(true) },
+                                { enableHighAccuracy: true, timeout: 10000 }
+                              )
+                            })
+                        }
+                      }}
+                      className="relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0"
+                      style={{ background: locationGranted ? 'var(--color-map-wood-dark)' : 'var(--color-map-tan)' }}
+                    >
+                      <span
+                        className="absolute top-0.5 rounded-full shadow transition-all duration-200"
+                        style={{ width: '20px', height: '20px', background: 'var(--color-map-gold-light)', left: locationGranted ? 'calc(100% - 22px)' : '2px' }}
+                      />
+                    </button>
+                  </div>
+                  {locationToggleMsg && (
+                    <div className="flex items-center gap-2 px-4 pb-3 animate-fade-in">
+                      <i className="ri-alert-line text-sm shrink-0" style={{ color: 'var(--color-map-gold)' }} />
+                      <p className="text-[11px] leading-snug flex-1 font-semibold" style={{ color: 'var(--color-map-gold)' }}>
+                        {t(locationGranted ? 'map.location_disable_hint' : 'map.location_denied_hint')}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 {/* Sonido de Narración */}
                 <div className="flex items-center gap-3.5 px-4 py-4">
@@ -866,6 +1179,14 @@ visibleStage={expandedStage ?? 0}
       {showMenu && menuView === 'rally_rules'     && <RallyRules    onBack={() => setMenuView('main')} />}
       {showMenu && menuView === 'privacy'         && <PrivacyTerms  onBack={() => setMenuView('main')} />}
       {showMenu && menuView === 'about'           && <AboutApp      onBack={() => setMenuView('main')} />}
+
+      {/* ── Location Gate ────────────────────────────────────────── */}
+      {showLocationGate && !mapLoading && (
+        <LocationGate
+          onGranted={() => { setLocationGranted(true); setLocationDenied(false); setShowLocationGate(false) }}
+          onDismiss={() => setShowLocationGate(false)}
+        />
+      )}
 
       {/* ── Card de alerta: parada/etapa bloqueada ─────────────── */}
       {lockedAlert && (

@@ -1,62 +1,50 @@
 import { useState, useEffect } from 'react'
-import { STOP_QUIZ_DATA } from '../data/quizData'
-
-/** Gestiona el flujo de preguntas, validación de respuestas y persistencia del progreso por parada. */
-
-// ── Persistencia en localStorage ──────────────────────────────────────────────
+import type { QuizQuestion } from '../types/quiz.types'
 
 type QuizSave = { questionIdx: number; wrongAnswer: number | null }
 
-function loadProgress(stopIndex: number): QuizSave | null {
+function loadProgress(stopId: string): QuizSave | null {
   try {
-    const raw = localStorage.getItem(`quiz_progress_${stopIndex}`)
+    const raw = localStorage.getItem(`quiz_progress_${stopId}`)
     return raw ? (JSON.parse(raw) as QuizSave) : null
   } catch { return null }
 }
 
-function saveProgress(stopIndex: number, questionIdx: number, wrongAnswer: number | null) {
-  localStorage.setItem(`quiz_progress_${stopIndex}`, JSON.stringify({ questionIdx, wrongAnswer }))
+function saveProgress(stopId: string, questionIdx: number, wrongAnswer: number | null) {
+  localStorage.setItem(`quiz_progress_${stopId}`, JSON.stringify({ questionIdx, wrongAnswer }))
 }
 
-function clearProgress(stopIndex: number) {
-  localStorage.removeItem(`quiz_progress_${stopIndex}`)
+function clearProgress(stopId: string) {
+  localStorage.removeItem(`quiz_progress_${stopId}`)
 }
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
 
 interface Options {
-  stopIndex: number
+  stopId: string
+  questions: QuizQuestion[]
   onComplete: () => void
 }
 
-export function useQuizFlow({ stopIndex, onComplete }: Options) {
-  const data           = STOP_QUIZ_DATA[stopIndex]
-  const totalQuestions = data.questions.length
+export function useQuizFlow({ stopId, questions, onComplete }: Options) {
+  const totalQuestions = questions.length
 
-  // Inicializar desde localStorage para reanudar si el usuario cerró el quiz a medias.
-  const [questionIdx,    setQuestionIdx]    = useState(() => loadProgress(stopIndex)?.questionIdx ?? 0)
-  const [selectedOption, setSelectedOption] = useState<number | null>(() => loadProgress(stopIndex)?.wrongAnswer ?? null)
-  const [isWrong,        setIsWrong]        = useState(() => (loadProgress(stopIndex)?.wrongAnswer ?? null) !== null)
+  const [questionIdx,    setQuestionIdx]    = useState(() => loadProgress(stopId)?.questionIdx ?? 0)
+  const [selectedOption, setSelectedOption] = useState<number | null>(() => loadProgress(stopId)?.wrongAnswer ?? null)
+  const [isWrong,        setIsWrong]        = useState(() => (loadProgress(stopId)?.wrongAnswer ?? null) !== null)
   const [shakeKey,       setShakeKey]       = useState(0)
   const [needsSelection, setNeedsSelection] = useState(false)
   const [needsShakeKey,  setNeedsShakeKey]  = useState(0)
   const [hasAnimated,    setHasAnimated]    = useState(false)
 
-  // Tras la animación de entrada (1.5 s), las preguntas siguientes no repiten el unfurl.
   useEffect(() => {
     const timer = setTimeout(() => setHasAnimated(true), 1500)
     return () => clearTimeout(timer)
   }, [])
 
-  const question  = data.questions[questionIdx]
-  // Omitir la animación de pergamino si ya pasó la primera pregunta o terminó la intro.
+  const question  = questions[questionIdx]
   const skipIntro = questionIdx > 0 || hasAnimated
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleCheck = () => {
     if (selectedOption === null) {
-      // Sacudir las opciones para indicar que hay que seleccionar una.
       setNeedsSelection(true)
       setNeedsShakeKey(k => k + 1)
       return
@@ -65,18 +53,17 @@ export function useQuizFlow({ stopIndex, onComplete }: Options) {
 
     if (selectedOption === question.correctIndex) {
       if (questionIdx + 1 >= totalQuestions) {
-        clearProgress(stopIndex)
+        clearProgress(stopId)
         onComplete()
       } else {
         const next = questionIdx + 1
-        saveProgress(stopIndex, next, null)
+        saveProgress(stopId, next, null)
         setQuestionIdx(next)
         setSelectedOption(null)
         setIsWrong(false)
       }
     } else {
-      // Respuesta incorrecta: guardar para mostrar el estado de error al reanudar.
-      saveProgress(stopIndex, questionIdx, selectedOption)
+      saveProgress(stopId, questionIdx, selectedOption)
       setIsWrong(true)
       setShakeKey(k => k + 1)
     }
@@ -84,11 +71,11 @@ export function useQuizFlow({ stopIndex, onComplete }: Options) {
 
   const handleContinueWrong = () => {
     if (questionIdx + 1 >= totalQuestions) {
-      clearProgress(stopIndex)
+      clearProgress(stopId)
       onComplete()
     } else {
       const next = questionIdx + 1
-      saveProgress(stopIndex, next, null)
+      saveProgress(stopId, next, null)
       setQuestionIdx(next)
       setSelectedOption(null)
       setIsWrong(false)

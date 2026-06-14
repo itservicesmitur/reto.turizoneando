@@ -12,6 +12,7 @@ export interface Monumento {
   rating: number
   reviews: number
   descripcion: string
+  stopId?: string
 }
 
 export interface RouteInfo {

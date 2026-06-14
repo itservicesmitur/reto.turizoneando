@@ -1,11 +1,12 @@
 import { useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { STOP_QUIZ_DATA } from '../data/quizData'
 import { useAudioPlayer } from './useAudioPlayer'
 import GameButton from './GameButton'
 
 interface Props {
   stopIndex: number
+  narration: string
+  audioUrl?: string
   monumentName: string
   monumentImage: string
   onSkip: () => void
@@ -14,13 +15,12 @@ interface Props {
 
 const NARRATION_DURATION = 22
 
-export default function HistoryCard({ stopIndex, monumentName, monumentImage, onSkip, onContinue }: Props) {
+export default function HistoryCard({ stopIndex, narration, audioUrl, monumentName, monumentImage, onSkip, onContinue }: Props) {
   const { t } = useTranslation()
-  const data  = STOP_QUIZ_DATA[stopIndex]
-  const words = data.narration.split(' ')
+  const words = narration.split(' ')
 
   const { playing, progress, handleToggle } = useAudioPlayer({
-    audioUrl: data.audioUrl,
+    audioUrl,
     duration: NARRATION_DURATION,
   })
 
