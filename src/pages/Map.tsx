@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import MapBoard, { type MapBoardHandle, type RouteInfo } from '../features/map/MapBoard'
 import LocationGate from '../features/map/LocationGate'
 import type { Monumento } from '../features/map/types/map.types'
-import { fetchStopsList, fetchQuestionsForStop, type StopData } from '../services/adminService'
+import { fetchSeasons, fetchStopsList, fetchQuestionsForStop, type StopData, type QuestionData } from '../services/adminService'
 import type { QuizQuestion } from '../features/map/types/quiz.types'
 import QuizCard from '../features/map/quiz/QuizCard'
 import HistoryCard from '../features/map/quiz/HistoryCard'
@@ -242,19 +242,66 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [monuments, setMonuments] = useState<Monumento[] | null>(null)
 
   useEffect(() => {
-    fetchStopsList()
-      .then(stops => {
-        const sorted = [...stops].sort((a, b) => a.order - b.order)
-        const active = sorted.filter(s => s.active)
-        setFirestoreStops(active)
-        const mapped = active.map(stopToMonumento)
+    ;(async () => {
+      try {
+        // ── PASO 1: Temporadas ────────────────────────────────────
+        console.log('[Turizoneando] 1/3 → fetchSeasons()...')
+        const seasons = await fetchSeasons()
+        console.log('[Turizoneando] Temporadas recibidas:', seasons.length, seasons)
+
+        const activeSeason = seasons.find(s => s.status === 'active')
+        if (!activeSeason) {
+          console.warn('[Turizoneando] ⚠️ No hay temporada activa en Firestore.')
+          setMonuments([])
+          setCompletedStops([])
+          return
+        }
+        console.log('[Turizoneando] ✅ Temporada activa:', activeSeason.name, `| id: ${activeSeason.id} | status: ${activeSeason.status}`, activeSeason)
+
+        // ── PASO 2: Paradas ──────────────────────────────────────
+        console.log('[Turizoneando] 2/3 → fetchStopsList()...')
+        const allStops = await fetchStopsList()
+        console.log('[Turizoneando] Total paradas en Firestore:', allStops.length, allStops)
+
+        const stops = allStops
+          .filter(s => s.seasonId === activeSeason.id && s.active)
+          .sort((a, b) => a.order - b.order)
+        console.log(`[Turizoneando] Paradas activas de temporada "${activeSeason.name}":`, stops.length, stops)
+
+        // ── PASO 3: Preguntas ────────────────────────────────────
+        console.log(`[Turizoneando] 3/3 → fetchQuestionsForStop() × ${stops.length} paradas en paralelo...`)
+        const stopsWithQuestions: (StopData & { questions: QuestionData[] })[] = await Promise.all(
+          stops.map(async stop => {
+            const questions = await fetchQuestionsForStop(stop.id)
+            console.log(`  [stop: ${stop.name}] preguntas cargadas: ${questions.length}`, questions)
+            return { ...stop, questions }
+          })
+        )
+
+        // ── RESUMEN FINAL ────────────────────────────────────────
+        console.group('[Turizoneando] ✅ Carga completa')
+        console.log('Temporada:', activeSeason.name, `| id: ${activeSeason.id}`)
+        console.log('Paradas activas:', stopsWithQuestions.length)
+        stopsWithQuestions.forEach((s, i) => {
+          console.log(
+            `  ${i + 1}. [${s.stageId}] ${s.name}`,
+            `| preguntas: ${s.questions.length}`,
+            `| lat: ${s.lat}, lng: ${s.lng}`,
+          )
+        })
+        console.log('Payload completo:', { season: activeSeason, stops: stopsWithQuestions })
+        console.groupEnd()
+
+        setFirestoreStops(stopsWithQuestions)
+        const mapped = stopsWithQuestions.map(stopToMonumento)
         setMonuments(mapped)
         setCompletedStops(Array(mapped.length).fill(false))
-      })
-      .catch(() => {
+      } catch (err) {
+        console.error('[Turizoneando] ❌ Error al cargar temporada:', err)
         setMonuments([])
         setCompletedStops([])
-      })
+      }
+    })()
   }, [])
 
   const [completedStops, setCompletedStops] = useState<boolean[]>([])
@@ -340,7 +387,12 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     try {
       const lang = i18n.language
       const firestoreStop = firestoreStops.find(s => s.id === stopId)
-      const firestoreQuestions = await fetchQuestionsForStop(stopId)
+
+      // Usa preguntas precargadas al montar; sólo hace fetch si faltan (fallback)
+      const preloaded: QuestionData[] = firestoreStop?.questions ?? []
+      const firestoreQuestions = preloaded.length > 0
+        ? (console.log(`[Turizoneando] Quiz "${selectedMonument.nombre}" → usando ${preloaded.length} preguntas precargadas`), preloaded)
+        : await (console.log(`[Turizoneando] Quiz "${selectedMonument.nombre}" → preguntas no precargadas, haciendo fetch...`), fetchQuestionsForStop(stopId))
 
       if (firestoreStop) {
         narration = (lang === 'en' && firestoreStop.narrationEn)
