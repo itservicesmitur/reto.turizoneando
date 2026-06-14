@@ -309,6 +309,9 @@
   },
   "map": {
     "loading_title": "Cargando el Mapa del Tesoro",
+    "no_season_title": "Sin temporada activa",
+    "no_season_subtitle": "No hay temporada en curso. ¡Vuelve pronto!",
+    "no_season_back": "Volver al inicio",
     "no_stops": "Sin datos",
     "location_gate_title": "Activa tu ubicación",
     "location_gate_desc": "Activa la ubicación para explorar el mapa.",

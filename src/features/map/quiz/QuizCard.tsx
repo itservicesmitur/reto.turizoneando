@@ -5,14 +5,15 @@ import type { QuizQuestion } from '../types/quiz.types'
 
 interface Props {
   stopId: string
+  seasonId: string
   questions: QuizQuestion[]
-  onComplete: () => void
+  onComplete: (earnedPoints: number) => void
   onClose: () => void
 }
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D']
 
-export default function QuizCard({ stopId, questions, onComplete, onClose }: Props) {
+export default function QuizCard({ stopId, seasonId, questions, onComplete, onClose }: Props) {
   const { t } = useTranslation()
   const {
     question,
@@ -25,9 +26,10 @@ export default function QuizCard({ stopId, questions, onComplete, onClose }: Pro
     needsSelection,
     needsShakeKey,
     skipIntro,
+    checking,
     handleCheck,
     handleContinueWrong,
-  } = useQuizFlow({ stopId, questions, onComplete })
+  } = useQuizFlow({ stopId, seasonId, questions, onComplete })
 
   return (
     <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-xs p-0">
@@ -141,19 +143,47 @@ export default function QuizCard({ stopId, questions, onComplete, onClose }: Pro
                 <path d="M22 14v8h-8M20 18v-2h-2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
 
-              <p className="text-center font-bold text-[11px] tracking-[0.18em] uppercase mb-4" style={{ color: 'var(--color-map-gold)', fontFamily: 'var(--font-map-parchment)' }}>
-                {t('map.question_of', { current: questionIdx + 1, total: totalQuestions })}
-              </p>
+              {/* Contador con líneas decorativas */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.45))' }} />
+                <p className="text-[11px] font-bold tracking-[0.18em] uppercase shrink-0" style={{ color: 'var(--color-map-gold)', fontFamily: 'var(--font-map-parchment)' }}>
+                  {t('map.question_of', { current: questionIdx + 1, total: totalQuestions })}
+                </p>
+                <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, transparent, rgba(168,127,42,0.45))' }} />
+              </div>
 
-              <p
-                className="text-center font-bold leading-relaxed mt-1"
-                style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '18px' }}
-              >
-                ¿{question.text.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
-              </p>
+              {/* Badge BONUS */}
+              {question.isBonus && (
+                <div className="flex justify-center mb-4">
+                  <div
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-full"
+                    style={{
+                      background: 'linear-gradient(90deg, #5c3e00, #c8910a, #5c3e00)',
+                      border: '1.5px solid #fcd34d',
+                      boxShadow: '0 0 18px rgba(252,211,77,0.45), inset 0 1px 0 rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <i className="ri-star-fill text-xs text-yellow-200" />
+                    <span className="text-[11px] font-black tracking-[0.25em] uppercase" style={{ color: '#fef9c3' }}>Bonus</span>
+                    <i className="ri-star-fill text-xs text-yellow-200" />
+                  </div>
+                </div>
+              )}
+
+              {/* Texto de la pregunta */}
+              <div className="relative px-1 py-4">
+                <div className="absolute top-0 inset-x-4 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.35), transparent)' }} />
+                <p
+                  className="text-center font-bold leading-[1.65]"
+                  style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '17px' }}
+                >
+                  ¿{question.text.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
+                </p>
+                <div className="absolute bottom-0 inset-x-4 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.35), transparent)' }} />
+              </div>
 
               {/* Options */}
-              <div className={`flex flex-col gap-6 mt-15 ${needsSelection ? 'quiz-option-wrong' : ''}`} key={needsShakeKey}>
+              <div className={`flex flex-col gap-3 mt-6 ${needsSelection ? 'quiz-option-wrong' : ''}`} key={needsShakeKey}>
                 {question.options.map((option, i) => {
                   const isSelected  = selectedOption === i
                   const isIncorrect = isWrong && isSelected
@@ -239,11 +269,19 @@ export default function QuizCard({ stopId, questions, onComplete, onClose }: Pro
             </>
           ) : (
             <>
-              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose}>
+              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose} disabled={checking}>
                 {t('map.exit')}
               </GameButton>
-              <GameButton variant="dark" className="flex-1 h-16 text-base" onClick={handleCheck}>
-                {questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.next')}
+              <GameButton
+                variant="dark"
+                className={`flex-1 h-16 text-base${checking ? ' opacity-60' : ''}`}
+                onClick={handleCheck}
+                disabled={checking}
+              >
+                {checking
+                  ? <i className="ri-loader-4-line animate-spin text-xl" />
+                  : (questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.next'))
+                }
               </GameButton>
             </>
           )}

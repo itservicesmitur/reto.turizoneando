@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { QuizQuestion } from '../types/quiz.types'
+import { getCorrectAnswer, registerAttempt } from '../services/quizApi'
 
 type QuizSave = { questionIdx: number; wrongAnswer: number | null }
 
@@ -20,11 +21,12 @@ function clearProgress(stopId: string) {
 
 interface Options {
   stopId: string
+  seasonId: string
   questions: QuizQuestion[]
-  onComplete: () => void
+  onComplete: (earnedPoints: number) => void
 }
 
-export function useQuizFlow({ stopId, questions, onComplete }: Options) {
+export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options) {
   const totalQuestions = questions.length
 
   const [questionIdx,    setQuestionIdx]    = useState(() => loadProgress(stopId)?.questionIdx ?? 0)
@@ -34,45 +36,86 @@ export function useQuizFlow({ stopId, questions, onComplete }: Options) {
   const [needsSelection, setNeedsSelection] = useState(false)
   const [needsShakeKey,  setNeedsShakeKey]  = useState(0)
   const [hasAnimated,    setHasAnimated]    = useState(false)
+  const [checking,       setChecking]       = useState(false)
+  const questionStartRef  = useRef(Date.now())
+  const earnedPointsRef   = useRef(0)
 
   useEffect(() => {
     const timer = setTimeout(() => setHasAnimated(true), 1500)
     return () => clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    questionStartRef.current = Date.now()
+  }, [questionIdx])
+
   const question  = questions[questionIdx]
   const skipIntro = questionIdx > 0 || hasAnimated
 
-  const handleCheck = () => {
+  const handleCheck = async () => {
     if (selectedOption === null) {
       setNeedsSelection(true)
       setNeedsShakeKey(k => k + 1)
       return
     }
     setNeedsSelection(false)
+    setChecking(true)
 
-    if (selectedOption === question.correctIndex) {
-      if (questionIdx + 1 >= totalQuestions) {
-        clearProgress(stopId)
-        onComplete()
+    try {
+      const timeMs = Date.now() - questionStartRef.current
+      const { correct } = await getCorrectAnswer(question.id, selectedOption)
+      const attemptPayload = { questionId: question.id, selectedIndex: selectedOption, timeMs, seasonId, stopId }
+      const isLastCorrect  = correct && questionIdx + 1 >= totalQuestions
+
+      console.log('[Turizoneando] → registerAttempt payload:', JSON.stringify(attemptPayload, null, 2))
+
+      if (isLastCorrect) {
+        // Await para capturar pointsAwarded de la última pregunta antes de cerrar el quiz
+        try {
+          const data = await registerAttempt(attemptPayload)
+          const res = data as { pointsAwarded?: number } | null
+          earnedPointsRef.current += (res?.pointsAwarded ?? 0)
+          console.log('[Turizoneando] ✅ Intento registrado | CF:', data)
+        } catch {}
       } else {
-        const next = questionIdx + 1
-        saveProgress(stopId, next, null)
-        setQuestionIdx(next)
-        setSelectedOption(null)
-        setIsWrong(false)
+        registerAttempt(attemptPayload)
+          .then(data => {
+            const res = data as { pointsAwarded?: number } | null
+            earnedPointsRef.current += (res?.pointsAwarded ?? 0)
+            console.log('[Turizoneando] ✅ Intento registrado | CF:', data)
+          })
+          .catch(() => {})
       }
-    } else {
+
+      if (correct) {
+        if (questionIdx + 1 >= totalQuestions) {
+          clearProgress(stopId)
+          onComplete(earnedPointsRef.current)
+        } else {
+          const next = questionIdx + 1
+          saveProgress(stopId, next, null)
+          setQuestionIdx(next)
+          setSelectedOption(null)
+          setIsWrong(false)
+        }
+      } else {
+        saveProgress(stopId, questionIdx, selectedOption)
+        setIsWrong(true)
+        setShakeKey(k => k + 1)
+      }
+    } catch {
       saveProgress(stopId, questionIdx, selectedOption)
       setIsWrong(true)
       setShakeKey(k => k + 1)
+    } finally {
+      setChecking(false)
     }
   }
 
   const handleContinueWrong = () => {
     if (questionIdx + 1 >= totalQuestions) {
       clearProgress(stopId)
-      onComplete()
+      onComplete(earnedPointsRef.current)
     } else {
       const next = questionIdx + 1
       saveProgress(stopId, next, null)
@@ -93,6 +136,7 @@ export function useQuizFlow({ stopId, questions, onComplete }: Options) {
     needsSelection,
     needsShakeKey,
     skipIntro,
+    checking,
     handleCheck,
     handleContinueWrong,
   }

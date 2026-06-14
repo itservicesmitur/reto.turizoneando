@@ -15,12 +15,12 @@ export default function LocationGate({ onGranted, onDismiss }: Props) {
 
   useEffect(() => {
     handleActivate()
-    if (!navigator.geolocation) { onGranted(); return }
+    if (!navigator.geolocation) { onGranted(); return } 
     const query = navigator.permissions?.query
     if (typeof query === 'function') {
       query({ name: 'geolocation' as PermissionName })
         .then(result => {
-          if (result.state === 'granted') onGranted()
+          if (result.state === 'granted') onGranted() 
           else if (result.state === 'denied') setStatus('denied')
         })
         .catch(() => {})

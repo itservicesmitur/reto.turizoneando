@@ -74,9 +74,15 @@ export default function LevelUpCard({
     const tick = (ts: number) => {
       if (!startTs) startTs = ts
       const prog  = Math.min((ts - startTs) / duration, 1)
-      const eased = 1 - Math.pow(1 - prog, 3)
+      // ease-in-out: llega al valor final a la vez que las monedas dejan de volar
+      const eased = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * prog + 2, 2) / 2
       setDisplay(Math.round(eased * coins))
-      if (prog < 1) rafRef.current = requestAnimationFrame(tick)
+      if (prog < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      } else {
+        // Sincronizar: congelar GIF en el mismo frame que el contador termina
+        setFrozenSrc('/assets/img/COFRE_OPEN.png')
+      }
     }
     const d2 = setTimeout(() => { rafRef.current = requestAnimationFrame(tick) }, 100)
     return () => { clearTimeout(d2); cancelAnimationFrame(rafRef.current) }

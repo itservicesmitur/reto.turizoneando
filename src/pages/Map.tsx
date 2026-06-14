@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import MapBoard, { type MapBoardHandle, type RouteInfo } from '../features/map/MapBoard'
 import LocationGate from '../features/map/LocationGate'
 import type { Monumento } from '../features/map/types/map.types'
-import { fetchSeasons, fetchStopsList, fetchQuestionsForStop, type StopData, type QuestionData } from '../services/adminService'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '../config/firebase'
+import { getStopWithQuestions, type StopData, type QuestionData } from '../services/adminService'
 import type { QuizQuestion } from '../features/map/types/quiz.types'
 import QuizCard from '../features/map/quiz/QuizCard'
 import HistoryCard from '../features/map/quiz/HistoryCard'
@@ -19,7 +22,6 @@ import RallyRules from '../features/map/menu/RallyRules'
 import PrivacyTerms from '../features/map/menu/PrivacyTerms'
 import AboutApp from '../features/map/menu/AboutApp'
 
-const COINS_PER_STOP  = 100
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 function stopToMonumento(stop: StopData): Monumento {
@@ -73,9 +75,10 @@ type QuizStep =
   | { step: 'quiz';     stopIndex: number; monument: Monumento; quizData: QuizStopData }
   | { step: 'roulette'; stopIndex: number; monument: Monumento }
   | { step: 'prize';    stopIndex: number; monument: Monumento }
-  | { step: 'levelup';  stopIndex: number; monument: Monumento }
+  | { step: 'levelup';  stopIndex: number; monument: Monumento; earnedPoints: number }
 
 export default function Map() {
+  const navigate = useNavigate()
   const [locationGranted, setLocationGranted] = useState(false)
   const [locationDenied, setLocationDenied] = useState(false)
   const [showLocationGate, setShowLocationGate] = useState(false)
@@ -240,65 +243,125 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [firestoreStops, setFirestoreStops] = useState<StopData[]>([])
   const [stageGroups, setStageGroups] = useState<number[][]>([])
   const [monuments, setMonuments] = useState<Monumento[] | null>(null)
+  const [noActiveSeason, setNoActiveSeason] = useState(false)
+  const [seasonName, setSeasonName] = useState('')
+  const [currentSeasonId, setCurrentSeasonId] = useState('')
 
   useEffect(() => {
     ;(async () => {
       try {
-        // ── PASO 1: Temporadas ────────────────────────────────────
-        console.log('[Turizoneando] 1/3 → fetchSeasons()...')
-        const seasons = await fetchSeasons()
-        console.log('[Turizoneando] Temporadas recibidas:', seasons.length, seasons)
+        // ── PASO 1: Temporada activa ──────────────────────────────
+        // /seasons: allow read if request.auth != null  → siempre OK para usuarios autenticados
+        const seasonsSnap = await getDocs(collection(db, 'seasons'))
 
-        const activeSeason = seasons.find(s => s.status === 'active')
-        if (!activeSeason) {
+        // Si hay más de una temporada activa, usamos la de startDate más reciente
+        const activeSeasons = seasonsSnap.docs.filter(d => d.data().status === 'active')
+        if (activeSeasons.length === 0) {
           console.warn('[Turizoneando] ⚠️ No hay temporada activa en Firestore.')
-          setMonuments([])
-          setCompletedStops([])
-          return
+          setNoActiveSeason(true); setMonuments([]); setCompletedStops([]); return
         }
-        console.log('[Turizoneando] ✅ Temporada activa:', activeSeason.name, `| id: ${activeSeason.id} | status: ${activeSeason.status}`, activeSeason)
+        const activeSeasonDoc = activeSeasons.sort((a, b) => {
+          const toMs = (v: unknown): number => {
+            if (!v) return 0
+            if (typeof (v as { toDate?: () => Date }).toDate === 'function') return (v as { toDate: () => Date }).toDate().getTime()
+            if (typeof (v as { seconds?: number }).seconds === 'number') return (v as { seconds: number }).seconds * 1000
+            if (typeof v === 'string') return new Date(v).getTime()
+            return 0
+          }
+          return toMs(b.data().startDate) - toMs(a.data().startDate)
+        })[0]
 
-        // ── PASO 2: Paradas ──────────────────────────────────────
-        console.log('[Turizoneando] 2/3 → fetchStopsList()...')
-        const allStops = await fetchStopsList()
-        console.log('[Turizoneando] Total paradas en Firestore:', allStops.length, allStops)
+        const activeSeasonId = activeSeasonDoc.id
+        const activeSeasonName = String(activeSeasonDoc.data().name ?? '')
+        setSeasonName(activeSeasonName)
+        setCurrentSeasonId(activeSeasonId)
 
-        const stops = allStops
-          .filter(s => s.seasonId === activeSeason.id && s.active)
-          .sort((a, b) => a.order - b.order)
-        console.log(`[Turizoneando] Paradas activas de temporada "${activeSeason.name}":`, stops.length, stops)
+        // ── PASO 2: Stages de la temporada ───────────────────────
+        // /seasons/{id}/stages: allow read if request.auth != null  → siempre OK
+        const stagesSnap = await getDocs(collection(db, 'seasons', activeSeasonId, 'stages'))
+        const stagesRaw = stagesSnap.docs
+          .map(d => ({ id: d.id, number: Number(d.data().number) || 0 }))
+          .sort((a, b) => a.number - b.number)
 
-        // ── PASO 3: Preguntas ────────────────────────────────────
-        console.log(`[Turizoneando] 3/3 → fetchQuestionsForStop() × ${stops.length} paradas en paralelo...`)
+        // ── PASO 3: Stops activos ─────────────────────────────────
+        // Regla: allow read if (auth != null && resource.data.active == true) || isAdmin()
+        // Usando where('active', '==', true) todos los docs retornados cumplen la regla
+        // → nunca hay error 400 "Property active is undefined"
+        const stopsSnap = await getDocs(
+          query(collection(db, 'stops'), where('active', '==', true))
+        )
+
+        // Conjunto de stage IDs de esta temporada para el filtro por stageId
+        const seasonStageIds = new Set(stagesRaw.map(s => s.id))
+
+        const seasonStops: StopData[] = stopsSnap.docs
+          .filter(d => {
+            const data = d.data()
+            // Criterio 1: seasonIds incluye la temporada activa
+            const ids = data.seasonIds as string[] | undefined
+            if (Array.isArray(ids) && ids.includes(activeSeasonId)) return true
+            // Criterio 2 (fallback): stageId pertenece a un stage de esta temporada
+            const sid = data.stageId as string | undefined
+            return typeof sid === 'string' && seasonStageIds.has(sid)
+          })
+          .map(d => {
+            const data = d.data()
+            return {
+              id: d.id,
+              name: String(data.name ?? ''),
+              nameEn: String(data.nameEn ?? ''),
+              narration: String(data.narration ?? ''),
+              narrationEn: String(data.narrationEn ?? ''),
+              imageUrl: String(data.imageUrl ?? ''),
+              lat: typeof data.lat === 'number' ? data.lat : 0,
+              lng: typeof data.lng === 'number' ? data.lng : 0,
+              order: typeof data.order === 'number' ? data.order : 0,
+              active: true,
+              stageId: String(data.stageId ?? ''),
+              seasonIds: Array.isArray(data.seasonIds) ? (data.seasonIds as string[]) : [activeSeasonId],
+              audioUrl: data.audioUrl ? String(data.audioUrl) : undefined,
+              audioUrlEn: data.audioUrlEn ? String(data.audioUrlEn) : undefined,
+            } as StopData
+          })
+
+        // ── PASO 4: Agrupar stops por stage ──────────────────────
+        const stopsFromStages: StopData[] = []
+        const groups: number[][] = []
+
+        for (const stage of stagesRaw) {
+          const stageStops = seasonStops
+            .filter(s => s.stageId === stage.id)
+            .sort((a, b) => a.order - b.order)
+          const group: number[] = []
+          for (const stop of stageStops) {
+            group.push(stopsFromStages.length)
+            stopsFromStages.push(stop)
+          }
+          groups.push(group)
+        }
+
+        // ── PASO 5: Preguntas via Cloud Function (bypasa Security Rules) ───
+        // /questions: admin-only en Firestore directo → usamos httpsCallable getStopWithQuestions
+        // que corre server-side con admin SDK y puede leer questions sin restricción
         const stopsWithQuestions: (StopData & { questions: QuestionData[] })[] = await Promise.all(
-          stops.map(async stop => {
-            const questions = await fetchQuestionsForStop(stop.id)
-            console.log(`  [stop: ${stop.name}] preguntas cargadas: ${questions.length}`, questions)
-            return { ...stop, questions }
+          stopsFromStages.map(async stop => {
+            try {
+              const result = await getStopWithQuestions(stop.id)
+              return { ...stop, questions: result.questions as QuestionData[] }
+            } catch {
+              return { ...stop, questions: [] }
+            }
           })
         )
 
-        // ── RESUMEN FINAL ────────────────────────────────────────
+        // ── RESUMEN ──────────────────────────────────────────────
         console.group('[Turizoneando] ✅ Carga completa')
-        console.log('Temporada:', activeSeason.name, `| id: ${activeSeason.id}`)
-        console.log('Paradas activas:', stopsWithQuestions.length)
-        stopsWithQuestions.forEach((s, i) => {
-          console.log(
-            `  ${i + 1}. [${s.stageId}] ${s.name}`,
-            `| preguntas: ${s.questions.length}`,
-            `| lat: ${s.lat}, lng: ${s.lng}`,
-          )
-        })
-        console.log('Payload completo:', { season: activeSeason, stops: stopsWithQuestions })
+        console.log('Temporada:', activeSeasonName, '| id:', activeSeasonId)
+        console.log('Etapas:', stagesRaw.length, '| Paradas:', stopsWithQuestions.length)
+        stopsWithQuestions.forEach((s, i) =>
+          console.log(`  ${i + 1}. [stage:${s.stageId}] ${s.name} | q:${s.questions.length} | (${s.lat}, ${s.lng})`)
+        )
         console.groupEnd()
-
-        // Agrupar índices de paradas por etapa, respetando el orden de activeSeason.stages
-        const stageOrder = activeSeason.stages.map(s => s.id)
-        const groups: number[][] = activeSeason.stages.map(() => [])
-        stopsWithQuestions.forEach((stop, idx) => {
-          const si = stageOrder.indexOf(stop.stageId)
-          if (si >= 0) groups[si].push(idx)
-        })
 
         setFirestoreStops(stopsWithQuestions)
         setStageGroups(groups)
@@ -396,11 +459,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       const lang = i18n.language
       const firestoreStop = firestoreStops.find(s => s.id === stopId)
 
-      // Usa preguntas precargadas al montar; sólo hace fetch si faltan (fallback)
+      // Usa preguntas precargadas al montar; sólo llama CF si faltan (fallback)
       const preloaded: QuestionData[] = firestoreStop?.questions ?? []
-      const firestoreQuestions = preloaded.length > 0
-        ? (console.log(`[Turizoneando] Quiz "${selectedMonument.nombre}" → usando ${preloaded.length} preguntas precargadas`), preloaded)
-        : await (console.log(`[Turizoneando] Quiz "${selectedMonument.nombre}" → preguntas no precargadas, haciendo fetch...`), fetchQuestionsForStop(stopId))
+      const firestoreQuestions: QuestionData[] = preloaded.length > 0
+        ? preloaded
+        : (await getStopWithQuestions(stopId)).questions as QuestionData[]
 
       if (firestoreStop) {
         narration = (lang === 'en' && firestoreStop.narrationEn)
@@ -411,9 +474,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       if (firestoreQuestions.length > 0) {
         questions = firestoreQuestions.map(q => ({
+          id: q.id,
           text: (lang === 'en' && q.textEn) ? q.textEn : q.text,
           options: (lang === 'en' && q.optionsEn?.length ? q.optionsEn : q.options) as [string, string, string, string],
-          correctIndex: q.correctIndex,
+          isBonus: (q as QuestionData & { isBonus?: boolean; pointsAwarded?: number }).isBonus ?? false,
+          pointsAwarded: (q as QuestionData & { isBonus?: boolean; pointsAwarded?: number }).pointsAwarded,
         }))
       }
     } catch {
@@ -432,14 +497,14 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     setQuizFlow({ step: 'history', stopIndex: selectedStopIndex, monument: selectedMonument, quizData })
   }, [selectedMonument, selectedStopIndex, firestoreStops, i18n])
 
-  const handleQuizComplete = useCallback((stopIndex: number, monument: Monumento) => {
+  const handleQuizComplete = useCallback((stopIndex: number, monument: Monumento, earnedPoints: number) => {
     const isLastStop = stopIndex === (monuments?.length ?? 0) - 1
     if (isLastStop) {
       setQuizFlow({ step: 'roulette', stopIndex, monument })
     } else {
-      setQuizFlow({ step: 'levelup', stopIndex, monument })
+      setQuizFlow({ step: 'levelup', stopIndex, monument, earnedPoints })
     }
-  }, [])
+  }, [monuments?.length])
 
   const handleStopComplete = useCallback((stopIndex: number) => {
     setCompletedStops(prev => {
@@ -553,8 +618,52 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-map-wood-deep font-sans">
 
+      {/* ── Pantalla: Sin temporada activa ──────────────────────── */}
+      {noActiveSeason && (
+        <div
+          className="fixed inset-0 z-60 flex flex-col items-center justify-center text-center px-6"
+          style={{ background: 'radial-gradient(circle, var(--color-map-wood-mid) 0%, var(--color-map-wood-deep) 100%)' }}
+        >
+          {/* Fondo decorativo sutil */}
+          <div className="absolute inset-0 pointer-events-none opacity-5"
+            style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')", backgroundSize: 'cover' }} />
+
+          <div className="relative flex flex-col items-center gap-6 max-w-xs">
+            {/* Logo principal */}
+            <img
+              src="/assets/img/logo1.png"
+              alt="Logo Turizoneando"
+              className="h-22 md:h-28 object-contain animate-skull"
+              style={{ filter: 'sepia(0.6) saturate(1.3) contrast(1.05) brightness(0.95) drop-shadow(0 6px 16px rgba(252,211,77,0.25))' }}
+            />
+
+            {/* Texto */}
+            <div className="space-y-2">
+              <h2
+                className="text-2xl font-bold text-map-gold-light tracking-wide"
+                style={{ fontFamily: 'Georgia, serif' }}
+              >
+                {t('map.no_season_title')}
+              </h2>
+              <p className="text-xs italic text-[#fff3d1]/60 tracking-wide font-serif">
+                {t('map.no_season_subtitle')}
+              </p>
+            </div>
+
+            {/* Botón volver */}
+            <button
+              onClick={() => navigate('/')}
+              className="mt-2 flex items-center gap-2 rounded-full border border-map-gold/50 bg-map-wood-dark/80 px-6 py-3 text-sm font-bold text-map-gold-light tracking-wide transition-all active:scale-95 backdrop-blur-sm"
+              style={{ boxShadow: '0 4px 20px rgba(168,127,42,0.2)' }}
+            >
+              {t('map.no_season_back')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Pantalla de Carga Inmersiva ──────────────────────────── */}
-      {mapLoading && (
+      {mapLoading && !noActiveSeason && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center text-center px-4"
           style={{ background: 'radial-gradient(circle, var(--color-map-wood-mid) 0%, var(--color-map-wood-deep) 100%)' }}
@@ -576,6 +685,14 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           <p className="mt-3 text-xs md:text-sm italic text-[#fff3d1]/70 tracking-wider font-serif">
             {t('map.loading_subtitle')}
           </p>
+          {seasonName && (
+            <p
+              className="mt-4 text-3xl md:text-4xl font-black text-map-gold-light tracking-widest uppercase"
+              style={{ fontFamily: 'Georgia, serif', textShadow: '0 0 24px rgba(252,211,77,0.5), 0 2px 8px rgba(0,0,0,0.6)' }}
+            >
+              {seasonName}
+            </p>
+          )}
         </div>
       )}
 
@@ -951,8 +1068,9 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {quizFlow.step === 'quiz' && (
         <QuizCard
           stopId={quizFlow.quizData.stopId}
+          seasonId={currentSeasonId}
           questions={quizFlow.quizData.questions}
-          onComplete={() => handleQuizComplete(quizFlow.stopIndex, quizFlow.monument)}
+          onComplete={(earnedPoints) => handleQuizComplete(quizFlow.stopIndex, quizFlow.monument, earnedPoints)}
           onClose={() => setQuizFlow({ step: 'idle' })}
         />
       )}
@@ -972,7 +1090,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {quizFlow.step === 'levelup' && (
         <LevelUpCard
           level={completedStops.filter(Boolean).length + 1}
-          coins={COINS_PER_STOP}
+          coins={quizFlow.earnedPoints}
           stopNumber={quizFlow.stopIndex + 1}
           stopName={quizFlow.monument.nombre}
           onContinue={() => handleStopComplete(quizFlow.stopIndex)}
