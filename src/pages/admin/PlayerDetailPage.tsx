@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchPlayerDetail, updatePlayerBannedStatus, type PlayerData } from '../../services/adminService'
+import { fetchPlayerDetail, updatePlayerBannedStatus, updatePlayerActiveStatus, fetchPlayerAttempts, type PlayerData, type QuestionAttemptSummary } from '../../services/adminService'
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>()
@@ -10,8 +10,13 @@ export default function PlayerDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [activeLoading, setActiveLoading] = useState(false)
+  const [attempts, setAttempts] = useState<QuestionAttemptSummary[]>([])
+  const [attemptsLoading, setAttemptsLoading] = useState(true)
+  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
+  const [attemptsError, setAttemptsError] = useState<string | null>(null)
 
-  // Fetch player details on mount
+  // Fetch player details and attempts on mount
   useEffect(() => {
     async function load() {
       if (!playerId) return
@@ -26,7 +31,22 @@ export default function PlayerDetailPage() {
         setLoading(false)
       }
     }
+    async function loadAttempts() {
+      if (!playerId) return
+      try {
+        setAttemptsLoading(true)
+        const data = await fetchPlayerAttempts(playerId)
+        setAttempts(data)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error('[fetchPlayerAttempts]', err)
+        setAttemptsError(msg)
+      } finally {
+        setAttemptsLoading(false)
+      }
+    }
     load()
+    loadAttempts()
   }, [playerId])
 
   // Handle Ban / Unban Toggle
@@ -44,6 +64,21 @@ export default function PlayerDetailPage() {
     }
   }
 
+  // Handle Active / Inactive Toggle
+  async function handleToggleActive() {
+    if (!player || !playerId) return
+    const newActive = player.active === false ? true : false
+    try {
+      setActiveLoading(true)
+      await updatePlayerActiveStatus(playerId, newActive)
+      setPlayer(prev => prev ? { ...prev, active: newActive } : null)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al actualizar el estado del jugador')
+    } finally {
+      setActiveLoading(false)
+    }
+  }
+
   // Helper to get initials
   const initials = player?.displayName
     ? player.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
@@ -53,6 +88,14 @@ export default function PlayerDetailPage() {
   const completedStops = player?.mapProgress
     ? Object.values(player.mapProgress).filter(status => status === 'completed').length
     : 0
+
+  function formatMs(ms: number | null) {
+    if (ms === null) return '-'
+    if (ms < 1000) return `${ms}ms`
+    const s = Math.floor(ms / 1000)
+    const rem = Math.floor((ms % 1000) / 100)
+    return `${s}.${rem}s`
+  }
 
   // Format date
   function formatDate(isoStr: string | null) {
@@ -298,7 +341,82 @@ export default function PlayerDetailPage() {
             </div>
           </div>
 
-          {/* Card 2: Security ban management */}
+          {/* Card 2: Active / Inactive status */}
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: 'var(--shadow-card)',
+            border: player.active === false ? '1.5px solid rgba(160,168,184,0.4)' : '1px solid var(--color-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
+              Estado de Cuenta
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
+              Activa o desactiva la cuenta del jugador para controlar su acceso al rally sin suspenderla permanentemente.
+            </p>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: player.active === false ? 'rgba(160,168,184,0.08)' : 'rgba(43,191,184,0.05)',
+              marginTop: 4
+            }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: player.active === false ? 'var(--color-gray-dark)' : 'var(--color-teal)' }}>
+                  {player.active === false ? 'Cuenta Inactiva' : 'Cuenta Activa'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginTop: 2 }}>
+                  {player.active === false ? 'El jugador no puede participar en el rally' : 'El jugador tiene acceso completo al rally'}
+                </div>
+              </div>
+
+              <button
+                onClick={handleToggleActive}
+                disabled={activeLoading}
+                style={{
+                  height: 38, padding: '0 16px', borderRadius: 8,
+                  border: 'none',
+                  background: player.active === false ? 'var(--color-teal)' : '#6b7280',
+                  color: '#fff', fontSize: 13, fontWeight: 800,
+                  cursor: activeLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'background 150ms ease, transform 150ms ease',
+                  opacity: activeLoading ? 0.7 : 1,
+                  boxShadow: player.active === false
+                    ? '0 4px 12px rgba(43,191,184,0.25)'
+                    : '0 4px 12px rgba(107,114,128,0.2)'
+                }}
+                onMouseDown={e => { if (!activeLoading) e.currentTarget.style.transform = 'scale(0.97)' }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                {activeLoading ? (
+                  <>
+                    <i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} />
+                    Procesando...
+                  </>
+                ) : player.active === false ? (
+                  <>
+                    <i className="ri-toggle-line" />
+                    Activar Cuenta
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-toggle-fill" />
+                    Desactivar Cuenta
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Card 3: Security ban management */}
           <div style={{
             background: 'var(--color-surface)',
             borderRadius: 16,
@@ -376,6 +494,158 @@ export default function PlayerDetailPage() {
         </div>
 
       </div>
+
+      {/* ── Attempts section ── */}
+      <div style={{ marginTop: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 22, margin: '0 0 4px' }}>
+              Historial de Intentos
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>
+              Desglose por pregunta: intentos, tiempo de respuesta y puntos obtenidos.
+            </p>
+          </div>
+          {attempts.length > 0 && (
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ background: 'rgba(27,43,110,0.05)', borderRadius: 10, padding: '8px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>
+                  {attempts.length}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Preguntas</div>
+              </div>
+              <div style={{ background: 'rgba(43,191,184,0.06)', borderRadius: 10, padding: '8px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-display)', color: 'var(--color-teal)' }}>
+                  {attempts.filter(a => a.solved).length}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Resueltas</div>
+              </div>
+              <div style={{ background: 'rgba(251,191,36,0.08)', borderRadius: 10, padding: '8px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-display)', color: '#d97706' }}>
+                  {attempts.reduce((s, a) => s + a.totalAttempts, 0)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Intentos</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: 'var(--color-surface)', borderRadius: 16, boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+          {attemptsLoading ? (
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid rgba(27,43,110,0.1)', borderTopColor: 'var(--color-yellow)', animation: 'spin-circle 0.8s linear infinite', margin: '0 auto 12px' }} />
+              <div style={{ color: 'var(--color-navy)', fontWeight: 700, fontSize: 14 }}>Cargando historial...</div>
+            </div>
+          ) : attemptsError ? (
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <i className="ri-error-warning-line" style={{ fontSize: 44, color: 'var(--color-error)', display: 'block', marginBottom: 12 }} />
+              <div style={{ fontWeight: 700, color: 'var(--color-error)', fontSize: 16, marginBottom: 4 }}>Error al cargar intentos</div>
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 13, maxWidth: 480, margin: '0 auto', wordBreak: 'break-word' }}>{attemptsError}</div>
+            </div>
+          ) : attempts.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <i className="ri-survey-line" style={{ fontSize: 44, color: 'var(--color-gray-mid)', display: 'block', marginBottom: 12 }} />
+              <div style={{ fontWeight: 700, color: 'var(--color-navy)', fontSize: 16, marginBottom: 4 }}>Sin intentos registrados</div>
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>Este jugador no ha respondido ninguna pregunta aún.</div>
+            </div>
+          ) : (
+            <div>
+              {/* Table header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 90px 100px 36px', gap: 0, background: '#f8f9fb', borderBottom: '1px solid var(--color-border)', padding: '10px 20px' }}>
+                {['Pregunta', 'Intentos', 'Mejor tiempo', 'Puntos', 'Estado', ''].map((h, i) => (
+                  <div key={i} style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
+                ))}
+              </div>
+
+              {attempts.map((q, idx) => {
+                const isExpanded = expandedQuestion === q.questionId
+                return (
+                  <div key={q.questionId} style={{ borderBottom: idx === attempts.length - 1 ? 'none' : '1px solid var(--color-border)' }}>
+                    {/* Summary row */}
+                    <div
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 90px 100px 36px', gap: 0, padding: '14px 20px', alignItems: 'center', cursor: 'pointer', transition: 'background 150ms' }}
+                      className="table-row-hover"
+                      onClick={() => setExpandedQuestion(isExpanded ? null : q.questionId)}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {q.questionText || q.questionId}
+                          {q.isBonus && (
+                            <span style={{ background: 'rgba(251,191,36,0.15)', color: '#d97706', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>BONUS</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginTop: 2 }}>Stop: {q.stopId}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: q.totalAttempts > 1 ? 'var(--color-orange)' : 'var(--color-text)' }}>
+                        {q.totalAttempts}
+                      </div>
+                      <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)' }}>
+                        {formatMs(q.bestTimeMs)}
+                      </div>
+                      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 14, color: q.pointsEarned > 0 ? 'var(--color-navy)' : 'var(--color-gray-mid)' }}>
+                        {q.pointsEarned > 0 ? `+${q.pointsEarned}` : '0'}
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        {q.solved ? (
+                          <span style={{ background: 'rgba(43,191,184,0.1)', color: 'var(--color-teal)', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                            <i className="ri-checkbox-circle-line" /> Correcta
+                          </span>
+                        ) : (
+                          <span style={{ background: 'rgba(230,51,41,0.08)', color: 'var(--color-error)', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                            <i className="ri-close-circle-line" /> Sin resolver
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <i className={isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} style={{ fontSize: 18, color: 'var(--color-gray-mid)' }} />
+                      </div>
+                    </div>
+
+                    {/* Expanded: individual attempts */}
+                    {isExpanded && (
+                      <div style={{ background: '#fafbfd', borderTop: '1px solid var(--color-border)', padding: '12px 20px 16px 36px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-mid)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                          Detalle de intentos
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {q.attempts.map((a, ai) => (
+                            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 8, background: a.correct ? 'rgba(43,191,184,0.06)' : 'rgba(230,51,41,0.04)', border: `1px solid ${a.correct ? 'rgba(43,191,184,0.2)' : 'rgba(230,51,41,0.12)'}` }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-mid)', minWidth: 60 }}>
+                                Intento #{ai + 1}
+                              </span>
+                              <span style={{ fontSize: 13, color: a.correct ? 'var(--color-teal)' : 'var(--color-error)', fontWeight: 700, minWidth: 80 }}>
+                                {a.correct ? '✓ Correcta' : '✗ Incorrecta'}
+                              </span>
+                              <span style={{ fontSize: 12, color: 'var(--color-text-muted)', minWidth: 80 }}>
+                                <i className="ri-time-line" style={{ marginRight: 4 }} />
+                                {formatMs(a.timeMs)}
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: a.pointsAwarded > 0 ? 'var(--color-navy)' : 'var(--color-gray-mid)' }}>
+                                {a.pointsAwarded > 0 ? `+${a.pointsAwarded} pts` : '0 pts'}
+                              </span>
+                              {a.answeredAt && (
+                                <span style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginLeft: 'auto' }}>
+                                  {new Date(a.answeredAt).toLocaleString('es-DO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes spin-circle { to { transform: rotate(360deg); } }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .table-row-hover:hover { background: #f5f6fa !important; }
+      `}</style>
 
     </div>
   )

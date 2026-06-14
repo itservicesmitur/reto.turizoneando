@@ -446,8 +446,12 @@ export default function StopsPage() {
       const formatted = qList.map(q => ({
         ...q,
         textEn: q.textEn || '',
-        optionsEn: q.optionsEn && q.optionsEn.length === 4 ? q.optionsEn : ['', '', '', ''],
-        explanationEn: q.explanationEn || ''
+        optionsEn: q.optionsEn && q.optionsEn.length === q.options.length
+          ? q.optionsEn
+          : q.options.map((_, i) => (q.optionsEn?.[i] ?? '')),
+        explanationEn: q.explanationEn || '',
+        points: typeof q.points === 'number' ? q.points : 10,
+        isBonus: q.isBonus === true
       }))
       setFormQuestions(formatted)
     } catch (err) {
@@ -570,7 +574,7 @@ export default function StopsPage() {
         setFormError(t('stopsManagement.errEmptyOptions', { num: i + 1 }))
         return
       }
-      const optsEn = q.optionsEn || ['', '', '', '']
+      const optsEn = q.optionsEn || q.options.map(() => '')
       if (optsEn.some(opt => !opt.trim())) {
         setFormError(`Por favor, completa todas las opciones en inglés para la pregunta ${i + 1}.`)
         return
@@ -634,14 +638,41 @@ export default function StopsPage() {
     const newQuestion: Omit<QuestionData, 'id' | 'stopId'> = {
       text: '',
       textEn: '',
-      options: ['', '', '', ''],
-      optionsEn: ['', '', '', ''],
+      options: ['', '', ''],
+      optionsEn: ['', '', ''],
       correctIndex: 0,
       difficulty: 'easy',
       explanation: '',
-      explanationEn: ''
+      explanationEn: '',
+      points: 10,
+      isBonus: false
     }
     setFormQuestions([...formQuestions, newQuestion as any])
+  }
+
+  function handleAddOption(qIdx: number) {
+    const updated = [...formQuestions]
+    updated[qIdx] = {
+      ...updated[qIdx],
+      options: [...updated[qIdx].options, ''],
+      optionsEn: [...(updated[qIdx].optionsEn || []), '']
+    }
+    setFormQuestions(updated)
+  }
+
+  function handleRemoveOption(qIdx: number, optIdx: number) {
+    const updated = [...formQuestions]
+    const q = updated[qIdx]
+    const newOptions = q.options.filter((_, i) => i !== optIdx)
+    const newOptionsEn = (q.optionsEn || []).filter((_, i) => i !== optIdx)
+    let newCorrectIndex = q.correctIndex
+    if (optIdx === q.correctIndex) {
+      newCorrectIndex = 0
+    } else if (optIdx < q.correctIndex) {
+      newCorrectIndex = q.correctIndex - 1
+    }
+    updated[qIdx] = { ...q, options: newOptions, optionsEn: newOptionsEn, correctIndex: newCorrectIndex }
+    setFormQuestions(updated)
   }
 
   function handleRemoveQuestion(idx: number) {
@@ -674,7 +705,7 @@ export default function StopsPage() {
 
   function handleOptionChangeEn(qIdx: number, optIdx: number, value: string) {
     const updated = [...formQuestions]
-    const updatedOptions = [...(updated[qIdx].optionsEn || ['', '', '', ''])]
+    const updatedOptions = [...(updated[qIdx].optionsEn || updated[qIdx].options.map(() => ''))]
     updatedOptions[optIdx] = value
     updated[qIdx] = {
       ...updated[qIdx],
@@ -1981,27 +2012,73 @@ export default function StopsPage() {
                           <div
                             key={qIdx}
                             style={{
-                              background: '#f8f9fb', borderRadius: 12, border: '1px solid var(--color-border)',
+                              background: q.isBonus ? 'rgba(251,191,36,0.06)' : '#f8f9fb',
+                              borderRadius: 12,
+                              border: q.isBonus ? '1.5px solid rgba(251,191,36,0.5)' : '1px solid var(--color-border)',
                               padding: 16, position: 'relative'
                             }}
                           >
                             {/* Question Title & Remove */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                              <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                {t('stopsManagement.questionNum', { num: qIdx + 1 })}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveQuestion(qIdx)}
-                                style={{
-                                  background: 'none', border: 'none', cursor: 'pointer',
-                                  color: 'var(--color-red)', fontSize: 12, fontWeight: 700,
-                                  display: 'flex', alignItems: 'center', gap: 4
-                                }}
-                              >
-                                <i className="ri-delete-bin-6-line" />
-                                {t('stopsManagement.btnQuestionRemove')}
-                              </button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                  {t('stopsManagement.questionNum', { num: qIdx + 1 })}
+                                </span>
+                                {q.isBonus && (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
+                                    background: 'rgba(251,191,36,0.2)', color: '#b45309',
+                                    border: '1px solid rgba(251,191,36,0.4)', textTransform: 'uppercase', letterSpacing: 0.5
+                                  }}>
+                                    Bonus
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {/* Points */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                                    Puntos
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={9999}
+                                    value={q.points ?? 10}
+                                    onChange={e => handleQuestionChange(qIdx, 'points', Math.max(1, Number(e.target.value)))}
+                                    style={{
+                                      width: 64, height: 28, borderRadius: 6,
+                                      border: '1px solid var(--color-border)',
+                                      padding: '0 8px', fontSize: 13, fontFamily: 'var(--font-body)',
+                                      outline: 'none', background: '#fff', textAlign: 'center'
+                                    }}
+                                  />
+                                </div>
+                                {/* Bonus toggle */}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={q.isBonus ?? false}
+                                    onChange={e => handleQuestionChange(qIdx, 'isBonus', e.target.checked)}
+                                    style={{ width: 14, height: 14, accentColor: '#d97706', cursor: 'pointer' }}
+                                  />
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: q.isBonus ? '#b45309' : 'var(--color-text-muted)' }}>
+                                    Pregunta Bonus
+                                  </span>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveQuestion(qIdx)}
+                                  style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: 'var(--color-red)', fontSize: 12, fontWeight: 700,
+                                    display: 'flex', alignItems: 'center', gap: 4
+                                  }}
+                                >
+                                  <i className="ri-delete-bin-6-line" />
+                                  {t('stopsManagement.btnQuestionRemove')}
+                                </button>
+                              </div>
                             </div>
 
                             {/* Inputs row: Text & Difficulty */}
@@ -2061,24 +2138,40 @@ export default function StopsPage() {
                             </div>
 
                             {/* Options fields */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 12 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 8 }}>
                               {/* Opciones en Español */}
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-navy)', textTransform: 'uppercase' }}>Opciones en Español</div>
                                 {q.options.map((opt, optIdx) => (
                                   <div key={optIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                       <span>Opción {String.fromCharCode(65 + optIdx)}</span>
-                                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontWeight: 600, color: q.correctIndex === optIdx ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
-                                        <input
-                                          type="radio"
-                                          name={`q-correct-${qIdx}`}
-                                          checked={q.correctIndex === optIdx}
-                                          onChange={() => handleQuestionChange(qIdx, 'correctIndex', optIdx)}
-                                          style={{ accentColor: 'var(--color-green)', cursor: 'pointer' }}
-                                        />
-                                        <span>Correcta</span>
-                                      </label>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontWeight: 600, color: q.correctIndex === optIdx ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
+                                          <input
+                                            type="radio"
+                                            name={`q-correct-${qIdx}`}
+                                            checked={q.correctIndex === optIdx}
+                                            onChange={() => handleQuestionChange(qIdx, 'correctIndex', optIdx)}
+                                            style={{ accentColor: 'var(--color-green)', cursor: 'pointer' }}
+                                          />
+                                          <span>Correcta</span>
+                                        </label>
+                                        {q.options.length > 2 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemoveOption(qIdx, optIdx)}
+                                            title="Eliminar opción"
+                                            style={{
+                                              background: 'none', border: 'none', cursor: 'pointer',
+                                              color: 'var(--color-red)', padding: 0, display: 'flex', alignItems: 'center',
+                                              fontSize: 14, lineHeight: 1
+                                            }}
+                                          >
+                                            <i className="ri-close-circle-line" />
+                                          </button>
+                                        )}
+                                      </div>
                                     </label>
                                     <input
                                       type="text"
@@ -2098,7 +2191,7 @@ export default function StopsPage() {
                               {/* Opciones en Inglés */}
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-navy)', textTransform: 'uppercase' }}>Opciones en Inglés</div>
-                                {Array.from({ length: 4 }).map((_, optIdx) => {
+                                {q.options.map((_, optIdx) => {
                                   const optEn = q.optionsEn ? q.optionsEn[optIdx] : ''
                                   return (
                                     <div key={optIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -2120,6 +2213,26 @@ export default function StopsPage() {
                                   )
                                 })}
                               </div>
+                            </div>
+
+                            {/* Add Answer Button */}
+                            <div style={{ marginBottom: 12 }}>
+                              <button
+                                type="button"
+                                onClick={() => handleAddOption(qIdx)}
+                                style={{
+                                  padding: '6px 12px', borderRadius: 6,
+                                  background: 'rgba(27,43,110,0.04)', border: '1px dashed var(--color-border)',
+                                  color: 'var(--color-navy)', fontSize: 12, fontWeight: 700,
+                                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  transition: 'background 150ms ease'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(27,43,110,0.1)' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(27,43,110,0.04)' }}
+                              >
+                                <i className="ri-add-line" />
+                                Agregar respuesta
+                              </button>
                             </div>
 
                             {/* Explanation fields */}

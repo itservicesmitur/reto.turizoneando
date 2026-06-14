@@ -13,7 +13,7 @@ export const getElevenLabsVoices = onCall({
   }
 
   // 2. Validate custom claims for Admin role
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -50,7 +50,7 @@ export const generateElevenLabsAudio = onCall({
   }
 
   // 2. Validate custom claims for Admin role
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 

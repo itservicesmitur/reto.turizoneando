@@ -7,7 +7,7 @@ export const getAdmins = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -48,7 +48,7 @@ export const createAdmin = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -90,7 +90,7 @@ export const updateAdmin = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -129,7 +129,7 @@ export const deleteAdmin = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -159,7 +159,7 @@ export const updateSelfAdmin = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 

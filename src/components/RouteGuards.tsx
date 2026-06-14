@@ -425,7 +425,8 @@ export function AdminRoute() {
       if (!user) { setStatus('denied'); return }
       try {
         const { claims } = await user.getIdTokenResult()
-        setStatus(claims.role === 'Admin' ? 'ok' : 'denied')
+        const role = (claims.role as string | undefined)?.toLowerCase()
+        setStatus(role === 'admin' ? 'ok' : 'denied')
       } catch {
         setStatus('denied')
       }

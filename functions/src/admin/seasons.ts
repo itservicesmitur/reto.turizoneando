@@ -29,7 +29,7 @@ export const createSeason = onCall(async (request) => {
       throw new HttpsError("unauthenticated", "Authentication required");
     }
 
-    if (request.auth.token.role !== "Admin") {
+    if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
       throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
     }
 
@@ -147,7 +147,7 @@ export const updateSeason = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -280,7 +280,7 @@ export const deleteSeason = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 

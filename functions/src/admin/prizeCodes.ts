@@ -28,7 +28,7 @@ export const generateTestPrizeCode = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 

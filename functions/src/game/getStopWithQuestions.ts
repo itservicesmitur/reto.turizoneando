@@ -27,7 +27,7 @@ export const getStopWithQuestions = onCall(async (request) => {
       .where("stopId", "==", stopId)
       .get();
 
-    const questions = questionsSnapshot.docs.map(doc => {
+    const allQuestions = questionsSnapshot.docs.map(doc => {
       const qData = doc.data();
       return {
         id: doc.id,
@@ -36,12 +36,20 @@ export const getStopWithQuestions = onCall(async (request) => {
         textEn: qData.textEn || "",
         options: qData.options || [],
         optionsEn: qData.optionsEn || [],
-        correctIndex: typeof qData.correctIndex === "number" ? qData.correctIndex : 0,
         difficulty: qData.difficulty || "easy",
-        explanation: qData.explanation || "",
-        explanationEn: qData.explanationEn || ""
+        points: typeof qData.points === "number" ? qData.points : 10,
+        isBonus: qData.isBonus === true
       };
     });
+
+    // Shuffle non-bonus questions; bonus questions always go last
+    const regular = allQuestions.filter(q => !q.isBonus);
+    const bonus = allQuestions.filter(q => q.isBonus);
+    for (let i = regular.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [regular[i], regular[j]] = [regular[j], regular[i]];
+    }
+    const questions = [...regular, ...bonus];
 
     return {
       stop: {

@@ -36,10 +36,15 @@
 /questions/{questionId}
   stopId: string               ← relación con /stops
   text: string
-  options: string[]            ← solo esto llega al cliente
-  correctIndex: number         ← NUNCA exponer al frontend
+  textEn: string
+  options: string[]            ← llegan al cliente SIN correctIndex
+  optionsEn: string[]
+  correctIndex: number         ← NUNCA exponer al frontend; solo Cloud Functions via admin SDK
   difficulty: 'easy' | 'medium' | 'hard'
-  explanation: string          ← se muestra después de responder
+  explanation: string          ← se muestra después de responder (devuelto por getCorrectAnswer)
+  explanationEn: string
+  points: number               ← puntos otorgados si la respuesta es correcta (default: 10)
+  isBonus: boolean             ← si es pregunta bonus (otorga puntos extra)
   createdAt: Timestamp
 
 /prizes/{prizeId}
@@ -61,8 +66,24 @@
   uid: string
   displayName: string
   email: string
+  score: number                ← puntaje total acumulado (actualizado por registerAttempt)
   createdAt: Timestamp
-  banned: boolean              ← si está suspendido, no puede acceder al juego
+  banned: boolean              ← suspensión disciplinaria; bloquea acceso al juego
+  active: boolean              ← estado operativo; false = cuenta desactivada por admin (default: true)
+
+/players/{playerId}/attempts/{attemptId}   ← escrito SOLO por registerAttempt (admin SDK)
+  questionId: string
+  stopId: string
+  seasonId: string
+  questionText: string         ← denormalizado para evitar N+1 en el admin
+  questionTextEn: string
+  selectedIndex: number
+  correct: boolean
+  timeMs: number               ← milisegundos que tardó en responder
+  pointsAwarded: number        ← 0 si incorrecto o ya había resuelto la pregunta
+  isBonus: boolean
+  attemptNumber: number        ← intento 1, 2, 3... por esta pregunta para este jugador
+  answeredAt: Timestamp
 
 /players/{playerId}/seasons/{seasonId}
   seasonId: string             ← progreso específico de la temporada
@@ -104,8 +125,9 @@
 ## Cloud Functions del proyecto (mantener actualizada)
 | Función | Trigger | Responsabilidad |
 |---|---|---|
-| `getQuestion` | HTTPS callable | Devuelve pregunta sin `correctIndex` |
-| `validateAnswer` | HTTPS callable | Valida, calcula puntos, desbloquea siguiente nodo |
+| `getStopWithQuestions` | HTTPS callable | Devuelve parada + preguntas **sin** `correctIndex` ni `explanation` |
+| `getCorrectAnswer` | HTTPS callable | Validación simple sin persistencia — recibe `questionId` + `selectedIndex`; devuelve `{ correct, pointsAwarded, isBonus, explanation, explanationEn }` |
+| `registerAttempt` | HTTPS callable | Valida respuesta, persiste intento en `/players/{uid}/attempts`, acumula score en el jugador — uso principal del cliente de juego |
 | `startGame` | HTTPS callable | Inicializa estado del jugador en Firestore |
 | `onPlayerCreated` | Auth onCreate | Crea documento del jugador con estado inicial |
 | `getPlayers` | HTTPS callable | Devuelve listado de jugadores ordenados por creación |

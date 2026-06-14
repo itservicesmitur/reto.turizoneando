@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const tokenResult = await userCredential.user.getIdTokenResult(true)
       
-      if (tokenResult.claims.role !== 'Admin') {
+      if ((tokenResult.claims.role as string | undefined)?.toLowerCase() !== 'admin') {
         await auth.signOut()
         setError(t('adminLogin.unauthorized'))
         return

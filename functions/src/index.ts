@@ -51,4 +51,6 @@ export {
   generateElevenLabsAudio
 } from "./admin/elevenLabs";
 export { getStopWithQuestions } from "./game/getStopWithQuestions";
+export { getCorrectAnswer } from "./game/validateAnswer";
+export { registerAttempt } from "./game/registerAttempt";
 

@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions'
-import { doc, getDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where, orderBy } from 'firebase/firestore'
 import { functions, db } from '../config/firebase'
 
 
@@ -18,6 +18,7 @@ export interface PlayerData {
   currentNodeId: string | null
   createdAt: string | null
   banned?: boolean
+  active?: boolean
 }
 
 export async function fetchPlayers(): Promise<PlayerData[]> {
@@ -59,6 +60,7 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
     mapProgress: data.mapProgress || {},
     currentNodeId: data.currentNodeId || null,
     banned: data.banned === true,
+    active: data.active !== false,
     createdAt: createdAtStr,
   }
 }
@@ -66,6 +68,101 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
 export async function updatePlayerBannedStatus(uid: string, banned: boolean): Promise<void> {
   const docRef = doc(db, 'players', uid)
   await updateDoc(docRef, { banned })
+}
+
+export async function updatePlayerActiveStatus(uid: string, active: boolean): Promise<void> {
+  const docRef = doc(db, 'players', uid)
+  await updateDoc(docRef, { active })
+}
+
+export interface AttemptData {
+  id: string
+  questionId: string
+  stopId: string
+  seasonId: string
+  questionText: string
+  questionTextEn: string
+  selectedIndex: number
+  correct: boolean
+  timeMs: number
+  pointsAwarded: number
+  isBonus: boolean
+  attemptNumber: number
+  answeredAt: string | null
+}
+
+export interface QuestionAttemptSummary {
+  questionId: string
+  questionText: string
+  questionTextEn: string
+  stopId: string
+  isBonus: boolean
+  totalAttempts: number
+  solved: boolean
+  pointsEarned: number
+  bestTimeMs: number | null
+  attempts: AttemptData[]
+}
+
+export async function fetchPlayerAttempts(playerId: string): Promise<QuestionAttemptSummary[]> {
+  const attemptsRef = collection(db, 'players', playerId, 'attempts')
+  const snap = await getDocs(query(attemptsRef, orderBy('answeredAt', 'asc')))
+
+  const attempts: AttemptData[] = snap.docs.map(docSnap => {
+    const d = docSnap.data()
+    let answeredAt: string | null = null
+    if (d.answeredAt?.toDate) answeredAt = d.answeredAt.toDate().toISOString()
+    else if (typeof d.answeredAt?.seconds === 'number') answeredAt = new Date(d.answeredAt.seconds * 1000).toISOString()
+    return {
+      id: docSnap.id,
+      questionId: d.questionId || '',
+      stopId: d.stopId || '',
+      seasonId: d.seasonId || '',
+      questionText: d.questionText || '',
+      questionTextEn: d.questionTextEn || '',
+      selectedIndex: typeof d.selectedIndex === 'number' ? d.selectedIndex : -1,
+      correct: d.correct === true,
+      timeMs: typeof d.timeMs === 'number' ? d.timeMs : 0,
+      pointsAwarded: typeof d.pointsAwarded === 'number' ? d.pointsAwarded : 0,
+      isBonus: d.isBonus === true,
+      attemptNumber: typeof d.attemptNumber === 'number' ? d.attemptNumber : 1,
+      answeredAt,
+    }
+  })
+
+  // Group by questionId preserving first-seen order
+  const order: string[] = []
+  const groups = new Map<string, AttemptData[]>()
+  for (const a of attempts) {
+    if (!groups.has(a.questionId)) {
+      groups.set(a.questionId, [])
+      order.push(a.questionId)
+    }
+    groups.get(a.questionId)!.push(a)
+  }
+
+  return order.map(questionId => {
+    const qAttempts = groups.get(questionId)!
+    const first = qAttempts[0]
+    const solved = qAttempts.some(a => a.correct)
+    const pointsEarned = qAttempts.reduce((sum, a) => sum + a.pointsAwarded, 0)
+    const correctAttempts = qAttempts.filter(a => a.correct)
+    const bestTimeMs = correctAttempts.length > 0
+      ? Math.min(...correctAttempts.map(a => a.timeMs))
+      : null
+    return {
+      questionId,
+      questionText: first.questionText,
+      questionTextEn: first.questionTextEn,
+      stopId: first.stopId,
+      isBonus: first.isBonus,
+      totalAttempts: qAttempts.length,
+      solved,
+      pointsEarned,
+      bestTimeMs,
+      attempts: qAttempts,
+    }
+  })
 }
 
 export interface AdminUserData {
@@ -400,6 +497,8 @@ export interface QuestionData {
   difficulty: 'easy' | 'medium' | 'hard'
   explanation: string
   explanationEn: string
+  points: number
+  isBonus: boolean
   createdAt?: string | null
 }
 
@@ -475,6 +574,8 @@ export async function fetchQuestionsForStop(stopId: string): Promise<QuestionDat
       difficulty: data.difficulty || 'easy',
       explanation: data.explanation || '',
       explanationEn: data.explanationEn || '',
+      points: typeof data.points === 'number' ? data.points : 10,
+      isBonus: data.isBonus === true,
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
@@ -511,6 +612,8 @@ export async function createStop(
     batch.set(qRef, {
       ...q,
       stopId: stopRef.id,
+      points: typeof q.points === 'number' ? q.points : 10,
+      isBonus: q.isBonus === true,
       createdAt: new Date()
     })
   }
@@ -549,6 +652,8 @@ export async function updateStop(
         difficulty: q.difficulty,
         explanation: q.explanation,
         explanationEn: q.explanationEn,
+        points: typeof q.points === 'number' ? q.points : 10,
+        isBonus: q.isBonus === true,
       }
       batch.update(qRef, updateData)
     } else {
@@ -564,6 +669,8 @@ export async function updateStop(
         difficulty: q.difficulty,
         explanation: q.explanation,
         explanationEn: q.explanationEn,
+        points: typeof q.points === 'number' ? q.points : 10,
+        isBonus: q.isBonus === true,
         createdAt: new Date()
       })
     }

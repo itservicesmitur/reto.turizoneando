@@ -64,6 +64,18 @@ El agente debe consultar esto antes de proponer cambios estructurales.
 **Por qué:** Mejora la performance del cliente minimizando las peticiones de red directas mediante agregación en memoria, permitiendo contar con toda la información geográfica (`lat`/`lng`), nombre (`name`/`nameEn`), ID y foto (`imageUrl`) necesarios para posicionar las paradas de la temporada de manera fluida y realizar búsquedas rápidas en el mapa por ID de parada.
 **Impacto:** `src/services/adminService.ts` · `src/agents/backend.md`
 
+## [2026-06-14] Sistema de intentos y score — registerAttempt como fuente única de verdad
+**Decisión:** Se crea `registerAttempt` (Cloud Function callable) que unifica validación de respuesta + persistencia de intento + acumulación de score en una sola llamada. Los intentos se guardan en `/players/{playerId}/attempts/{attemptId}` como subcollection, con datos denormalizados (`questionText`) para evitar N+1 en el admin. Los puntos solo se otorgan en el PRIMER intento correcto por pregunta por jugador. El panel admin muestra el historial agrupado por pregunta con toggle expandible por intento individual. El ranking es el listado de jugadores ordenado por `score` en PlayersPage.
+**Alternativa descartada:** Mantener `getCorrectAnswer` (validación pura) y manejar la persistencia por separado desde el cliente, o guardar intentos en una colección raíz `/sessions` flat.
+**Por qué:** Una sola llamada al backend es más segura (no hay doble-fetch de correctIndex), más atómica (no se pierde el intento si el cliente falla después de validar), y simplifica el código del cliente de juego. La subcollection garantiza isolation por jugador y permite queries eficientes.
+**Impacto:** `functions/src/game/registerAttempt.ts` · `src/services/adminService.ts` · `src/pages/admin/PlayerDetailPage.tsx` · `firestore.rules` · `src/agents/backend.md`
+
+## [2026-06-14] Validación de respuestas movida 100% al backend — correctIndex nunca sale del servidor
+**Decisión:** `getStopWithQuestions` ya no devuelve `correctIndex` ni `explanation`. Se crea `getCorrectAnswer` (Cloud Function callable) que recibe `questionId` + `selectedIndex` y devuelve `{ correct, pointsAwarded, isBonus, explanation, explanationEn }`. El cliente nunca tiene acceso al índice correcto.
+**Alternativa descartada:** Devolver `correctIndex` cifrado o como hash en `getStopWithQuestions` y validar en el frontend.
+**Por qué:** Seguridad — con `correctIndex` en el cliente cualquier usuario puede inspeccionar la respuesta en DevTools o interceptar la petición. La única fuente de verdad debe ser el admin SDK en Cloud Functions.
+**Impacto:** `functions/src/game/getStopWithQuestions.ts` · `functions/src/game/validateAnswer.ts` · `src/agents/backend.md` · `src/agents/DECISIONS.md`
+
 ---
 
 <!-- Agrega nuevas decisiones arriba de esta línea con el mismo formato -->

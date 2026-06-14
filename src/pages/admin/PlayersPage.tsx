@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchPlayers, type PlayerData } from '../../services/adminService'
+import { fetchPlayers, updatePlayerActiveStatus, type PlayerData } from '../../services/adminService'
 
 export default function PlayersPage() {
   const navigate = useNavigate()
@@ -12,7 +12,9 @@ export default function PlayersPage() {
   const [search, setSearch] = useState('')
   const [natFilter, setNatFilter] = useState('')
   const [ageFilter, setAgeFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'score-desc' | 'score-asc'>('date-desc')
+  const [togglingUid, setTogglingUid] = useState<string | null>(null)
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -48,7 +50,7 @@ export default function PlayersPage() {
   }, [players])
 
   // Filtered & sorted players
-  const processedPlayers = useMemo(() => {
+  const processedPlayers = useMemo<PlayerData[]>(() => {
     let result = [...players]
 
     // Search
@@ -60,6 +62,13 @@ export default function PlayersPage() {
           p.email.toLowerCase().includes(q) ||
           p.uid.toLowerCase().includes(q)
       )
+    }
+
+    // Status filter
+    if (statusFilter === 'active') {
+      result = result.filter(p => p.active !== false)
+    } else if (statusFilter === 'inactive') {
+      result = result.filter(p => p.active === false)
     }
 
     // Nationality filter
@@ -90,7 +99,7 @@ export default function PlayersPage() {
     })
 
     return result
-  }, [players, search, natFilter, ageFilter, sortBy])
+  }, [players, search, natFilter, ageFilter, statusFilter, sortBy])
 
   // Total pages
   const totalPages = Math.ceil(processedPlayers.length / pageSize)
@@ -119,11 +128,26 @@ export default function PlayersPage() {
     })
   }
 
+  async function handleToggleActive(e: React.MouseEvent, player: PlayerData) {
+    e.stopPropagation()
+    const newActive = !(player.active !== false)
+    setTogglingUid(player.uid)
+    try {
+      await updatePlayerActiveStatus(player.uid, newActive)
+      setPlayers(prev => prev.map(p => p.uid === player.uid ? { ...p, active: newActive } : p))
+    } catch {
+      // silent — user stays unchanged
+    } finally {
+      setTogglingUid(null)
+    }
+  }
+
   // Clear all filters
   function handleClearFilters() {
     setSearch('')
     setNatFilter('')
     setAgeFilter('')
+    setStatusFilter('all')
     setSortBy('date-desc')
     setCurrentPage(1)
   }
@@ -215,6 +239,28 @@ export default function PlayersPage() {
           </select>
         </div>
 
+        {/* Status Filter */}
+        <div style={{ flex: '1 1 150px' }}>
+          <select
+            value={statusFilter}
+            onChange={e => {
+              setStatusFilter(e.target.value as typeof statusFilter)
+              setCurrentPage(1)
+            }}
+            style={{
+              width: '100%', height: 40, borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              paddingLeft: 12, paddingRight: 12, fontSize: 14,
+              fontFamily: 'var(--font-body)', color: 'var(--color-text)',
+              background: '#f8f9fb', outline: 'none', cursor: 'pointer'
+            }}
+          >
+            <option value="all">Estado (Todos)</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+        </div>
+
         {/* Age Range Filter */}
         <div style={{ flex: '1 1 160px' }}>
           <select
@@ -262,7 +308,7 @@ export default function PlayersPage() {
         </div>
 
         {/* Clear filters */}
-        {(search || natFilter || ageFilter || sortBy !== 'date-desc') && (
+        {(search || natFilter || ageFilter || statusFilter !== 'all' || sortBy !== 'date-desc') && (
           <button
             onClick={handleClearFilters}
             style={{
@@ -342,6 +388,11 @@ export default function PlayersPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: '#f8f9fb', borderBottom: '1px solid var(--color-border)' }}>
+                  {(sortBy === 'score-desc' || sortBy === 'score-asc') && (
+                    <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', width: 56 }}>
+                      #
+                    </th>
+                  )}
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Jugador
                   </th>
@@ -363,6 +414,9 @@ export default function PlayersPage() {
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Fecha Registro
                   </th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>
+                    Estado
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -381,12 +435,30 @@ export default function PlayersPage() {
                       className="table-row-hover"
                       onClick={() => navigate(`/admin/players/${player.uid}`)}
                     >
+                      {/* Rank cell — only visible when sorted by score */}
+                      {(sortBy === 'score-desc' || sortBy === 'score-asc') && (
+                        <td style={{ padding: '14px 20px', textAlign: 'center', width: 56 }}>
+                          {idx + (currentPage - 1) * pageSize === 0 ? (
+                            <span style={{ fontSize: 18 }}>🥇</span>
+                          ) : idx + (currentPage - 1) * pageSize === 1 ? (
+                            <span style={{ fontSize: 18 }}>🥈</span>
+                          ) : idx + (currentPage - 1) * pageSize === 2 ? (
+                            <span style={{ fontSize: 18 }}>🥉</span>
+                          ) : (
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-gray-dark)' }}>
+                              #{(currentPage - 1) * pageSize + idx + 1}
+                            </span>
+                          )}
+                        </td>
+                      )}
+
                       {/* Player Avatar, Name and Email */}
                       <td style={{ padding: '14px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <div style={{
                             width: 38, height: 38, borderRadius: '50%',
-                            background: 'var(--color-navy)', color: 'var(--color-yellow)',
+                            background: player.active === false ? 'var(--color-gray-mid)' : 'var(--color-navy)',
+                            color: 'var(--color-yellow)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
                             flexShrink: 0
@@ -394,11 +466,10 @@ export default function PlayersPage() {
                             {initials}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 14, display: 'flex', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               {player.displayName || `${player.firstName} ${player.lastName}`.trim() || 'Jugador Anónimo'}
                               {player.banned && (
                                 <span style={{
-                                  marginLeft: 8,
                                   background: 'rgba(230,51,41,0.1)',
                                   color: 'var(--color-error)',
                                   padding: '2px 6px',
@@ -407,6 +478,18 @@ export default function PlayersPage() {
                                   fontWeight: 700
                                 }}>
                                   BANEADO
+                                </span>
+                              )}
+                              {player.active === false && (
+                                <span style={{
+                                  background: 'rgba(160,168,184,0.15)',
+                                  color: 'var(--color-gray-dark)',
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  fontSize: 10,
+                                  fontWeight: 700
+                                }}>
+                                  INACTIVO
                                 </span>
                               )}
                             </div>
@@ -451,6 +534,37 @@ export default function PlayersPage() {
                       {/* Created date */}
                       <td style={{ padding: '14px 20px', fontSize: 13, color: 'var(--color-text-muted)' }}>
                         {formatDate(player.createdAt)}
+                      </td>
+
+                      {/* Active toggle */}
+                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                        <button
+                          onClick={e => handleToggleActive(e, player)}
+                          disabled={togglingUid === player.uid}
+                          title={player.active === false ? 'Activar jugador' : 'Desactivar jugador'}
+                          style={{
+                            width: 44, height: 24, borderRadius: 12,
+                            border: 'none',
+                            background: player.active === false ? '#d1d5db' : 'var(--color-teal)',
+                            cursor: togglingUid === player.uid ? 'wait' : 'pointer',
+                            position: 'relative',
+                            transition: 'background 200ms ease',
+                            flexShrink: 0,
+                            opacity: togglingUid === player.uid ? 0.6 : 1,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span style={{
+                            position: 'absolute',
+                            width: 18, height: 18, borderRadius: '50%',
+                            background: '#fff',
+                            top: 3,
+                            left: player.active === false ? 3 : 23,
+                            transition: 'left 200ms ease',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          }} />
+                        </button>
                       </td>
                     </tr>
                   )

@@ -2,39 +2,37 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if the user is an Admin
+    // Helper: usuario autenticado con rol Admin (funciona en todos los ambientes)
     function isAdmin() {
-      return request.auth != null && (
-        request.auth.token.role == 'Admin' ||
-        bucket == 'turizoneando-dev.appspot.com' ||
-        bucket == 'turizoneando-dev.firebasestorage.app' ||
-        bucket.matches('.*localhost.*') ||
-        bucket.matches('.*emulator.*')
-      );
+      return request.auth != null && request.auth.token.role.lower() == 'admin';
     }
 
-    // Narration audio files — any authenticated user can read.
-    // Write is handled by admin SDK or Admin users.
+    // Helper: usuario autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Narración de audio — lectores autenticados, escritura solo Admin
     match /narrations/{stopId}/{file} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Stop images — read by authenticated users, written by Admin users.
+    // Imágenes de paradas — lectores autenticados, escritura solo Admin
     match /stops/{file} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Prize images — read by authenticated users, written by Admin users.
+    // Imágenes de premios — lectores autenticados, escritura solo Admin
     match /prizes/{file} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Admin profile photos — read by authenticated users, written by Admin users.
+    // Fotos de perfil de administradores — lectores autenticados, escritura solo Admin
     match /admins/{file} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
   }

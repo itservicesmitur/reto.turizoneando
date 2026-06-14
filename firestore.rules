@@ -16,6 +16,12 @@ service cloud.firestore {
       allow update: if (request.auth != null && request.auth.uid == playerId &&
                         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['score', 'banned'])) || isAdmin();
       allow delete: if isAdmin();
+
+      // Attempts — written only by Cloud Functions (admin SDK); readable by owner and admins
+      match /attempts/{attemptId} {
+        allow read: if (request.auth != null && request.auth.uid == playerId) || isAdmin();
+        allow write: if false; // only via registerAttempt Cloud Function (admin SDK)
+      }
     }
 
     // Participants — read own document only. Write is Functions or Admins.

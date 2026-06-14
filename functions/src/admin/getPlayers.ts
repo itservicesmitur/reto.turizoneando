@@ -8,7 +8,7 @@ export const getPlayers = onCall(async (request) => {
   }
 
   // 2. Validate custom claims for Admin role
-  if (request.auth.token.role !== "Admin") {
+  if ((request.auth.token.role as string | undefined)?.toLowerCase() !== "admin") {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
@@ -32,6 +32,7 @@ export const getPlayers = onCall(async (request) => {
         mapProgress: data.mapProgress || {},
         currentNodeId: data.currentNodeId || null,
         banned: data.banned === true,
+        active: data.active !== false,
         createdAt: data.createdAt && typeof data.createdAt.toDate === "function"
           ? data.createdAt.toDate().toISOString()
           : null,
