@@ -46,3 +46,9 @@ export {
   getPublicPrizeCode,
   redeemPublicPrizeCode
 } from "./admin/prizeCodes";
+export {
+  getElevenLabsVoices,
+  generateElevenLabsAudio
+} from "./admin/elevenLabs";
+export { getStopWithQuestions } from "./game/getStopWithQuestions";
+

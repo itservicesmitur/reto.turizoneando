@@ -353,10 +353,13 @@ export interface QuestionData {
   id: string
   stopId: string
   text: string
+  textEn: string
   options: string[]
+  optionsEn: string[]
   correctIndex: number
   difficulty: 'easy' | 'medium' | 'hard'
   explanation: string
+  explanationEn: string
   createdAt?: string | null
 }
 
@@ -365,8 +368,12 @@ export interface StopData {
   seasonId: string
   stageId: string
   name: string
+  nameEn: string
   narration: string
+  narrationEn: string
   imageUrl: string
+  audioUrl?: string
+  audioUrlEn?: string
   lat: number
   lng: number
   order: number
@@ -385,8 +392,12 @@ export async function fetchStopsList(): Promise<StopData[]> {
       seasonId: data.seasonId || '',
       stageId: data.stageId || '',
       name: data.name || '',
+      nameEn: data.nameEn || '',
       narration: data.narration || '',
+      narrationEn: data.narrationEn || '',
       imageUrl: data.imageUrl || '',
+      audioUrl: data.audioUrl || '',
+      audioUrlEn: data.audioUrlEn || '',
       lat: typeof data.lat === 'number' ? data.lat : 0,
       lng: typeof data.lng === 'number' ? data.lng : 0,
       order: typeof data.order === 'number' ? data.order : 0,
@@ -408,15 +419,27 @@ export async function fetchQuestionsForStop(stopId: string): Promise<QuestionDat
       id: doc.id,
       stopId: data.stopId || '',
       text: data.text || '',
+      textEn: data.textEn || '',
       options: Array.isArray(data.options) ? data.options : [],
+      optionsEn: Array.isArray(data.optionsEn) ? data.optionsEn : [],
       correctIndex: typeof data.correctIndex === 'number' ? data.correctIndex : 0,
       difficulty: data.difficulty || 'easy',
       explanation: data.explanation || '',
+      explanationEn: data.explanationEn || '',
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
     }
   })
+}
+
+export async function getStopWithQuestions(stopId: string): Promise<{ stop: StopData; questions: Omit<QuestionData, 'correctIndex'>[] }> {
+  const getStopWithQuestionsFn = httpsCallable<{ stopId: string }, { stop: StopData; questions: Omit<QuestionData, 'correctIndex'>[] }>(
+    functions,
+    'getStopWithQuestions'
+  )
+  const response = await getStopWithQuestionsFn({ stopId })
+  return response.data
 }
 
 export async function createStop(
@@ -463,10 +486,13 @@ export async function updateStop(
       const qRef = doc(db, 'questions', q.id)
       const updateData: any = {
         text: q.text,
+        textEn: q.textEn,
         options: q.options,
+        optionsEn: q.optionsEn,
         correctIndex: q.correctIndex,
         difficulty: q.difficulty,
         explanation: q.explanation,
+        explanationEn: q.explanationEn,
       }
       batch.update(qRef, updateData)
     } else {
@@ -475,10 +501,13 @@ export async function updateStop(
       batch.set(qRef, {
         stopId,
         text: q.text,
+        textEn: q.textEn,
         options: q.options,
+        optionsEn: q.optionsEn,
         correctIndex: q.correctIndex,
         difficulty: q.difficulty,
         explanation: q.explanation,
+        explanationEn: q.explanationEn,
         createdAt: new Date()
       })
     }
@@ -610,6 +639,30 @@ export async function redeemPublicPrizeCode(code: string): Promise<{ success: bo
     'redeemPublicPrizeCode'
   )
   const response = await redeemPublicPrizeCodeFn({ code })
+  return response.data
+}
+
+export interface ElevenLabsVoice {
+  voice_id: string
+  name: string
+  category: string
+}
+
+export async function fetchElevenLabsVoices(): Promise<{ voices: ElevenLabsVoice[] }> {
+  const getVoicesFn = httpsCallable<unknown, { voices: ElevenLabsVoice[] }>(
+    functions,
+    'getElevenLabsVoices'
+  )
+  const response = await getVoicesFn()
+  return response.data
+}
+
+export async function generateElevenLabsAudio(text: string, voiceId: string): Promise<{ downloadUrl: string }> {
+  const generateAudioFn = httpsCallable<{ text: string; voiceId: string }, { downloadUrl: string }>(
+    functions,
+    'generateElevenLabsAudio'
+  )
+  const response = await generateAudioFn({ text, voiceId })
   return response.data
 }
 

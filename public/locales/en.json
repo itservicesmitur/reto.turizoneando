@@ -289,6 +289,8 @@
     "errNoQuestions": "You must configure at least one question for this stop.",
     "errEmptyQuestionText": "Question text for question {{num}} cannot be empty.",
     "errEmptyOptions": "All options for question {{num}} must be completed.",
+    "errNarrationLimit": "The historical narration cannot exceed 500 words.",
+    "wordCount": "words",
     "confirmDelete": "Are you sure you want to delete this stop? All associated quiz questions will be permanently deleted. This action cannot be undone.",
     "mapInstruction": "Click anywhere on the Colonial Zone map to capture coordinates."
   },

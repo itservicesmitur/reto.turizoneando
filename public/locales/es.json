@@ -289,6 +289,8 @@
     "errNoQuestions": "Debes configurar al menos una pregunta para esta parada.",
     "errEmptyQuestionText": "El texto de la pregunta {{num}} no puede estar vacío.",
     "errEmptyOptions": "Todas las opciones de la pregunta {{num}} deben estar completas.",
+    "errNarrationLimit": "La narración histórica no puede exceder las 500 palabras.",
+    "wordCount": "palabras",
     "confirmDelete": "¿Estás seguro de que deseas eliminar esta parada? Se eliminarán también todas sus preguntas asociadas de forma permanente. Esta acción no se puede deshacer.",
     "mapInstruction": "Haz clic en cualquier parte del mapa de la Zona Colonial para capturar las coordenadas."
   },

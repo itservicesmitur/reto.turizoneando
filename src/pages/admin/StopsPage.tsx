@@ -8,6 +8,8 @@ import {
   updateStop,
   deleteStop,
   fetchSeasons,
+  fetchElevenLabsVoices,
+  generateElevenLabsAudio,
   type StopData,
   type QuestionData,
   type SeasonData
@@ -46,8 +48,12 @@ export default function StopsPage() {
 
   // Stop Form States
   const [formName, setFormName] = useState('')
+  const [formNameEn, setFormNameEn] = useState('')
   const [formNarration, setFormNarration] = useState('')
+  const [formNarrationEn, setFormNarrationEn] = useState('')
   const [formImageUrl, setFormImageUrl] = useState('')
+  const [formAudioUrl, setFormAudioUrl] = useState('')
+  const [formAudioUrlEn, setFormAudioUrlEn] = useState('')
   const [formLat, setFormLat] = useState<number>(18.4735)
   const [formLng, setFormLng] = useState<number>(-69.8863)
   const [formOrder, setFormOrder] = useState<number>(1)
@@ -56,6 +62,58 @@ export default function StopsPage() {
   const [formActive, setFormActive] = useState(true)
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  // ElevenLabs States
+  const [selectedVoice, setSelectedVoice] = useState('PPzYpIqttlTYA83688JI') // Antoni (Deep Narrator) as default
+  const [customVoiceId, setCustomVoiceId] = useState('')
+  const [generatingAudio, setGeneratingAudio] = useState(false)
+  const [audioError, setAudioError] = useState<string | null>(null)
+  const [availableVoices, setAvailableVoices] = useState<{ id: string; name: string; category: string }[]>([])
+  const [loadingVoices, setLoadingVoices] = useState(false)
+
+  // ElevenLabs English States
+  const [selectedVoiceEn, setSelectedVoiceEn] = useState('PPzYpIqttlTYA83688JI')
+  const [customVoiceIdEn, setCustomVoiceIdEn] = useState('')
+  const [generatingAudioEn, setGeneratingAudioEn] = useState(false)
+  const [audioErrorEn, setAudioErrorEn] = useState<string | null>(null)
+
+  // Fetch ElevenLabs voices on mount/modal open from backend Cloud Function
+  useEffect(() => {
+    async function loadVoices() {
+      if (availableVoices.length > 0) return
+
+      try {
+        setLoadingVoices(true)
+        const data = await fetchElevenLabsVoices()
+        if (data.voices && Array.isArray(data.voices)) {
+          const formatted = data.voices.map((v: any) => ({
+            id: v.voice_id,
+            name: v.name,
+            category: v.category
+          }))
+          setAvailableVoices(formatted)
+
+          // If Capitán Turi is not in the list, set selected voice to the first one
+          const turiExists = formatted.some((v: any) => v.id === 'PPzYpIqttlTYA83688JI')
+          if (!turiExists && formatted.length > 0) {
+            setSelectedVoice(formatted[0].id)
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching ElevenLabs voices from backend (using fallback list):', err)
+      } finally {
+        setLoadingVoices(false)
+      }
+    }
+
+    if (showCreateModal || showEditModal) {
+      loadVoices()
+    }
+  }, [showCreateModal, showEditModal, availableVoices.length])
+
+  // Computed word count for narration
+  const wordCount = formNarration.trim().split(/\s+/).filter(Boolean).length
+  const wordCountEn = formNarrationEn.trim().split(/\s+/).filter(Boolean).length
 
   // Quiz Questions Form States (Stored locally during edit/create before commit)
   const [formQuestions, setFormQuestions] = useState<Omit<QuestionData, 'stopId'>[]>([])
@@ -165,7 +223,7 @@ export default function StopsPage() {
                   const newLng = typeof location.lng === 'function' ? location.lng() : location.lng
                   setFormLat(newLat)
                   setFormLng(newLng)
-                  
+
                   const coords = { lat: newLat, lng: newLng }
                   marker.position = coords
                   map.panTo(coords)
@@ -334,8 +392,12 @@ export default function StopsPage() {
   // Open Create Stop modal
   function handleOpenCreate() {
     setFormName('')
+    setFormNameEn('')
     setFormNarration('')
+    setFormNarrationEn('')
     setFormImageUrl('')
+    setFormAudioUrl('')
+    setFormAudioUrlEn('')
     setFormLat(18.4735)
     setFormLng(-69.8863)
     setFormOrder(1)
@@ -354,8 +416,12 @@ export default function StopsPage() {
   async function handleOpenEdit(stop: StopData) {
     setSelectedStop(stop)
     setFormName(stop.name)
+    setFormNameEn(stop.nameEn || '')
     setFormNarration(stop.narration)
+    setFormNarrationEn(stop.narrationEn || '')
     setFormImageUrl(stop.imageUrl)
+    setFormAudioUrl(stop.audioUrl || '')
+    setFormAudioUrlEn(stop.audioUrlEn || '')
     setFormLat(stop.lat)
     setFormLng(stop.lng)
     setFormOrder(stop.order)
@@ -371,11 +437,84 @@ export default function StopsPage() {
     try {
       // Load questions for the selected stop
       const qList = await fetchQuestionsForStop(stop.id)
-      setFormQuestions(qList)
+      const formatted = qList.map(q => ({
+        ...q,
+        textEn: q.textEn || '',
+        optionsEn: q.optionsEn && q.optionsEn.length === 4 ? q.optionsEn : ['', '', '', ''],
+        explanationEn: q.explanationEn || ''
+      }))
+      setFormQuestions(formatted)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al cargar preguntas')
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  // Generate audio via ElevenLabs (calls backend Cloud Function)
+  async function handleGenerateAudio() {
+    setAudioError(null)
+    if (!formNarration.trim()) {
+      setAudioError('Por favor, escribe una narración primero.')
+      return
+    }
+
+    const voiceId = selectedVoice === 'custom' ? customVoiceId.trim() : selectedVoice
+    if (!voiceId) {
+      setAudioError('Por favor, ingresa un Voice ID de ElevenLabs válido.')
+      return
+    }
+
+    try {
+      setGeneratingAudio(true)
+      const result = await generateElevenLabsAudio(formNarration.trim(), voiceId.trim())
+      setFormAudioUrl(result.downloadUrl)
+    } catch (err: any) {
+      console.error('ElevenLabs generation error:', err)
+      
+      // Parse detailed function/HTTPS errors if present
+      let friendlyMessage = 'Error inesperado al generar el audio.'
+      if (err instanceof Error) {
+        friendlyMessage = err.message
+      } else if (err && typeof err.message === 'string') {
+        friendlyMessage = err.message
+      }
+      
+      setAudioError(friendlyMessage)
+    } finally {
+      setGeneratingAudio(false)
+    }
+  }
+
+  // Generate English audio via ElevenLabs (calls backend Cloud Function)
+  async function handleGenerateAudioEn() {
+    setAudioErrorEn(null)
+    if (!formNarrationEn.trim()) {
+      setAudioErrorEn('Por favor, escribe una narración en inglés primero.')
+      return
+    }
+
+    const voiceId = selectedVoiceEn === 'custom' ? customVoiceIdEn.trim() : selectedVoiceEn
+    if (!voiceId) {
+      setAudioErrorEn('Por favor, ingresa un Voice ID de ElevenLabs válido.')
+      return
+    }
+
+    try {
+      setGeneratingAudioEn(true)
+      const result = await generateElevenLabsAudio(formNarrationEn.trim(), voiceId.trim())
+      setFormAudioUrlEn(result.downloadUrl)
+    } catch (err: any) {
+      console.error('ElevenLabs generation error (EN):', err)
+      let friendlyMessage = 'Error inesperado al generar el audio en inglés.'
+      if (err instanceof Error) {
+        friendlyMessage = err.message
+      } else if (err && typeof err.message === 'string') {
+        friendlyMessage = err.message
+      }
+      setAudioErrorEn(friendlyMessage)
+    } finally {
+      setGeneratingAudioEn(false)
     }
   }
 
@@ -385,8 +524,16 @@ export default function StopsPage() {
     setFormError(null)
 
     // Form Validations
-    if (!formName.trim()) {
-      setFormError(t('stopsManagement.errRequired'))
+    if (!formName.trim() || !formNameEn.trim()) {
+      setFormError('El nombre de la parada es obligatorio en ambos idiomas.')
+      return
+    }
+    if (wordCount > 500) {
+      setFormError(t('stopsManagement.errNarrationLimit'))
+      return
+    }
+    if (wordCountEn > 500) {
+      setFormError('La narración en inglés supera el límite de 500 palabras.')
       return
     }
     if (!formLat || !formLng) {
@@ -405,8 +552,17 @@ export default function StopsPage() {
         setFormError(t('stopsManagement.errEmptyQuestionText', { num: i + 1 }))
         return
       }
+      if (!q.textEn?.trim()) {
+        setFormError(`Por favor, escribe el texto de la pregunta ${i + 1} en inglés.`)
+        return
+      }
       if (q.options.some(opt => !opt.trim())) {
         setFormError(t('stopsManagement.errEmptyOptions', { num: i + 1 }))
+        return
+      }
+      const optsEn = q.optionsEn || ['', '', '', '']
+      if (optsEn.some(opt => !opt.trim())) {
+        setFormError(`Por favor, completa todas las opciones en inglés para la pregunta ${i + 1}.`)
         return
       }
     }
@@ -416,8 +572,12 @@ export default function StopsPage() {
 
       const stopPayload = {
         name: formName.trim(),
+        nameEn: formNameEn.trim(),
         narration: formNarration.trim(),
+        narrationEn: formNarrationEn.trim(),
         imageUrl: formImageUrl.trim(),
+        audioUrl: formAudioUrl.trim(),
+        audioUrlEn: formAudioUrlEn.trim(),
         lat: formLat,
         lng: formLng,
         order: Number(formOrder),
@@ -463,10 +623,13 @@ export default function StopsPage() {
   function handleAddQuestion() {
     const newQuestion: Omit<QuestionData, 'id' | 'stopId'> = {
       text: '',
+      textEn: '',
       options: ['', '', '', ''],
+      optionsEn: ['', '', '', ''],
       correctIndex: 0,
       difficulty: 'easy',
-      explanation: ''
+      explanation: '',
+      explanationEn: ''
     }
     setFormQuestions([...formQuestions, newQuestion as any])
   }
@@ -499,6 +662,17 @@ export default function StopsPage() {
     setFormQuestions(updated)
   }
 
+  function handleOptionChangeEn(qIdx: number, optIdx: number, value: string) {
+    const updated = [...formQuestions]
+    const updatedOptions = [...(updated[qIdx].optionsEn || ['', '', '', ''])]
+    updatedOptions[optIdx] = value
+    updated[qIdx] = {
+      ...updated[qIdx],
+      optionsEn: updatedOptions
+    }
+    setFormQuestions(updated)
+  }
+
   // Format Stage display ID
   function getStageLabel(stageId: string) {
     switch (stageId) {
@@ -507,6 +681,19 @@ export default function StopsPage() {
       case 'stage_3': return 'Etapa 3'
       default: return stageId
     }
+  }
+
+  // Resolve audio storage URLs to the local emulator when running in development
+  function resolveAudioUrl(url: string) {
+    if (!url) return ''
+    const isLocal = window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.startsWith('192.168.') ||
+      window.location.hostname.startsWith('10.')
+    if (isLocal && url.startsWith('https://firebasestorage.googleapis.com')) {
+      return url.replace('https://firebasestorage.googleapis.com', `http://${window.location.hostname}:9199`)
+    }
+    return url
   }
 
   return (
@@ -962,10 +1149,10 @@ export default function StopsPage() {
               </button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                const isPageVisible = 
-                  totalPages <= 5 || 
-                  page === 1 || 
-                  page === totalPages || 
+                const isPageVisible =
+                  totalPages <= 5 ||
+                  page === 1 ||
+                  page === totalPages ||
                   Math.abs(page - currentPage) <= 1
 
                 if (!isPageVisible) {
@@ -1034,11 +1221,11 @@ export default function StopsPage() {
               <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
                 {showCreateModal ? t('stopsManagement.modalCreateTitle') : t('stopsManagement.modalEditTitle')}
               </h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowCreateModal(false)
                   setShowEditModal(false)
-                }} 
+                }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', padding: 4 }}
               >
                 <i className="ri-close-line" style={{ fontSize: 20 }} />
@@ -1078,10 +1265,10 @@ export default function StopsPage() {
             </div>
 
             <form onSubmit={e => handleSubmit(e, showEditModal)} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-              
+
               {/* Form Content body */}
               <div style={{ padding: 24, flex: 1 }}>
-                
+
                 {/* Form Error alert */}
                 {formError && (
                   <div style={{ background: 'rgba(230,51,41,0.08)', color: 'var(--color-red)', padding: '12px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
@@ -1093,21 +1280,38 @@ export default function StopsPage() {
                 {/* Info Tab */}
                 {activeTab === 'info' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Name */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                        {t('stopsManagement.formName')}
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formName}
-                        onChange={e => setFormName(e.target.value)}
-                        style={{
-                          height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
-                          padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
-                        }}
-                      />
+                    {/* Name Spanish / English */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                          {t('stopsManagement.formName')} (Español)
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formName}
+                          onChange={e => setFormName(e.target.value)}
+                          style={{
+                            height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                            padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                          Nombre de Parada (Inglés)
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formNameEn}
+                          onChange={e => setFormNameEn(e.target.value)}
+                          style={{
+                            height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                            padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Image Upload */}
@@ -1118,21 +1322,366 @@ export default function StopsPage() {
                       label={t('stopsManagement.formImageUrl')}
                     />
 
-                    {/* Narrative story */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                        {t('stopsManagement.formNarration')}
-                      </label>
+                    {/* Spanish Narration Block */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--color-border)', borderRadius: 12, padding: 16, background: '#fcfdfe' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>
+                          Narración en Español
+                        </label>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: wordCount > 500 ? 'var(--color-red)' : 'var(--color-text-muted)'
+                        }}>
+                          {wordCount} / 500 palabras
+                        </span>
+                      </div>
                       <textarea
                         rows={3}
                         required
                         value={formNarration}
                         onChange={e => setFormNarration(e.target.value)}
                         style={{
-                          borderRadius: 8, border: '1.5px solid var(--color-border)',
-                          padding: '10px 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical'
+                          borderRadius: 8,
+                          border: `1.5px solid ${wordCount > 500 ? 'var(--color-red)' : 'var(--color-border)'}`,
+                          padding: '10px 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', background: '#fff'
                         }}
                       />
+
+                      {/* ElevenLabs Spanish Audio Generation Section */}
+                      <div style={{
+                        marginTop: 4,
+                        padding: 12,
+                        borderRadius: 8,
+                        background: 'rgba(27,43,110,0.02)',
+                        border: '1px dashed var(--color-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <i className="ri-voiceprint-line" style={{ fontSize: 18, color: 'var(--color-navy)' }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-navy)' }}>
+                            Generar Audio (Español)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          {/* Voice Selector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Seleccionar Voz
+                            </label>
+                            <select
+                              value={selectedVoice}
+                              onChange={e => setSelectedVoice(e.target.value)}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 8px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', background: '#fff'
+                              }}
+                            >
+                              {loadingVoices ? (
+                                <option disabled>Cargando voces...</option>
+                              ) : availableVoices.length > 0 ? (
+                                <>
+                                  {availableVoices.map(v => (
+                                    <option key={v.id} value={v.id}>{v.name} ({v.category})</option>
+                                  ))}
+                                  <option value="custom">Otro (Ingresar Voice ID)</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="PPzYpIqttlTYA83688JI">Capitán Turi (Recomendado)</option>
+                                  <option value="ErXwobaYiN019PkySvjV">Narrador Antoni (Profundo)</option>
+                                  <option value="21m00Tcm4TlvDq8ikWAM">Narradora Rachel (Femenina)</option>
+                                  <option value="JBFqnCBcaCvXMip5zpqz">Narrador George (Cálido)</option>
+                                  <option value="custom">Otro (Ingresar Voice ID)</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+
+                          {/* Custom Voice ID */}
+                          {selectedVoice === 'custom' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                Voice ID Personalizado
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 2EiwWnXF... "
+                                value={customVoiceId}
+                                onChange={e => setCustomVoiceId(e.target.value)}
+                                style={{
+                                  height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                  padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Button */}
+                        <button
+                          type="button"
+                          onClick={handleGenerateAudio}
+                          disabled={generatingAudio || !formNarration.trim()}
+                          style={{
+                            height: 32,
+                            borderRadius: 6,
+                            background: generatingAudio ? 'var(--color-gray-mid)' : 'var(--color-navy)',
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: generatingAudio ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6
+                          }}
+                        >
+                          {generatingAudio ? (
+                            <>
+                              <div style={{
+                                width: 12, height: 12, borderRadius: '50%',
+                                border: '2px solid rgba(255,255,255,0.2)',
+                                borderTopColor: '#fff',
+                                animation: 'spin-circle 0.8s linear infinite'
+                              }} />
+                              Generando Audio...
+                            </>
+                          ) : (
+                            <>
+                              <i className="ri-mic-line" />
+                              Generar Audio Español
+                            </>
+                          )}
+                        </button>
+
+                        {/* Audio Error display */}
+                        {audioError && (
+                          <div style={{ fontSize: 11, color: 'var(--color-red)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ri-error-warning-line" />
+                            <span>{audioError}</span>
+                          </div>
+                        )}
+
+                        {/* Generated Audio Player */}
+                        {formAudioUrl && (
+                          <div style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            background: '#fff',
+                            border: '1px solid var(--color-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-teal)' }}>
+                              <i className="ri-checkbox-circle-line" /> Audio español listo
+                            </span>
+                            <audio key={formAudioUrl} src={resolveAudioUrl(formAudioUrl)} controls style={{ width: '100%', height: 32 }} />
+                            <button
+                              type="button"
+                              onClick={() => setFormAudioUrl('')}
+                              style={{
+                                alignSelf: 'flex-end',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--color-red)',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: 0
+                              }}
+                            >
+                              Eliminar Audio Español
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* English Narration Block */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--color-border)', borderRadius: 12, padding: 16, background: '#fcfdfe' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>
+                          Narración en Inglés
+                        </label>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: wordCountEn > 500 ? 'var(--color-red)' : 'var(--color-text-muted)'
+                        }}>
+                          {wordCountEn} / 500 palabras
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        required
+                        value={formNarrationEn}
+                        onChange={e => setFormNarrationEn(e.target.value)}
+                        style={{
+                          borderRadius: 8,
+                          border: `1.5px solid ${wordCountEn > 500 ? 'var(--color-red)' : 'var(--color-border)'}`,
+                          padding: '10px 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', background: '#fff'
+                        }}
+                      />
+
+                      {/* ElevenLabs English Audio Generation Section */}
+                      <div style={{
+                        marginTop: 4,
+                        padding: 12,
+                        borderRadius: 8,
+                        background: 'rgba(27,43,110,0.02)',
+                        border: '1px dashed var(--color-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <i className="ri-voiceprint-line" style={{ fontSize: 18, color: 'var(--color-navy)' }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-navy)' }}>
+                            Generar Audio (Inglés)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          {/* Voice Selector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Seleccionar Voz
+                            </label>
+                            <select
+                              value={selectedVoiceEn}
+                              onChange={e => setSelectedVoiceEn(e.target.value)}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 8px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', background: '#fff'
+                              }}
+                            >
+                              {loadingVoices ? (
+                                <option disabled>Cargando voces...</option>
+                              ) : availableVoices.length > 0 ? (
+                                <>
+                                  {availableVoices.map(v => (
+                                    <option key={v.id} value={v.id}>{v.name} ({v.category})</option>
+                                  ))}
+                                  <option value="custom">Otro (Ingresar Voice ID)</option>
+                                </>
+                              ) : (
+                                <>
+                                  <option value="PPzYpIqttlTYA83688JI">Capitán Turi (Recomendado)</option>
+                                  <option value="ErXwobaYiN019PkySvjV">Narrador Antoni (Profundo)</option>
+                                  <option value="21m00Tcm4TlvDq8ikWAM">Narradora Rachel (Femenina)</option>
+                                  <option value="JBFqnCBcaCvXMip5zpqz">Narrador George (Cálido)</option>
+                                  <option value="custom">Otro (Ingresar Voice ID)</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+
+                          {/* Custom Voice ID */}
+                          {selectedVoiceEn === 'custom' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                Voice ID Personalizado
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Ej: 2EiwWnXF... "
+                                value={customVoiceIdEn}
+                                onChange={e => setCustomVoiceIdEn(e.target.value)}
+                                style={{
+                                  height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                  padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Button */}
+                        <button
+                          type="button"
+                          onClick={handleGenerateAudioEn}
+                          disabled={generatingAudioEn || !formNarrationEn.trim()}
+                          style={{
+                            height: 32,
+                            borderRadius: 6,
+                            background: generatingAudioEn ? 'var(--color-gray-mid)' : 'var(--color-navy)',
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: generatingAudioEn ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6
+                          }}
+                        >
+                          {generatingAudioEn ? (
+                            <>
+                              <div style={{
+                                width: 12, height: 12, borderRadius: '50%',
+                                border: '2px solid rgba(255,255,255,0.2)',
+                                borderTopColor: '#fff',
+                                animation: 'spin-circle 0.8s linear infinite'
+                              }} />
+                              Generando Audio Inglés...
+                            </>
+                          ) : (
+                            <>
+                              <i className="ri-mic-line" />
+                              Generar Audio Inglés
+                            </>
+                          )}
+                        </button>
+
+                        {/* Audio Error display */}
+                        {audioErrorEn && (
+                          <div style={{ fontSize: 11, color: 'var(--color-red)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className="ri-error-warning-line" />
+                            <span>{audioErrorEn}</span>
+                          </div>
+                        )}
+
+                        {/* Generated Audio Player */}
+                        {formAudioUrlEn && (
+                          <div style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            background: '#fff',
+                            border: '1px solid var(--color-border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-teal)' }}>
+                              <i className="ri-checkbox-circle-line" /> Audio inglés listo
+                            </span>
+                            <audio key={formAudioUrlEn} src={resolveAudioUrl(formAudioUrlEn)} controls style={{ width: '100%', height: 32 }} />
+                            <button
+                              type="button"
+                              onClick={() => setFormAudioUrlEn('')}
+                              style={{
+                                alignSelf: 'flex-end',
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--color-red)',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: 0
+                              }}
+                            >
+                              Eliminar Audio Inglés
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
@@ -1201,7 +1750,7 @@ export default function StopsPage() {
                       <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         {t('stopsManagement.mapInstruction')}
                       </div>
-                      
+
                       {/* Search Autocomplete input placed naturally above the map */}
                       <div
                         ref={autocompleteContainerRef}
@@ -1214,18 +1763,18 @@ export default function StopsPage() {
                       />
 
                       <div style={{ position: 'relative' }}>
-                        <div 
-                          ref={mapRef} 
-                          style={{ 
-                            height: 250, 
-                            width: '100%', 
-                            borderRadius: 8, 
+                        <div
+                          ref={mapRef}
+                          style={{
+                            height: 250,
+                            width: '100%',
+                            borderRadius: 8,
                             border: '1.5px solid var(--color-border)',
                             background: '#eef0f4'
-                          }} 
+                          }}
                         />
                       </div>
-                      
+
                       {/* Numeric fields synced with map marker */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 8 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1344,13 +1893,30 @@ export default function StopsPage() {
                             <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
                               <div style={{ flex: '2 1 280px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                                  {t('stopsManagement.qText')}
+                                  {t('stopsManagement.qText')} (Español)
                                 </label>
                                 <input
                                   type="text"
                                   required
                                   value={q.text}
                                   onChange={e => handleQuestionChange(qIdx, 'text', e.target.value)}
+                                  style={{
+                                    height: 36, borderRadius: 6, border: '1px solid var(--color-border)',
+                                    padding: '0 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                                    background: '#fff'
+                                  }}
+                                />
+                              </div>
+
+                              <div style={{ flex: '2 1 280px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                  Pregunta (Inglés)
+                                </label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={q.textEn || ''}
+                                  onChange={e => handleQuestionChange(qIdx, 'textEn', e.target.value)}
                                   style={{
                                     height: 36, borderRadius: 6, border: '1px solid var(--color-border)',
                                     padding: '0 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
@@ -1380,52 +1946,100 @@ export default function StopsPage() {
                             </div>
 
                             {/* Options fields */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-                              {q.options.map((opt, optIdx) => (
-                                <div key={optIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{t('stopsManagement.qOption', { num: String.fromCharCode(65 + optIdx) })}</span>
-                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontWeight: 600, color: q.correctIndex === optIdx ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
-                                      <input
-                                        type="radio"
-                                        name={`q-correct-${qIdx}`}
-                                        checked={q.correctIndex === optIdx}
-                                        onChange={() => handleQuestionChange(qIdx, 'correctIndex', optIdx)}
-                                        style={{ accentColor: 'var(--color-green)', cursor: 'pointer' }}
-                                      />
-                                      <span>Correcta</span>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 12 }}>
+                              {/* Opciones en Español */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-navy)', textTransform: 'uppercase' }}>Opciones en Español</div>
+                                {q.options.map((opt, optIdx) => (
+                                  <div key={optIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                                      <span>Opción {String.fromCharCode(65 + optIdx)}</span>
+                                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontWeight: 600, color: q.correctIndex === optIdx ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
+                                        <input
+                                          type="radio"
+                                          name={`q-correct-${qIdx}`}
+                                          checked={q.correctIndex === optIdx}
+                                          onChange={() => handleQuestionChange(qIdx, 'correctIndex', optIdx)}
+                                          style={{ accentColor: 'var(--color-green)', cursor: 'pointer' }}
+                                        />
+                                        <span>Correcta</span>
+                                      </label>
                                     </label>
-                                  </label>
-                                  <input
-                                    type="text"
-                                    required
-                                    value={opt}
-                                    onChange={e => handleOptionChange(qIdx, optIdx, e.target.value)}
-                                    style={{
-                                      height: 34, borderRadius: 6, border: '1px solid var(--color-border)',
-                                      padding: '0 8px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
-                                      background: '#fff'
-                                    }}
-                                  />
-                                </div>
-                              ))}
+                                    <input
+                                      type="text"
+                                      required
+                                      value={opt}
+                                      onChange={e => handleOptionChange(qIdx, optIdx, e.target.value)}
+                                      style={{
+                                        height: 34, borderRadius: 6, border: '1px solid var(--color-border)',
+                                        padding: '0 8px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                                        background: '#fff'
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Opciones en Inglés */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-navy)', textTransform: 'uppercase' }}>Opciones en Inglés</div>
+                                {Array.from({ length: 4 }).map((_, optIdx) => {
+                                  const optEn = q.optionsEn ? q.optionsEn[optIdx] : ''
+                                  return (
+                                    <div key={optIdx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                        Opción {String.fromCharCode(65 + optIdx)} (Inglés)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        required
+                                        value={optEn || ''}
+                                        onChange={e => handleOptionChangeEn(qIdx, optIdx, e.target.value)}
+                                        style={{
+                                          height: 34, borderRadius: 6, border: '1px solid var(--color-border)',
+                                          padding: '0 8px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                                          background: '#fff'
+                                        }}
+                                      />
+                                    </div>
+                                  )
+                                })}
+                              </div>
                             </div>
 
-                            {/* Explanation field */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                                {t('stopsManagement.qExplanation')}
-                              </label>
-                              <textarea
-                                rows={2}
-                                value={q.explanation}
-                                onChange={e => handleQuestionChange(qIdx, 'explanation', e.target.value)}
-                                style={{
-                                  borderRadius: 6, border: '1px solid var(--color-border)',
-                                  padding: '8px 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
-                                  background: '#fff', resize: 'vertical'
-                                }}
-                              />
+                            {/* Explanation fields */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                  {t('stopsManagement.qExplanation')} (Español)
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={q.explanation}
+                                  onChange={e => handleQuestionChange(qIdx, 'explanation', e.target.value)}
+                                  style={{
+                                    borderRadius: 6, border: '1px solid var(--color-border)',
+                                    padding: '8px 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                                    background: '#fff', resize: 'vertical'
+                                  }}
+                                />
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                  Explicación (Inglés)
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={q.explanationEn || ''}
+                                  onChange={e => handleQuestionChange(qIdx, 'explanationEn', e.target.value)}
+                                  style={{
+                                    borderRadius: 6, border: '1px solid var(--color-border)',
+                                    padding: '8px 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+                                    background: '#fff', resize: 'vertical'
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         ))}
