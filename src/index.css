@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./features/map/quiz/quiz.css";
 
 
 /* ── Tailwind v4 theme — brand tokens ─────────────────────── */
@@ -99,33 +100,6 @@ html {
   animation: slideUp 0.25s ease-out;
 }
 
-@keyframes shake {
-
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  20% {
-    transform: translateX(-6px);
-  }
-
-  40% {
-    transform: translateX(6px);
-  }
-
-  60% {
-    transform: translateX(-6px);
-  }
-
-  80% {
-    transform: translateX(6px);
-  }
-}
-
-.animate-shake {
-  animation: shake 0.3s ease-in-out;
-}
 
 @keyframes pulse-ring {
   0% {
@@ -221,7 +195,7 @@ html {
   padding: 3px 12px;
   color: #fff3d1;
   /* Texto arena claro */
-  font-family: Georgia, serif;
+  font-family: var(--font-map-parchment);
   font-size: 0.65rem;
   font-weight: 900;
   letter-spacing: 1.5px;
@@ -261,17 +235,6 @@ html {
 }
 
 /* === ETAPA POPUP ANIMATION === */
-@keyframes stage-pop {
-  0%   { transform: scale(0.55) translateY(10px); opacity: 0; }
-  55%  { transform: scale(1.08) translateY(-3px); opacity: 1; }
-  75%  { transform: scale(0.97) translateY(1px);  opacity: 1; }
-  100% { transform: scale(1)    translateY(0);    opacity: 1; }
-}
-
-.stage-pop {
-  animation: stage-pop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-origin: bottom center;
-}
 
 @keyframes stage-blink {
   0%, 100% { opacity: 1; }
@@ -337,79 +300,6 @@ html {
 
 .lock-alert-pop {
   animation: lock-alert-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-origin: center center;
-}
-
-/* === QUIZ FLOW ANIMATIONS === */
-
-@keyframes quiz-card-enter {
-  0%   { transform: scale(0.88) translateY(24px); opacity: 0; }
-  60%  { transform: scale(1.03) translateY(-4px); opacity: 1; }
-  80%  { transform: scale(0.98) translateY(2px);  opacity: 1; }
-  100% { transform: scale(1)    translateY(0);    opacity: 1; }
-}
-.quiz-card-enter {
-  animation: quiz-card-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-origin: center bottom;
-}
-
-@keyframes option-slide-in {
-  0% { transform: translateX(-20px) scale(0.95); opacity: 0; }
-  100% { transform: translateX(0) scale(1); opacity: 1; }
-}
-.option-slide-in {
-  animation: option-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes gold-glow-pulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(252, 211, 77, 0.4), inset 0 0 8px rgba(252, 211, 77, 0.2), 0 4px 16px rgba(50,30,15,0.2); }
-  50% { box-shadow: 0 0 20px rgba(252, 211, 77, 0.85), inset 0 0 14px rgba(252, 211, 77, 0.4), 0 6px 20px rgba(50,30,15,0.3); }
-}
-.gold-glow-pulse {
-  animation: gold-glow-pulse 1.8s infinite ease-in-out;
-}
-
-@keyframes quiz-option-wrong {
-  0%,100% { transform: translateX(0); }
-  20%      { transform: translateX(-7px); }
-  40%      { transform: translateX(7px); }
-  60%      { transform: translateX(-5px); }
-  80%      { transform: translateX(5px); }
-}
-.quiz-option-wrong {
-  animation: quiz-option-wrong 0.35s ease-in-out both;
-}
-
-@keyframes logro-badge-pop {
-  0%   { transform: scale(0.5) translateY(30px); opacity: 0; }
-  55%  { transform: scale(1.1) translateY(-6px);  opacity: 1; }
-  75%  { transform: scale(0.96) translateY(3px);  opacity: 1; }
-  100% { transform: scale(1)   translateY(0);     opacity: 1; }
-}
-.logro-badge-pop {
-  animation: logro-badge-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-origin: center center;
-}
-
-@keyframes roulette-spin-anim {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(var(--target-rotation, 1980deg)); }
-}
-.roulette-spinning {
-  animation: roulette-spin-anim 3.2s cubic-bezier(0.17, 0.67, 0.08, 0.98) forwards;
-}
-.roulette-done {
-  transform: rotate(var(--target-rotation, 1980deg));
-}
-
-@keyframes prize-card-enter {
-  0%   { transform: scale(0.7) translateY(40px); opacity: 0; }
-  60%  { transform: scale(1.04) translateY(-6px); opacity: 1; }
-  80%  { transform: scale(0.98) translateY(2px);  opacity: 1; }
-  100% { transform: scale(1)    translateY(0);    opacity: 1; }
-}
-.prize-card-enter {
-  animation: prize-card-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   transform-origin: center center;
 }
 

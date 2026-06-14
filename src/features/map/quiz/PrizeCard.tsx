@@ -1,6 +1,26 @@
 import { useState } from 'react'
-import { STOP_QUIZ_DATA } from './quizData'
+import { useTranslation } from 'react-i18next'
+import { STOP_QUIZ_DATA } from '../data/quizData'
 import Ranking from './Ranking'
+import GameButton from './GameButton'
+
+
+const BUSINESS_ADDRESSES = [
+  'Calle La Atarazana #9, Ciudad Colonial',
+  'Plaza de España, Ciudad Colonial',
+  'Calle Las Damas, Ciudad Colonial',
+  'Calle Las Damas #102, Ciudad Colonial',
+  'Calle Las Damas, Ciudad Colonial',
+  'Calle El Conde #101, Ciudad Colonial',
+  'Calle Isabel La Católica, Ciudad Colonial',
+  'Calle Isabel La Católica #103, Ciudad Colonial',
+  'Calle El Conde (Frente a Parque Colón)',
+  'Calle Hostos, Ruinas de San Francisco',
+  'Calle Palo Hincado, Ciudad Colonial',
+  'Calle El Conde, Ciudad Colonial'
+]
+
+const CONFETTI_COLORS = ['#fcd34d', '#a87f2a', '#ebdcc3', '#321e0f', '#c7a361']
 
 interface Props {
   stopIndex: number
@@ -9,182 +29,198 @@ interface Props {
 }
 
 export default function PrizeCard({ stopIndex, monumentImage, onContinue }: Props) {
+  const { t } = useTranslation()
   const [showRanking, setShowRanking] = useState(false)
+  const [copied, setCopied] = useState(false)
   const { prize } = STOP_QUIZ_DATA[stopIndex]
   const isLastStop = stopIndex === 11
 
+  const handleDownload = () => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(prize.code)}&color=50-30-15`
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        const url = canvas.toDataURL('image/png')
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `qr-turizoneando-${prize.code}.png`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }
+    }
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(prize.code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4"
-      style={{ background: 'rgba(6,2,0,0.8)' }}
+      className="fixed inset-0 z-999 flex flex-col items-center justify-between w-full h-full p-4 overflow-hidden"
+      style={{
+        backgroundImage: "url('/assets/img/fonto_textura.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
     >
-      <div
-        className="prize-card-enter relative w-full h-full rounded-2xl overflow-hidden flex flex-col"
-        style={{
-          background: '#ebdcc3',
-          border: '8px solid #321e0f',
-          boxShadow: '0 16px 48px rgba(0,0,0,0.6), inset 0 0 0 2px #a87f2a, inset 0 0 16px rgba(0,0,0,0.5)',
-        }}
-      >
-        {/* Metal Decorative Corners (Gold reinforcement look) */}
-        <svg className="absolute -top-px -left-px w-9 h-9 pointer-events-none z-30 text-[#fcd34d]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -top-px -right-px w-9 h-9 pointer-events-none z-30 text-[#fcd34d] transform scale-x-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -left-px w-9 h-9 pointer-events-none z-30 text-[#fcd34d] transform scale-y-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -right-px w-9 h-9 pointer-events-none z-30 text-[#fcd34d] transform scale-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+      {/* Spacer to push card to center */}
+      <div className="flex-1 flex-col flex items-center justify-center w-full gap-6">
+        <p className="text-2xl text-map-wood-dark font-medium uppercase">{t('map.congrats')}</p>
 
-        {/* Center Clasps */}
-        <svg className="absolute -top-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-[#fcd34d]" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-[#fcd34d] transform scale-y-[-1]" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+        {/* Ticket Container */}
+        <div className="relative w-full max-w-[360px] bg-map-cream-light rounded-md shadow-xl flex flex-col overflow-hidden">
 
-        {/* Top stripe */}
-        <div
-          className="h-1 shrink-0 z-10"
-          style={{ background: 'linear-gradient(90deg,transparent,#fcd34d,#a87f2a,#fcd34d,transparent)' }}
-        />
+          {/* Confetti */}
+          <div className="absolute top-0 left-0 right-0 h-[280px] pointer-events-none overflow-hidden z-20 rounded-t-md">
+            {Array.from({ length: 35 }).map((_, i) => {
+              const left = `${(i * 9) % 100}%`
+              const delay = `${((i * 0.18) % 3).toFixed(2)}s`
+              const duration = `${(2.5 + (i * 0.5) % 3.5).toFixed(2)}s`
+              const size = `${(3 + (i * 2) % 6)}px`
+              const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
+              const isRound = i % 2 === 0
+              return (
+                <div
+                  key={i}
+                  className="absolute pointer-events-none"
+                  style={{
+                    left,
+                    top: '-15px',
+                    width: size,
+                    height: isRound ? size : `${parseInt(size) * 1.5}px`,
+                    backgroundColor: color,
+                    borderRadius: isRound ? '50%' : '1.5px',
+                    opacity: 0.75,
+                    animation: `confettiFall ${duration} linear infinite`,
+                    animationDelay: delay,
+                  }}
+                />
+              )
+            })}
+          </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center gap-5 px-6 py-8 text-center">
-          {/* Title */}
-          <div className="space-y-1">
-            <p className="text-[8px] font-black tracking-[4px] uppercase text-[#a87f2a] mt-2">
-              {isLastStop ? '¡Aventura completada!' : '¡Premio desbloqueado!'}
-            </p>
-            <h2
-              className="text-2xl font-black text-[#321e0f]"
-              style={{ fontFamily: 'Georgia, serif' }}
-            >
-              ¡Felicidades, Explorador!
+          {/* Top Banner Image */}
+          <div className="w-full h-40 overflow-hidden relative">
+            <img src={monumentImage} alt={prize.name} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-black/10" />
+            <div className="absolute bottom-0 left-0 right-0 h-14 bg-linear-to-t from-map-cream-light via-map-cream-light/70 to-map-cream-light/0" />
+          </div>
+
+          {/* Ticket Header */}
+          <div className="p-5 flex flex-col items-center text-center relative z-10 bg-map-cream-light -mt-1 mb-3">
+            <p className="text-lg text-map-gold font-medium uppercase mb-1">{t('map.prize_label')}</p>
+            <h2 className="text-xl font-bold text-map-wood-dark tracking-wide leading-tight">
+              {prize.name}
             </h2>
           </div>
 
-          {/* Prize image with Wood Frame & Medal Coin */}
-          <div className="relative my-1">
+          {/* Notch Dashed Line 1 */}
+          <div className="relative w-full flex items-center justify-between px-5 my-1 shrink-0">
             <div
-              className="h-36 w-36 rounded-2xl overflow-hidden"
-              style={{
-                border: '4px solid #321e0f',
-                boxShadow: '0 0 20px rgba(168,127,42,0.35), inset 0 0 0 2px #a87f2a, 0 8px 20px rgba(0,0,0,0.3)',
-              }}
-            >
-              <img src={monumentImage} alt={prize.name} className="h-full w-full object-cover" />
-            </div>
-            {/* Medal/Coin badge style */}
+              className="absolute left-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_-3px_0_4px_rgba(0,0,0,0.1)]"
+              style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }}
+            />
             <div
-              className="absolute -bottom-3 -right-3 flex items-center justify-center rounded-full text-2xl"
-              style={{
-                width: '54px',
-                height: '54px',
-                background: 'radial-gradient(circle, #fcd34d 0%, #a87f2a 100%)',
-                border: '3.5px solid #321e0f',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.35)',
-              }}
-            >
-              {prize.icon}
+              className="absolute right-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_3px_0_4px_rgba(0,0,0,0.1)]"
+              style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }}
+            />
+            <div className="w-full border-t border-dashed border-map-gold/30" />
+          </div>
+
+          {/* QR Code Area */}
+          <div className="px-6 py-4 flex flex-row items-center justify-center gap-6 w-full shrink-0">
+            <div className='flex items-center justify-center gap-5 p-4 border border-map-gold/30 rounded bg-white shadow-sm'>
+              <div className="relative p-2.5 flex items-center justify-center shrink-0 shadow-md">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(prize.code)}&color=50-30-15`}
+                  alt="QR Code"
+                  className="w-14 h-14"
+                />
+              </div>
+
+              <div className="flex w-full flex-col items-start gap-1">
+                <p className='text-[11px] text-map-gold font-semibold block uppercase'>{t('map.redeem_code')}</p>
+                <span className="font-mono text-2xl font-bold text-map-wood-dark">{prize.code}</span>
+                <div className='flex gap-2 mt-1'>
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-map-cream-light/40 hover:bg-map-cream border border-map-gold/10 rounded transition-all cursor-pointer shadow-xs active:scale-95 text-map-wood-dark"
+                    title="Descargar código QR"
+                  >
+                    <i className="ri-download-2-line text-xs"></i>
+                    <span className="text-[9px] font-medium uppercase">{t('map.download')}</span>
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-map-cream-light/40 hover:bg-map-cream border border-map-gold/10 rounded transition-all cursor-pointer shadow-xs active:scale-95 text-map-wood-dark"
+                    title="Copiar código"
+                  >
+                    <i className={copied ? "ri-check-line text-map-gold text-xs" : "ri-file-copy-line text-xs"} />
+                    <span className="text-[9px] font-medium uppercase">{copied ? t('map.copied') : t('map.copy')}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Prize name + description */}
-          <div className="space-y-2 pt-1">
-            <h3
-              className="text-base font-black text-[#321e0f]"
-              style={{ fontFamily: 'Georgia, serif' }}
-            >
-              {prize.name}
-            </h3>
-            <p className="text-[12px] text-[#6b4a20] leading-relaxed max-w-[280px]">
-              {prize.description}
-            </p>
+          {/* Notch Dashed Line 2 */}
+          <div className="relative w-full flex items-center justify-between px-5 my-1 shrink-0">
+            <div
+              className="absolute left-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_-3px_0_4px_rgba(0,0,0,0.1)]"
+              style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }}
+            />
+            <div
+              className="absolute right-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_3px_0_4px_rgba(0,0,0,0.1)]"
+              style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }}
+            />
+            <div className="w-full border-t border-dashed border-map-gold/30" />
           </div>
 
-          {/* Code block */}
-          <div
-            className="w-full rounded-xl px-5 py-4"
-            style={{
-              background: '#fcf7ed',
-              border: '1.5px dashed rgba(168,127,42,0.45)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
-            }}
-          >
-            <p className="text-[8px] text-[#a87f2a] font-bold uppercase tracking-[2px] mb-2">
-              Muestra este código al establecimiento
-            </p>
-            <p
-              className="text-xl font-black text-[#321e0f] tracking-widest"
-              style={{ fontFamily: 'monospace', letterSpacing: '5px' }}
-            >
-              {prize.code}
-            </p>
-            <p className="text-[10px] text-[#a87f2a]/70 mt-2">
-              Válido hasta: <span className="text-[#6b4a20] font-bold">{prize.validUntil}</span>
-            </p>
+          {/* Ticket Details */}
+          <div className="px-6 pb-6 pt-3 w-full flex flex-col gap-3 text-left shrink-0 relative">
+            <div className='flex flex-col gap-0.5'>
+              <span className="text-[10px] text-map-gold font-semibold block uppercase tracking-wider">{t('map.business_location')}</span>
+              <span className="text-[11px] font-medium text-map-wood-dark/80 block">
+                {BUSINESS_ADDRESSES[stopIndex] || 'Ciudad Colonial, Santo Domingo'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-2">
+              <div className='flex flex-col gap-0.5'>
+                <span className="text-[10px] text-map-gold font-semibold uppercase tracking-wider">{t('map.validity')}</span>
+                <span className="text-[11px] font-medium text-map-wood-dark/80">
+                  {t('map.valid_until', { date: prize.validUntil })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-0.5 absolute bottom-4 right-4">
+                <img src="/assets/img/logo1.png" className='w-15 h-15' />
+              </div>
+            </div>
           </div>
+
         </div>
-
-        {/* Buttons — always visible at bottom */}
-        <div
-          className="px-5 pb-6 pt-3 shrink-0 z-10 flex flex-col gap-2.5"
-          style={{ background: '#ebdcc3', borderTop: '1px solid rgba(168,127,42,0.15)' }}
-        >
-          <button
-            onClick={onContinue}
-            className="w-full flex items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-black uppercase tracking-widest transition-all active:scale-95"
-            style={{
-              background: 'linear-gradient(90deg,#321e0f,#503019,#321e0f)',
-              border: '2px solid #a87f2a',
-              color: '#fcd34d',
-              boxShadow: 'inset 0 0 8px rgba(252,211,77,0.25), 0 6px 16px rgba(0,0,0,0.35)',
-            }}
-          >
-
-            {isLastStop ? 'Ver mis logros' : 'Continuar la aventura'}
-            <i className="ri-arrow-right-line text-base" />
-          </button>
-
-          <button
-            onClick={() => setShowRanking(true)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-black uppercase tracking-widest transition-all active:scale-95"
-            style={{
-              background: 'linear-gradient(90deg,#a87f2a,#c7a361,#a87f2a)',
-              border: '2px solid #321e0f',
-              color: '#321e0f',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            }}
-          >
-            <i className="ri-trophy-line text-base" />
-            Ver Ranking
-          </button>
-        </div>
-
-        {/* Bottom stripe */}
-        <div
-          className="h-1 shrink-0 z-10"
-          style={{ background: 'linear-gradient(90deg,transparent,#a87f2a,#fcd34d,#a87f2a,transparent)' }}
-        />
       </div>
 
-      {/* Leaderboard/Ranking Modal Overlay */}
+      {/* Action Buttons */}
+      <div className="w-full max-w-[360px] flex flex-row gap-3 shrink-0 pb-4">
+        <GameButton variant="tan" className="flex-1 h-14 text-xs" onClick={onContinue}>
+          {isLastStop ? t('map.see_achievements') : t('map.exit')}
+        </GameButton>
+        <GameButton variant="dark" className="flex-2 h-14 text-xs" onClick={() => setShowRanking(true)}>
+          <i className="ri-trophy-line text-base mr-2" />
+          {t('map.see_ranking')}
+        </GameButton>
+      </div>
+
       {showRanking && (
         <Ranking onClose={() => setShowRanking(false)} onContinue={onContinue} />
       )}
