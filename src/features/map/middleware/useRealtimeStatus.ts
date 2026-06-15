@@ -75,7 +75,10 @@ export function useRealtimeStatus({ seasonId, stageId, stopId }: Options) {
 
   // ── Parada ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!stopId) { setStopBlock(null); return }
+    // Cuando stopId queda undefined (selectedMonument limpiado por dismiss),
+    // NO limpiamos el bloqueo aquí — lo limpia dismiss() en Map.tsx.
+    // Esto evita la race condition donde el bloqueo desaparece antes de mostrarse.
+    if (!stopId) return
     const unsub = onSnapshot(
       doc(db, 'stops', stopId),
       (snap) => {

@@ -399,9 +399,10 @@ export function ProtectedRoute() {
         (snap) => {
           const data = snap.exists() ? snap.data() : null
 
-          if (data?.banned === true) {
+          if (data?.banned === true || data?.active === false) {
             isBannedRef.current = true
-            setBanReason(data.bannedReason ? String(data.bannedReason) : undefined)
+            const reason = data.bannedReason || data.banReason || data.reason || undefined
+            setBanReason(reason ? String(reason) : undefined)
             setStatus('banned')
             auth.signOut().catch(() => {})
             return

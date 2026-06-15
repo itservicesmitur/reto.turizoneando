@@ -432,13 +432,20 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     stopId:   activeStopId,
   })
 
-  // Cuando una parada o etapa se desactiva, cerrar el flujo activo automáticamente
+  // Cuando una parada o etapa se desactiva, cerrar el quiz (pero NO limpiar selectedMonument
+  // aquí — eso mataría el listener del stop y causaría una race condition donde el bloqueo
+  // se limpia antes de que el usuario lo vea)
   useEffect(() => {
     if (statusBlock?.type === 'stop_deactivated' || statusBlock?.type === 'stage_deactivated') {
       setQuizFlow({ step: 'idle' })
-      setSelectedMonument(null)
     }
   }, [statusBlock])
+
+  // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
+  const handleDismissBlock = () => {
+    dismissBlock()
+    setSelectedMonument(null)
+  }
 
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
     return stageGroups.map((group, idx) => {
@@ -1497,7 +1504,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         <StatusBlockCard
           type={statusBlock.type}
           name={statusBlock.name}
-          onDismiss={dismissBlock}
+          onDismiss={handleDismissBlock}
         />
       )}
 
