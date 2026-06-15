@@ -33,6 +33,7 @@ interface MapBoardProps {
   completedStops?: boolean[]
   onLockedStopClick?: (info: { stageIdx: number; isStageBlocked: boolean; availableStopName: string }) => void
   stageGroups?: number[][]
+  introTarget?: { lat: number; lng: number }
 }
 
 interface BoatInstance {
@@ -73,7 +74,7 @@ interface SeagullInstance {
 let isGoogleMapsInitialized = false
 
 const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
-  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [] },
+  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget },
   ref
 ) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -242,10 +243,21 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       }
     }
 
-    let errorCount = 0
-    const onError = () => {
-      errorCount++
-      if (errorCount >= 2 && watchIdRef.current !== null) {
+    let fatalErrorCount = 0
+    const onError = (err: GeolocationPositionError) => {
+      // PERMISSION_DENIED (1) → fallo definitivo
+      if (err.code === 1) {
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current)
+          watchIdRef.current = null
+        }
+        return
+      }
+      // POSITION_UNAVAILABLE (2) = kCLErrorLocationUnknown en iOS → transitorio, ignorar
+      if (err.code === 2) return
+      // TIMEOUT (3) → contar solo estos como fallos reales
+      fatalErrorCount++
+      if (fatalErrorCount >= 3 && watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null
         navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
@@ -277,11 +289,12 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
     if (!startIntroAnimation || !mapInstanceRef.current) return
     const map = mapInstanceRef.current
     const mapDiv = mapRef.current
+    const isVector = () => (map as any).get?.('renderingType') === 'VECTOR'
 
     map.setOptions({ gestureHandling: 'none' })
 
-    const missionCenter = { lat: 18.477485383157326, lng: -69.88274578583231 }
     const dominicanRepublicBounds = { north: 19.93, south: 17.47, west: -72.01, east: -68.32 }
+    const missionCenter = introTarget ?? { lat: 18.477485383157326, lng: -69.88274578583231 }
 
     const enableGestures = () => {
       introCompletedRef.current = true
@@ -298,7 +311,8 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
         cancelAnimationFrame(introAnimFrameRef.current)
         introAnimFrameRef.current = null
       }
-      map.moveCamera({ center: missionCenter, zoom: 18.8, tilt: 75, heading: 90 })
+      const v = isVector()
+      map.moveCamera({ center: missionCenter, zoom: 18.8, ...(v && { tilt: 75, heading: 90 }) })
       enableGestures()
     }
 
@@ -345,20 +359,24 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
 
       if (activeStep) {
         const t = activeStep.ease(activeStep.offset / activeStep.duration)
+        const v = isVector()
         map.moveCamera({
           center: {
             lat: activeStep.start.lat + (activeStep.end.lat - activeStep.start.lat) * t,
             lng: activeStep.start.lng + (activeStep.end.lng - activeStep.start.lng) * t,
           },
           zoom: activeStep.start.zoom + (activeStep.end.zoom - activeStep.start.zoom) * t,
-          tilt: activeStep.start.tilt + (activeStep.end.tilt - activeStep.start.tilt) * t,
-          heading: (activeStep.start.heading + (activeStep.end.heading - activeStep.start.heading) * t) % 360,
+          ...(v && {
+            tilt: activeStep.start.tilt + (activeStep.end.tilt - activeStep.start.tilt) * t,
+            heading: (activeStep.start.heading + (activeStep.end.heading - activeStep.start.heading) * t) % 360,
+          }),
         })
         introAnimFrameRef.current = requestAnimationFrame(animateCamera)
       } else {
         introAnimFrameRef.current = null
         if (lastKnownPositionRef.current) map.panTo(lastKnownPositionRef.current)
-        map.moveCamera({ center: missionCenter, zoom: 18.8, tilt: 75, heading: 90 })
+        const v = isVector()
+        map.moveCamera({ center: missionCenter, zoom: 18.8, ...(v && { tilt: 75, heading: 90 }) })
         enableGestures()
         if (mapDiv) {
           mapDiv.removeEventListener('touchstart', handleTouch)
@@ -411,17 +429,21 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
     const duration = 900
     const startTime = performance.now()
     const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+    const isVector = () => (map as any).get?.('renderingType') === 'VECTOR'
     const animate = (now: number) => {
       const t = Math.min((now - startTime) / duration, 1)
       const e = easeOut(t)
+      const v = isVector()
       map.moveCamera({
         center: {
           lat: startCenter.lat() + (selectedMonument.lat - startCenter.lat()) * e,
           lng: startCenter.lng() + (selectedMonument.lng - startCenter.lng()) * e,
         },
         zoom: startZoom + (targetZoom - startZoom) * e,
-        tilt: startTilt + (targetTilt - startTilt) * e,
-        heading: startHeading,
+        ...(v && {
+          tilt: startTilt + (targetTilt - startTilt) * e,
+          heading: startHeading,
+        }),
       })
       if (t < 1) requestAnimationFrame(animate)
     }
@@ -851,7 +873,14 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             webGLOverlay.requestRedraw()
           }
 
-          webGLOverlay.setMap(map)
+          // Esperar a que el mapa esté en modo vector antes de activar el overlay WebGL
+          const attachOverlay = () => {
+            if ((map as any).get?.('renderingType') === 'VECTOR') {
+              webGLOverlay.setMap(map)
+            }
+          }
+          attachOverlay()
+          map.addListener('renderingtype_changed', attachOverlay)
 
           const getRotationAngle = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {
             const dy = p2.lat - p1.lat
@@ -1062,14 +1091,18 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       const duration = 1200
       const startTime = performance.now()
       const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+      const isVector = () => (map as any).get?.('renderingType') === 'VECTOR'
       const animate = (now: number) => {
         const t = Math.min((now - startTime) / duration, 1)
         const e = easeOut(t)
+        const v = isVector()
         map.moveCamera({
           center: { lat: startCenter.lat() + (pos.lat - startCenter.lat()) * e, lng: startCenter.lng() + (pos.lng - startCenter.lng()) * e },
           zoom: startZoom + (18 - startZoom) * e,
-          tilt: startTilt + (65 - startTilt) * e,
-          heading: startHeading + (targetHeading - startHeading) * e,
+          ...(v && {
+            tilt: startTilt + (65 - startTilt) * e,
+            heading: startHeading + (targetHeading - startHeading) * e,
+          }),
         })
         if (t < 1) { returnAnimFrameRef.current = requestAnimationFrame(animate) } else { returnAnimFrameRef.current = null }
       }
