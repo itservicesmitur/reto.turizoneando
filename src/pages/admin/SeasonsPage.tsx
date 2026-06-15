@@ -402,6 +402,11 @@ export default function SeasonsPage() {
           }))
         }))
       })
+      
+      if (formStatus === 'active') {
+        setSeasons(prev => prev.map(s => s.status === 'active' ? { ...s, status: 'archived' } : s))
+      }
+      
       setShowCreateModal(false)
       load()
     } catch (err) {
@@ -437,6 +442,17 @@ export default function SeasonsPage() {
           }))
         }))
       })
+      
+      setSeasons(prev => prev.map(s => {
+        if (s.id === selectedSeason.id) {
+          return { ...s, status: formStatus }
+        }
+        if (formStatus === 'active' && s.status === 'active') {
+          return { ...s, status: 'archived' }
+        }
+        return s
+      }))
+
       setShowEditModal(false)
       load()
     } catch (err) {
@@ -477,6 +493,17 @@ export default function SeasonsPage() {
           }))
         }))
       })
+      
+      setSeasons(prev => prev.map(s => {
+        if (s.id === season.id) {
+          return { ...s, status: nextStatus }
+        }
+        if (nextStatus === 'active' && s.status === 'active') {
+          return { ...s, status: 'archived' }
+        }
+        return s
+      }))
+
       await load()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cambiar el estado de la temporada'

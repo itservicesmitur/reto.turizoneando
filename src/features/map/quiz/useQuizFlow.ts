@@ -63,8 +63,8 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
 
     try {
       const timeMs = Date.now() - questionStartRef.current
-      const { correct } = await getCorrectAnswer(question.id, selectedOption)
-      const attemptPayload = { questionId: question.id, selectedIndex: selectedOption, timeMs, seasonId, stopId }
+      const { correct } = await getCorrectAnswer(question.id || '', selectedOption)
+      const attemptPayload = { questionId: question.id || '', selectedIndex: selectedOption, timeMs, seasonId, stopId }
       const isLastCorrect  = correct && questionIdx + 1 >= totalQuestions
 
       console.log('[Turizoneando] → registerAttempt payload:', JSON.stringify(attemptPayload, null, 2))

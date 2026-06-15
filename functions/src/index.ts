@@ -52,7 +52,15 @@ export {
   getElevenLabsVoices,
   generateElevenLabsAudio
 } from "./admin/elevenLabs";
+export { seedTestData } from "./admin/seed";
 export { getStopWithQuestions } from "./game/getStopWithQuestions";
 export { getCorrectAnswer } from "./game/validateAnswer";
 export { registerAttempt } from "./game/registerAttempt";
+export { getTopTen, getMyPositionsRanking } from "./game/leaderboard";
+export {
+  sendAdminCustomEmail,
+  sendAdminPasswordResetEmail,
+  sendAdminPrizeCodeEmail
+} from "./email/sendGrid";
+
 

@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchPlayerDetail, updatePlayerBannedStatus, updatePlayerActiveStatus, fetchPlayerAttempts, resetPlayerProgress, type PlayerData, type QuestionAttemptSummary } from '../../services/adminService'
+import {
+  fetchPlayerDetail,
+  updatePlayerBannedStatus,
+  updatePlayerActiveStatus,
+  fetchPlayerAttempts,
+  resetPlayerProgress,
+  sendAdminPasswordResetEmail,
+  sendAdminCustomEmail,
+  getMyPositionsRanking,
+  type PlayerData,
+  type QuestionAttemptSummary
+} from '../../services/adminService'
 
 export default function PlayerDetailPage() {
   const { playerId } = useParams<{ playerId: string }>()
@@ -11,6 +22,10 @@ export default function PlayerDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [activeLoading, setActiveLoading] = useState(false)
+  
+  // Ranking states
+  const [ranking, setRanking] = useState<number | null>(null)
+  const [rankingLoading, setRankingLoading] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
@@ -18,6 +33,14 @@ export default function PlayerDetailPage() {
   const [attemptsLoading, setAttemptsLoading] = useState(true)
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
   const [attemptsError, setAttemptsError] = useState<string | null>(null)
+
+  // Email action states
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [customEmailModal, setCustomEmailModal] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
 
   // Fetch player details and attempts on mount
   useEffect(() => {
@@ -27,11 +50,20 @@ export default function PlayerDetailPage() {
         setLoading(true)
         const data = await fetchPlayerDetail(playerId)
         setPlayer(data)
+
+        // Load ranking position
+        setRankingLoading(true)
+        const posData = await getMyPositionsRanking(playerId)
+        setRanking(posData.ranking)
+        if (posData.score !== undefined) {
+          setPlayer(prev => prev ? { ...prev, score: posData.score, baseScore: prev.score } : null)
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Error al cargar los detalles del jugador'
         setError(msg)
       } finally {
         setLoading(false)
+        setRankingLoading(false)
       }
     }
     async function loadAttempts() {
@@ -98,6 +130,60 @@ export default function PlayerDetailPage() {
       setResetLoading(false)
     }
   }
+
+  async function handleSendPasswordReset() {
+    if (!player || !player.email) return
+    if (emailLoading) return
+    setEmailLoading(true)
+    setEmailStatus(null)
+    try {
+      await sendAdminPasswordResetEmail(player.email)
+      setEmailStatus({
+        type: 'success',
+        text: `Enlace de restablecimiento de contraseña enviado a ${player.email}`
+      })
+      setTimeout(() => setEmailStatus(null), 6000)
+    } catch (err) {
+      console.error(err)
+      setEmailStatus({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al enviar el correo'
+      })
+      setTimeout(() => setEmailStatus(null), 6000)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  async function handleSendCustomEmail(e: React.FormEvent) {
+    e.preventDefault()
+    if (!player || !player.email) return
+    if (!emailSubject.trim() || !emailBody.trim()) return
+    if (emailLoading) return
+    setEmailLoading(true)
+    setEmailStatus(null)
+    try {
+      await sendAdminCustomEmail(player.email, emailSubject, emailBody)
+      setEmailStatus({
+        type: 'success',
+        text: `Correo personalizado enviado a ${player.email}`
+      })
+      setCustomEmailModal(false)
+      setEmailSubject('')
+      setEmailBody('')
+      setTimeout(() => setEmailStatus(null), 6000)
+    } catch (err) {
+      console.error(err)
+      setEmailStatus({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al enviar el correo'
+      })
+      setTimeout(() => setEmailStatus(null), 6000)
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
 
   // Helper to get initials
   const initials = player?.displayName
@@ -216,8 +302,79 @@ export default function PlayerDetailPage() {
             {initials}
           </div>
           <div>
-            <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 26, margin: '0 0 4px' }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 26, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               {player.displayName || `${player.firstName} ${player.lastName}`.trim() || 'Jugador Anónimo'}
+              {rankingLoading ? (
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--color-text-muted)',
+                  background: 'rgba(0,0,0,0.05)',
+                  padding: '4px 10px',
+                  borderRadius: 20,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}>
+                  <i className="ri-loader-4-line ri-spin" />
+                  Cargando puesto...
+                </span>
+              ) : ranking !== null ? (
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: ranking === 1 
+                    ? '#b45309' 
+                    : ranking === 2 
+                    ? '#475569' 
+                    : ranking === 3 
+                    ? '#c2410c' 
+                    : 'var(--color-navy)',
+                  background: ranking === 1 
+                    ? '#fef3c7' 
+                    : ranking === 2 
+                    ? '#f1f5f9' 
+                    : ranking === 3 
+                    ? '#ffedd5' 
+                    : 'rgba(27,43,110,0.08)',
+                  border: ranking === 1 
+                    ? '1px solid rgba(251,191,36,0.5)' 
+                    : ranking === 2 
+                    ? '1px solid rgba(148,163,184,0.4)' 
+                    : ranking === 3 
+                    ? '1px solid rgba(249,115,22,0.4)' 
+                    : '1px solid rgba(27,43,110,0.15)',
+                  padding: '4px 12px',
+                  borderRadius: 20,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.02)'
+                }}>
+                  <i className="ri-medal-fill" style={{ 
+                    color: ranking === 1 
+                      ? '#d97706' 
+                      : ranking === 2 
+                      ? '#64748b' 
+                      : ranking === 3 
+                      ? '#ea580c' 
+                      : 'var(--color-navy)',
+                    fontSize: 15 
+                  }} />
+                  {ranking === 1 ? '1er Puesto (Oro)' : ranking === 2 ? '2do Puesto (Plata)' : ranking === 3 ? '3er Puesto (Bronce)' : `Puesto #${ranking}`}
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: 'var(--color-gray-dark)',
+                  background: 'rgba(160,168,184,0.15)',
+                  padding: '4px 10px',
+                  borderRadius: 20
+                }}>
+                  Sin Clasificación
+                </span>
+              )}
             </h1>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ri-mail-line" style={{ color: 'var(--color-gray-mid)' }} />
@@ -319,27 +476,70 @@ export default function PlayerDetailPage() {
               Progreso en el Rally
             </h2>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12 }}>
               {/* Score indicator */}
-              <div style={{ background: 'rgba(27,43,110,0.04)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Puntaje Total
+              <div style={{ background: 'rgba(27,43,110,0.04)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Puntaje Real
                 </span>
-                <div style={{ fontSize: 28, fontFamily: 'var(--font-display)', color: 'var(--color-navy)', marginTop: 4 }}>
+                <div style={{ fontSize: 24, fontFamily: 'var(--font-display)', color: 'var(--color-navy)', marginTop: 4 }}>
                   {player.score.toLocaleString()}
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--color-gray-mid)' }}>puntos acumulados</span>
+                {player.baseScore !== undefined ? (
+                  <span style={{ fontSize: 11, color: 'var(--color-gray-mid)' }}>Base: {player.baseScore.toLocaleString()} pts</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: 'var(--color-gray-mid)' }}>puntos</span>
+                )}
+              </div>
+
+              {/* Ranking Position indicator */}
+              <div style={{ 
+                background: ranking === 1 
+                  ? 'rgba(251,191,36,0.1)' 
+                  : ranking === 2 
+                  ? 'rgba(148,163,184,0.1)' 
+                  : ranking === 3 
+                  ? 'rgba(249,115,22,0.1)' 
+                  : 'rgba(27,43,110,0.04)', 
+                borderRadius: 12, 
+                padding: 14, 
+                textAlign: 'center' 
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Puesto Global
+                </span>
+                <div style={{ 
+                  fontSize: 24, 
+                  fontFamily: 'var(--font-display)', 
+                  color: ranking === 1 
+                    ? '#b45309' 
+                    : ranking === 2 
+                    ? '#475569' 
+                    : ranking === 3 
+                    ? '#c2410c' 
+                    : 'var(--color-navy)', 
+                  marginTop: 4 
+                }}>
+                  {rankingLoading ? (
+                    <i className="ri-loader-4-line ri-spin" style={{ fontSize: 20 }} />
+                  ) : ranking !== null ? (
+                    `#${ranking}`
+                  ) : (
+                    '-'
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--color-gray-mid)' }}>ranking</span>
               </div>
 
               {/* Stops indicator */}
-              <div style={{ background: 'rgba(43,191,184,0.06)', borderRadius: 12, padding: 16, textAlign: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Paradas Completadas
+              <div style={{ background: 'rgba(43,191,184,0.06)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Paradas
                 </span>
-                <div style={{ fontSize: 28, fontFamily: 'var(--font-display)', color: 'var(--color-teal)', marginTop: 4 }}>
+                <div style={{ fontSize: 24, fontFamily: 'var(--font-display)', color: 'var(--color-teal)', marginTop: 4 }}>
                   {completedStops} / 9
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--color-gray-mid)' }}>nodos del recorrido</span>
+                <span style={{ fontSize: 11, color: 'var(--color-gray-mid)' }}>completadas</span>
               </div>
             </div>
 
@@ -511,7 +711,105 @@ export default function PlayerDetailPage() {
             </div>
           </div>
 
+          {/* Card: Email Communication actions */}
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: 'var(--shadow-card)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
+              Acciones de Comunicación
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
+              Envía correos electrónicos utilizando la pasarela de SendGrid con plantillas de diseño premium.
+            </p>
+
+            {emailStatus && (
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: emailStatus.type === 'success' ? 'rgba(60,173,66,0.08)' : 'rgba(230,51,41,0.08)',
+                border: `1.5px solid ${emailStatus.type === 'success' ? 'rgba(60,173,66,0.25)' : 'rgba(230,51,41,0.25)'}`,
+                color: emailStatus.type === 'success' ? 'var(--color-green)' : 'var(--color-error)'
+              }}>
+                <i className={emailStatus.type === 'success' ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'} style={{ fontSize: 16 }} />
+                <span>{emailStatus.text}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+              {/* Password Reset Action Button */}
+              <button
+                onClick={handleSendPasswordReset}
+                disabled={emailLoading}
+                style={{
+                  height: 38,
+                  padding: '0 16px',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: '#f8f9fb',
+                  color: 'var(--color-navy)',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: emailLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'background 150ms ease, transform 150ms ease',
+                  opacity: emailLoading ? 0.7 : 1
+                }}
+                onMouseEnter={e => { if (!emailLoading) e.currentTarget.style.background = '#f1f3f7' }}
+                onMouseLeave={e => { if (!emailLoading) e.currentTarget.style.background = '#f8f9fb' }}
+              >
+                {emailLoading ? <i className="ri-loader-4-line ri-spin" /> : <i className="ri-mail-line" />}
+                Enviar Cambio de Contraseña
+              </button>
+
+              {/* Custom Email Action Button */}
+              <button
+                onClick={() => {
+                  setEmailStatus(null);
+                  setCustomEmailModal(true);
+                }}
+                disabled={emailLoading}
+                style={{
+                  height: 38,
+                  padding: '0 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'var(--color-navy)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: emailLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'background 150ms ease, transform 150ms ease',
+                  boxShadow: '0 4px 12px rgba(27,43,110,0.15)',
+                  opacity: emailLoading ? 0.7 : 1
+                }}
+                onMouseEnter={e => { if (!emailLoading) e.currentTarget.style.background = 'rgba(27,43,110,0.9)' }}
+                onMouseLeave={e => { if (!emailLoading) e.currentTarget.style.background = 'var(--color-navy)' }}
+              >
+                <i className="ri-chat-new-line" />
+                Enviar Mensaje Personalizado
+              </button>
+            </div>
+          </div>
+
           {/* Card 4: Reset player */}
+
           <div style={{
             background: 'var(--color-surface)',
             borderRadius: 16,
@@ -764,6 +1062,117 @@ export default function PlayerDetailPage() {
         .table-row-hover:hover { background: #f5f6fa !important; }
       `}</style>
 
+      {/* ── CUSTOM EMAIL MODAL ─────────────────── */}
+      {customEmailModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.5)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 100, padding: 16
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 16,
+            width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-pop)',
+            overflow: 'hidden', animation: 'slide-up 0.2s ease-out'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
+                Enviar Correo Personalizado
+              </h3>
+              <button onClick={() => { setCustomEmailModal(false); setEmailSubject(''); setEmailBody(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', padding: 4 }}>
+                <i className="ri-close-line" style={{ fontSize: 20 }} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSendCustomEmail} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Target email (read only) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Destinatario
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={player.email}
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+                    background: '#f8f9fb', color: 'var(--color-text-muted)'
+                  }}
+                />
+              </div>
+
+              {/* Subject */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Asunto del Correo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  placeholder="Escribe el asunto del correo..."
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                  }}
+                />
+              </div>
+
+              {/* Message body */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Mensaje
+                </label>
+                <textarea
+                  required
+                  rows={6}
+                  value={emailBody}
+                  onChange={e => setEmailBody(e.target.value)}
+                  placeholder="Escribe el contenido del correo aquí..."
+                  style={{
+                    borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => { setCustomEmailModal(false); setEmailSubject(''); setEmailBody(''); }}
+                  disabled={emailLoading}
+                  style={{
+                    height: 40, padding: '0 16px', borderRadius: 8,
+                    background: 'none', border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-muted)', fontWeight: 600, fontSize: 13, cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={emailLoading || !emailSubject.trim() || !emailBody.trim()}
+                  style={{
+                    height: 40, padding: '0 20px', borderRadius: 8,
+                    background: 'var(--color-navy)', color: '#fff', border: 'none',
+                    fontWeight: 600, fontSize: 13, cursor: emailLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    opacity: emailLoading ? 0.7 : 1
+                  }}
+                >
+                  {emailLoading && <i className="ri-loader-4-line ri-spin" />}
+                  Enviar Correo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
+
   )
 }

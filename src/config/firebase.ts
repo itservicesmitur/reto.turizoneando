@@ -1,8 +1,9 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
-import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
-import { getStorage, connectStorageEmulator } from 'firebase/storage'
+import { connectAuthEmulator, getAuth } from 'firebase/auth'
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { connectStorageEmulator, getStorage } from 'firebase/storage'
+
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,19 +21,19 @@ export const db = getFirestore(app)
 export const functions = getFunctions(app)
 export const storage = getStorage(app)
 
-// Connect to emulators in development
-// const isLocal = window.location.hostname === 'localhost' ||
-//   window.location.hostname === '127.0.0.1' ||
-//   window.location.hostname.startsWith('192.168.') ||
-//   window.location.hostname.startsWith('10.');
+//Connect to emulators in development
+const isLocal = window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.');
 
-// if (!isLocal) {
-//   const emulatorHost = window.location.hostname;
-//   connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
-//   connectFirestoreEmulator(db, emulatorHost, 8080)
-//   connectFunctionsEmulator(functions, emulatorHost, 5001)
-//   connectStorageEmulator(storage, emulatorHost, 9199)
-// }
+if (isLocal) {
+  const emulatorHost = window.location.hostname;
+  connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
+  connectFirestoreEmulator(db, emulatorHost, 8080)
+  connectFunctionsEmulator(functions, emulatorHost, 5001)
+  connectStorageEmulator(storage, emulatorHost, 9199)
+}
 
 if (import.meta.env.DEV) {
 

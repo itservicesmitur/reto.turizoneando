@@ -9,10 +9,10 @@ export default function AdminLoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
 
-  const [email, setEmail]       = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [showPass, setShowPass] = useState(false)
 
   function toggleLang() {
@@ -26,7 +26,8 @@ export default function AdminLoginPage() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const tokenResult = await userCredential.user.getIdTokenResult(true)
-      
+
+
       if ((tokenResult.claims.role as string | undefined)?.toLowerCase() !== 'admin') {
         await auth.signOut()
         setError(t('adminLogin.unauthorized'))

@@ -14,7 +14,7 @@ const PrizesPage = lazy(() => Promise.resolve({ default: () => <div style={{ pad
 const ProfilePage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Perfil (coming soon)</div> }))
 const ScannerPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Scanner (coming soon)</div> }))
 
-const DashboardPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 0 }}>Dashboard (coming soon)</div> }))
+const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const StopsPage = lazy(() => import('./pages/admin/StopsPage'))
 const AdminPrizesPage = lazy(() => import('./pages/admin/PrizesPage'))
 const PlayersPage = lazy(() => import('./pages/admin/PlayersPage'))
@@ -25,6 +25,7 @@ const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
 const CodesPage = lazy(() => import('./pages/admin/CodesPage'))
 const AttemptsLogPage = lazy(() => import('./pages/admin/AttemptsLogPage'))
 const PublicValidationPage = lazy(() => import('./pages/PublicValidationPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 
 
 const router = createBrowserRouter([
@@ -35,6 +36,14 @@ const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/admin/login', element: <AdminLoginPage /> },
+  {
+    path: '/reset-password',
+    element: (
+      <Suspense fallback={null}>
+        <ResetPasswordPage />
+      </Suspense>
+    )
+  },
   {
     path: '/validar/:code',
     element: (

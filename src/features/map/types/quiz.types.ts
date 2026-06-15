@@ -1,9 +1,10 @@
 export interface QuizQuestion {
-  id: string
+  id?: string
   text: string
   options: [string, string, string, string]
   isBonus?: boolean
   pointsAwarded?: number
+  correctIndex?: number
 }
 
 export interface StopPrize {

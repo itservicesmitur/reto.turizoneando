@@ -14,6 +14,9 @@ export interface PlayerData {
   ageRange: string
   preferredLang: string
   score: number
+  baseScore?: number
+  photoURL?: string
+  ranking?: number | null
   mapProgress: Record<string, 'locked' | 'active' | 'completed'>
   currentNodeId: string | null
   createdAt: string | null
@@ -57,6 +60,7 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
     ageRange: data.ageRange || '',
     preferredLang: data.preferredLang || 'es',
     score: typeof data.score === 'number' ? data.score : 0,
+    photoURL: data.photoURL || '',
     mapProgress: data.mapProgress || {},
     currentNodeId: data.currentNodeId || null,
     banned: data.banned === true,
@@ -829,6 +833,75 @@ export async function generateElevenLabsAudio(text: string, voiceId: string): Pr
   const response = await generateAudioFn({ text, voiceId })
   return response.data
 }
+
+export async function sendAdminCustomEmail(email: string, subject: string, body: string): Promise<{ success: boolean }> {
+  const fn = httpsCallable<{ email: string; subject: string; body: string }, { success: boolean }>(
+    functions,
+    'sendAdminCustomEmail'
+  )
+  const response = await fn({ email, subject, body })
+  return response.data
+}
+
+export async function sendAdminPasswordResetEmail(email: string): Promise<{ success: boolean }> {
+  const fn = httpsCallable<{ email: string }, { success: boolean }>(
+    functions,
+    'sendAdminPasswordResetEmail'
+  )
+  const response = await fn({ email })
+  return response.data
+}
+
+export async function sendAdminPrizeCodeEmail(code: string): Promise<{ success: boolean }> {
+  const fn = httpsCallable<{ code: string }, { success: boolean }>(
+    functions,
+    'sendAdminPrizeCodeEmail'
+  )
+  const response = await fn({ code })
+  return response.data
+}
+
+export interface SeedTestDataResult {
+  success: boolean
+  seasonId: string
+  prizesCreated: number
+  stopsCreated: number
+  questionsCreated: number
+}
+
+export async function seedTestData(): Promise<SeedTestDataResult> {
+  const fn = httpsCallable<unknown, SeedTestDataResult>(functions, 'seedTestData')
+  const response = await fn()
+  return response.data
+}
+
+export interface RankedPlayerData {
+  uid: string
+  displayName: string
+  photoURL: string
+  score: number
+  baseScore?: number
+  ranking: number | null
+}
+
+export async function getTopTen(): Promise<RankedPlayerData[]> {
+  const fn = httpsCallable<unknown, { topTen: RankedPlayerData[] }>(
+    functions,
+    'getTopTen'
+  )
+  const response = await fn()
+  return response.data.topTen
+}
+
+export async function getMyPositionsRanking(playerId?: string): Promise<{ uid: string; ranking: number | null; score: number }> {
+  const fn = httpsCallable<{ playerId?: string }, { uid: string; ranking: number | null; score: number }>(
+    functions,
+    'getMyPositionsRanking'
+  )
+  const response = await fn({ playerId })
+  return response.data
+}
+
 
 
 

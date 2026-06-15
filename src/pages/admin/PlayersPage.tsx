@@ -1,12 +1,32 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchPlayers, updatePlayerActiveStatus, type PlayerData } from '../../services/adminService'
+import { fetchPlayers, updatePlayerActiveStatus, getTopTen, type PlayerData, type RankedPlayerData } from '../../services/adminService'
 
 export default function PlayersPage() {
   const navigate = useNavigate()
   const [players, setPlayers] = useState<PlayerData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Top 10 Modal states
+  const [showTopTenModal, setShowTopTenModal] = useState(false)
+  const [topTenPlayers, setTopTenPlayers] = useState<RankedPlayerData[]>([])
+  const [topTenLoading, setTopTenLoading] = useState(false)
+  const [topTenError, setTopTenError] = useState<string | null>(null)
+
+  async function handleOpenTopTen() {
+    setShowTopTenModal(true)
+    setTopTenLoading(true)
+    setTopTenError(null)
+    try {
+      const data = await getTopTen()
+      setTopTenPlayers(data)
+    } catch (err) {
+      setTopTenError(err instanceof Error ? err.message : 'Error al cargar el Top 10')
+    } finally {
+      setTopTenLoading(false)
+    }
+  }
   
   // Search and filter states
   const [search, setSearch] = useState('')
@@ -155,7 +175,7 @@ export default function PlayersPage() {
   return (
     <div style={{ animation: 'fade-in 0.3s ease-out' }}>
       {/* Header section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 28, margin: '0 0 4px' }}>
             Panel de Jugadores
@@ -164,19 +184,109 @@ export default function PlayersPage() {
             Visualiza, filtra y analiza la participación de los jugadores registrados en el rally cultural.
           </p>
         </div>
-        <div style={{
-          background: 'rgba(27,43,110,0.06)',
-          border: '1px solid var(--color-border)',
-          borderRadius: 12,
-          padding: '10px 16px',
-          textAlign: 'right'
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Total Registrados
-          </span>
-          <div style={{ fontSize: 24, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>
-            {players.length}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Button "Ver Top 10" */}
+          <button
+            onClick={handleOpenTopTen}
+            style={{
+              height: 44,
+              padding: '0 20px',
+              borderRadius: 12,
+              border: 'none',
+              background: 'linear-gradient(135deg, var(--color-navy) 0%, #2b3b80 100%)',
+              color: 'var(--color-yellow)',
+              fontFamily: 'var(--font-display)',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 4px 15px rgba(27,43,110,0.25)',
+              transition: 'transform 150ms ease, box-shadow 150ms ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(27,43,110,0.35)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'none'
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(27,43,110,0.25)'
+            }}
+          >
+            <i className="ri-trophy-fill" style={{ fontSize: 18 }} />
+            Ver Top 10
+          </button>
+
+          <div style={{
+            background: 'rgba(27,43,110,0.06)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 12,
+            padding: '10px 16px',
+            textAlign: 'right'
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Total Registrados
+            </span>
+            <div style={{ fontSize: 24, fontFamily: 'var(--font-display)', color: 'var(--color-navy)' }}>
+              {players.length}
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Legend Banner / Formula Explanation */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(27,43,110,0.04) 0%, rgba(43,191,184,0.03) 100%)',
+        border: '1px solid rgba(27,43,110,0.1)',
+        borderRadius: 16,
+        padding: '16px 20px',
+        marginBottom: 24,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 14,
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)'
+      }}>
+        <div style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          background: 'rgba(27,43,110,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--color-navy)',
+          flexShrink: 0,
+          marginTop: 2
+        }}>
+          <i className="ri-information-line" style={{ fontSize: 22 }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h4 style={{ margin: '0 0 6px 0', fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 15, fontWeight: 700 }}>
+            Fórmula de Clasificación y Puntaje Real
+          </h4>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+            El ranking global y la posición del jugador se calculan utilizando el <strong>Puntaje Real</strong> de la partida. 
+            Este se calcula por cada pregunta respondida correctamente usando la fórmula: 
+            <span style={{ 
+              display: 'inline-block', 
+              background: '#fff', 
+              padding: '2px 8px', 
+              borderRadius: 6, 
+              border: '1px solid var(--color-border)', 
+              margin: '4px 6px',
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--color-navy)'
+            }}>
+              Puntaje Real = (Puntos Base / Intentos) × (0.8 + 0.2 × Factor de Tiempo)
+            </span>
+          </p>
+          <ul style={{ margin: '8px 0 0 0', paddingLeft: 20, fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+            <li><strong>Intentos</strong>: Los intentos fallidos dividen los puntos base (ej: resolver al 2do intento divide los puntos en 2).</li>
+            <li><strong>Factor de Tiempo</strong>: Responder rápido dentro de la ventana de 60s conserva hasta el 100% de la puntuación (aporta una bonificación del 20% de velocidad), mientras que tomarse todo el tiempo reduce el factor al 80%.</li>
+          </ul>
         </div>
       </div>
 
@@ -388,11 +498,9 @@ export default function PlayersPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: '#f8f9fb', borderBottom: '1px solid var(--color-border)' }}>
-                  {(sortBy === 'score-desc' || sortBy === 'score-asc') && (
-                    <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', width: 56 }}>
-                      #
-                    </th>
-                  )}
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', width: 70 }}>
+                    Puesto
+                  </th>
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     Jugador
                   </th>
@@ -435,22 +543,29 @@ export default function PlayersPage() {
                       className="table-row-hover"
                       onClick={() => navigate(`/admin/players/${player.uid}`)}
                     >
-                      {/* Rank cell — only visible when sorted by score */}
-                      {(sortBy === 'score-desc' || sortBy === 'score-asc') && (
-                        <td style={{ padding: '14px 20px', textAlign: 'center', width: 56 }}>
-                          {idx + (currentPage - 1) * pageSize === 0 ? (
-                            <span style={{ fontSize: 18 }}>🥇</span>
-                          ) : idx + (currentPage - 1) * pageSize === 1 ? (
-                            <span style={{ fontSize: 18 }}>🥈</span>
-                          ) : idx + (currentPage - 1) * pageSize === 2 ? (
-                            <span style={{ fontSize: 18 }}>🥉</span>
-                          ) : (
-                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-gray-dark)' }}>
-                              #{(currentPage - 1) * pageSize + idx + 1}
-                            </span>
-                          )}
-                        </td>
-                      )}
+                      {/* Rank cell — permanent */}
+                      <td style={{ padding: '14px 20px', textAlign: 'center', width: 70 }}>
+                        {player.ranking === 1 ? (
+                          <span style={{ fontSize: 18 }} title="1er Puesto (Oro)">🥇</span>
+                        ) : player.ranking === 2 ? (
+                          <span style={{ fontSize: 18 }} title="2do Puesto (Plata)">🥈</span>
+                        ) : player.ranking === 3 ? (
+                          <span style={{ fontSize: 18 }} title="3er Puesto (Bronce)">🥉</span>
+                        ) : player.ranking ? (
+                          <span style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: 'var(--color-gray-dark)',
+                            background: 'rgba(160,168,184,0.15)',
+                            padding: '3px 8px',
+                            borderRadius: 6
+                          }}>
+                            #{player.ranking}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 13, color: 'var(--color-gray-mid)' }}>-</span>
+                        )}
+                      </td>
 
                       {/* Player Avatar, Name and Email */}
                       <td style={{ padding: '14px 20px' }}>
@@ -527,8 +642,13 @@ export default function PlayersPage() {
                       </td>
 
                       {/* Score */}
-                      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 700, color: 'var(--color-navy)', textAlign: 'center' }}>
-                        {player.score.toLocaleString()} pts
+                      <td style={{ padding: '14px 20px', fontSize: 14, color: 'var(--color-navy)', textAlign: 'center' }}>
+                        <div style={{ fontWeight: 700 }}>{player.score.toLocaleString()} pts</div>
+                        {player.baseScore !== undefined && (
+                          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                            Base: {player.baseScore.toLocaleString()} pts
+                          </div>
+                        )}
                       </td>
 
                       {/* Created date */}
@@ -693,12 +813,278 @@ export default function PlayersPage() {
         )}
       </div>
 
+      {/* Top 10 Modal */}
+      {showTopTenModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          animation: 'fade-in 0.25s ease-out'
+        }} onClick={() => setShowTopTenModal(false)}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.5)',
+            borderRadius: 24,
+            width: '100%',
+            maxWidth: 500,
+            boxShadow: '0 20px 40px rgba(15, 23, 42, 0.15), inset 0 0 0 1px rgba(255,255,255,0.4)',
+            overflow: 'hidden',
+            animation: 'scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh'
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div style={{
+              padding: '24px 28px 20px',
+              borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, rgba(27,43,110,0.05) 0%, rgba(27,43,110,0.02) 100%)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: 'var(--color-navy)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 10px rgba(27,43,110,0.2)'
+                }}>
+                  <i className="ri-trophy-line" style={{ color: 'var(--color-yellow)', fontSize: 18 }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 20 }}>
+                    Clasificación Top 10
+                  </h3>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600 }}>Rally Cultural Turizoneando</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTopTenModal(false)}
+                style={{
+                  background: 'rgba(0,0,0,0.05)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--color-navy)',
+                  transition: 'background 150ms ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+              >
+                <i className="ri-close-line" style={{ fontSize: 18 }} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 28px 28px', overflowY: 'auto', flex: 1 }}>
+              {topTenLoading ? (
+                <div style={{ padding: '60px 0', textAlign: 'center' }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    border: '3px solid rgba(27,43,110,0.1)',
+                    borderTopColor: 'var(--color-yellow)',
+                    animation: 'spin-circle 0.8s linear infinite',
+                    margin: '0 auto 16px'
+                  }} />
+                  <div style={{ color: 'var(--color-navy)', fontWeight: 700, fontSize: 14 }}>Calculando tabla de clasificación...</div>
+                </div>
+              ) : topTenError ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--color-error)' }}>
+                  <i className="ri-error-warning-line" style={{ fontSize: 36, display: 'block', marginBottom: 10 }} />
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Error al cargar los datos</div>
+                  <div style={{ fontSize: 13, opacity: 0.8 }}>{topTenError}</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {topTenPlayers.map((player, idx) => {
+                    const isTopThree = idx < 3;
+                    const initials = player.displayName ? player.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P';
+                    
+                    return (
+                      <div key={player.uid} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        borderRadius: 16,
+                        background: idx === 0 
+                          ? 'linear-gradient(90deg, rgba(254,243,199,0.5) 0%, rgba(255,255,255,0.7) 100%)' 
+                          : idx === 1
+                          ? 'linear-gradient(90deg, rgba(241,245,249,0.6) 0%, rgba(255,255,255,0.7) 100%)'
+                          : idx === 2
+                          ? 'linear-gradient(90deg, rgba(255,237,213,0.5) 0%, rgba(255,255,255,0.7) 100%)'
+                          : 'rgba(255, 255, 255, 0.4)',
+                        border: idx === 0 
+                          ? '1px solid rgba(251,191,36,0.3)' 
+                          : idx === 1
+                          ? '1px solid rgba(148,163,184,0.2)'
+                          : idx === 2
+                          ? '1px solid rgba(249,115,22,0.2)'
+                          : '1px solid rgba(0, 0, 0, 0.03)',
+                        boxShadow: isTopThree ? '0 4px 10px rgba(0,0,0,0.02)' : 'none',
+                        transition: 'transform 150ms ease, background 150ms ease',
+                      }}
+                      className="top-ten-row"
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          {/* Rank indicator (emoji/number) */}
+                          <div style={{ width: 32, textAlign: 'center', display: 'flex', justifyContent: 'center' }}>
+                            {idx === 0 ? (
+                              <span style={{ fontSize: 22 }}>🥇</span>
+                            ) : idx === 1 ? (
+                              <span style={{ fontSize: 22 }}>🥈</span>
+                            ) : idx === 2 ? (
+                              <span style={{ fontSize: 22 }}>🥉</span>
+                            ) : (
+                              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--color-text-muted)' }}>
+                                #{idx + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Avatar / Photo */}
+                          {player.photoURL ? (
+                            <img
+                              src={player.photoURL}
+                              alt={player.displayName}
+                              style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: isTopThree ? '2px solid var(--color-yellow)' : '1px solid var(--color-border)'
+                              }}
+                              onError={e => {
+                                e.currentTarget.style.display = 'none'
+                                const sibling = e.currentTarget.nextElementSibling as HTMLElement
+                                if (sibling) sibling.style.display = 'flex'
+                              }}
+                            />
+                          ) : null}
+                          <div style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '50%',
+                            background: idx === 0 ? '#fbbf24' : idx === 1 ? '#94a3b8' : idx === 2 ? '#f97316' : 'var(--color-navy)',
+                            color: idx === 0 || idx === 1 || idx === 2 ? '#1e293b' : 'var(--color-yellow)',
+                            display: player.photoURL ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontFamily: 'var(--font-display)',
+                            fontSize: 13,
+                            fontWeight: 700
+                          }}>
+                            {initials}
+                          </div>
+
+                          {/* Name */}
+                          <div>
+                            <div style={{
+                              fontWeight: 700,
+                              color: 'var(--color-navy)',
+                              fontSize: 14,
+                              maxWidth: 180,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {player.displayName}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                              ID: {player.uid.substring(0, 8)}...
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Points */}
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{
+                            fontFamily: 'var(--font-display)',
+                            fontSize: 15,
+                            fontWeight: 800,
+                            color: idx === 0 ? '#b45309' : 'var(--color-navy)'
+                          }}>
+                            {player.score.toLocaleString()}
+                          </div>
+                          {player.baseScore !== undefined && (
+                            <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 1 }}>
+                              Base: {player.baseScore} pts
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 28px',
+              borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 100%)'
+            }}>
+              <button
+                onClick={() => setShowTopTenModal(false)}
+                style={{
+                  height: 38,
+                  padding: '0 20px',
+                  borderRadius: 10,
+                  border: '1px solid var(--color-border)',
+                  background: '#fff',
+                  color: 'var(--color-navy)',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'background 150ms ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8f9fb'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes spin-circle {
           to { transform: rotate(360deg); }
         }
+        @keyframes scale-up {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
         .table-row-hover:hover {
           background: #fafbfd !important;
+        }
+        .top-ten-row:hover {
+          transform: translateY(-2px);
+          background: rgba(255, 255, 255, 0.8) !important;
+          box-shadow: 0 6px 15px rgba(0,0,0,0.04) !important;
         }
       `}</style>
     </div>

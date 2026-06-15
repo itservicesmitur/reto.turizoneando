@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../config/firebase'
-import { updateSelfAdminProfile } from '../../services/adminService'
+import { updateSelfAdminProfile, seedTestData } from '../../services/adminService'
 import ImageUpload from '../../components/ImageUpload'
 
 
@@ -24,6 +24,8 @@ export default function SettingsPage() {
   // Modals
   const [showDeactivateModal, setShowDeactivateModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showSeedModal, setShowSeedModal] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
   // Populate data when loaded
   useEffect(() => {
@@ -88,6 +90,33 @@ export default function SettingsPage() {
         text: err instanceof Error ? err.message : t('login.errorGeneric')
       })
       setLoading(false)
+    }
+  }
+
+  // Handle seed
+  async function handleConfirmSeed() {
+    setSeeding(true)
+    setMessage(null)
+    setShowSeedModal(false)
+
+    try {
+      const result = await seedTestData()
+      if (result.success) {
+        setMessage({
+          type: 'success',
+          text: t('adminSettings.successSeed', {
+            stopsCreated: result.stopsCreated,
+            questionsCreated: result.questionsCreated,
+          })
+        })
+      }
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : t('login.errorGeneric')
+      })
+    } finally {
+      setSeeding(false)
     }
   }
 
@@ -291,6 +320,75 @@ export default function SettingsPage() {
         </form>
       </div>
 
+      {/* Test Data Card */}
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 16,
+        boxShadow: 'var(--shadow-card)',
+        border: '1px solid var(--color-border)',
+        overflow: 'hidden',
+        marginBottom: 32
+      }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: '0 0 4px' }}>
+            {t('adminSettings.seedCardTitle')}
+          </h2>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 13, margin: 0 }}>
+            {t('adminSettings.seedCardDesc')}
+          </p>
+        </div>
+
+        <div style={{ padding: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { icon: 'ri-map-pin-line', label: '3 etapas · 9 paradas' },
+                { icon: 'ri-question-line', label: '18 preguntas' },
+                { icon: 'ri-gift-line', label: '3 premios' },
+              ].map(({ icon, label }) => (
+                <span key={label} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+                  background: 'rgba(27,43,110,0.06)', color: 'var(--color-navy)'
+                }}>
+                  <i className={icon} style={{ fontSize: 13 }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowSeedModal(true)}
+            disabled={seeding}
+            style={{
+              height: 40,
+              padding: '0 20px',
+              borderRadius: 8,
+              background: seeding ? 'rgba(27,43,110,0.4)' : 'var(--color-navy)',
+              color: '#fff',
+              border: 'none',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: seeding ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 2px 8px rgba(27,43,110,0.2)',
+              transition: 'transform 150ms ease, opacity 150ms ease',
+              opacity: seeding ? 0.7 : 1,
+              whiteSpace: 'nowrap'
+            }}
+            onMouseEnter={e => { if (!seeding) e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { if (!seeding) e.currentTarget.style.transform = 'none' }}
+          >
+            {seeding
+              ? <><i className="ri-loader-4-line ri-spin" />{t('adminSettings.btnSeeding')}</>
+              : <><i className="ri-database-2-line" />{t('adminSettings.btnSeed')}</>
+            }
+          </button>
+        </div>
+      </div>
+
       {/* Danger Zone Card */}
       <div style={{
         background: 'var(--color-surface)',
@@ -417,6 +515,58 @@ export default function SettingsPage() {
                   }}
                 >
                   {t('adminSettings.btnConfirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONFIRM SEED MODAL ─────────────────── */}
+      {showSeedModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.5)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 100, padding: 16
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 16,
+            width: '100%', maxWidth: 460, boxShadow: 'var(--shadow-pop)',
+            overflow: 'hidden', animation: 'slide-up 0.2s ease-out'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
+                {t('adminSettings.confirmSeedTitle')}
+              </h3>
+              <button onClick={() => setShowSeedModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', padding: 4 }}>
+                <i className="ri-close-line" style={{ fontSize: 20 }} />
+              </button>
+            </div>
+            <div style={{ padding: 24 }}>
+              <p style={{ margin: '0 0 24px', color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.5 }}>
+                {t('adminSettings.confirmSeedDesc')}
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button
+                  onClick={() => setShowSeedModal(false)}
+                  style={{
+                    height: 40, padding: '0 16px', borderRadius: 8,
+                    background: 'none', border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-muted)', fontWeight: 600, fontSize: 13, cursor: 'pointer'
+                  }}
+                >
+                  {t('adminSettings.btnCancel')}
+                </button>
+                <button
+                  onClick={handleConfirmSeed}
+                  style={{
+                    height: 40, padding: '0 20px', borderRadius: 8,
+                    background: 'var(--color-navy)', color: '#fff', border: 'none',
+                    fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(27,43,110,0.2)'
+                  }}
+                >
+                  {t('adminSettings.btnSeed')}
                 </button>
               </div>
             </div>

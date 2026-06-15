@@ -4,7 +4,7 @@ service cloud.firestore {
 
     // Helper function to check if the user is an Admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'Admin';
+      return request.auth != null && (request.auth.token.role == 'Admin' || request.auth.token.role == 'admin');
     }
 
     // Collection group rule required for collectionGroup('attempts') queries (live feed, etc.)

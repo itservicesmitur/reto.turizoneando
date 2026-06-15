@@ -6,6 +6,7 @@ import {
   generateTestPrizeCode,
   fetchPrizesList,
   fetchSeasons,
+  sendAdminPrizeCodeEmail,
   type PrizeCodeData,
   type PrizeData,
   type SeasonData
@@ -33,6 +34,21 @@ export default function CodesPage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [showRedeemConfirm, setShowRedeemConfirm] = useState<string | null>(null)
   
+  // Toast Notification States
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
+
+  function showToast(text: string, type: 'success' | 'error' | 'info' = 'success') {
+    setToast({ type, text })
+  }
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => {
+      setToast(null)
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
   // Test Generation Form States
   const [formEmail, setFormEmail] = useState('')
   const [formPrizeId, setFormPrizeId] = useState('')
@@ -41,6 +57,8 @@ export default function CodesPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [generatedSuccessCode, setGeneratedSuccessCode] = useState<string | null>(null)
+  const [sendingEmailCode, setSendingEmailCode] = useState<string | null>(null)
+
 
   // Load initial datasets
   useEffect(() => {
@@ -143,7 +161,7 @@ export default function CodesPage() {
       // Update local state directly
       setCodes(prev => prev.map(c => c.code === code ? { ...c, status: newStatus } : c))
     } catch (err) {
-      alert(err instanceof Error ? err.message : t('adminCodes.errGeneric'))
+      showToast(err instanceof Error ? err.message : t('adminCodes.errGeneric'), 'error')
     }
   }
 
@@ -155,7 +173,7 @@ export default function CodesPage() {
       setCodes(prev => prev.map(c => c.code === code ? { ...c, status: 'claimed', claimedAt: new Date().toISOString(), claimedBy: 'admin' } : c))
       setShowRedeemConfirm(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : t('adminCodes.errGeneric'))
+      showToast(err instanceof Error ? err.message : t('adminCodes.errGeneric'), 'error')
     }
   }
 
@@ -207,15 +225,30 @@ export default function CodesPage() {
   function handleCopyLink(code: string) {
     const valLink = `${window.location.origin}/validar/${code}`
     navigator.clipboard.writeText(valLink)
-    alert(`Enlace copiado: ${valLink}`)
+    showToast('Enlace copiado al portapapeles con éxito', 'success')
   }
 
   // Copy public validation link for establishments
   function handleCopyPublicLink() {
     const valLink = `${window.location.origin}/validar`
     navigator.clipboard.writeText(valLink)
-    alert(t('adminCodes.successCopyPublicLink', { link: valLink }))
+    showToast(t('adminCodes.successCopyPublicLink', { link: valLink }), 'success')
   }
+
+  async function handleSendEmail(code: string) {
+    if (sendingEmailCode) return
+    try {
+      setSendingEmailCode(code)
+      await sendAdminPrizeCodeEmail(code)
+      showToast(t('adminCodes.successEmailSent'), 'success')
+    } catch (err) {
+      console.error(err)
+      showToast(t('adminCodes.errEmailFailed') || 'Error al enviar el correo.', 'error')
+    } finally {
+      setSendingEmailCode(null)
+    }
+  }
+
 
   return (
     <div style={{ animation: 'fade-in 0.3s ease-out' }}>
@@ -533,6 +566,25 @@ export default function CodesPage() {
                         {/* Actions */}
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                             {/* Send Email */}
+                            <button
+                              onClick={() => handleSendEmail(codeDoc.code)}
+                              disabled={sendingEmailCode === codeDoc.code}
+                              title={t('adminCodes.actionSendEmail') || 'Enviar por Correo'}
+                              style={{
+                                width: 32, height: 32, borderRadius: 8, border: '1px solid var(--color-border)',
+                                background: '#fff', color: 'var(--color-navy)', cursor: sendingEmailCode === codeDoc.code ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 150ms',
+                                opacity: sendingEmailCode === codeDoc.code ? 0.7 : 1
+                              }}
+                            >
+                              {sendingEmailCode === codeDoc.code ? (
+                                <i className="ri-loader-4-line ri-spin" />
+                              ) : (
+                                <i className="ri-mail-send-line" />
+                              )}
+                            </button>
+
                             {/* Copy Link */}
                             <button
                               onClick={() => handleCopyLink(codeDoc.code)}
@@ -545,6 +597,7 @@ export default function CodesPage() {
                             >
                               <i className="ri-file-copy-line" />
                             </button>
+
 
                             {/* Toggle active / inactive */}
                             {codeDoc.status !== 'claimed' && (
@@ -842,7 +895,7 @@ export default function CodesPage() {
           }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: 0 }}>
-                Confirmar Canje del Código
+                {t('adminCodes.confirmRedeemTitle')}
               </h3>
               <button onClick={() => setShowRedeemConfirm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', padding: 4 }}>
                 <i className="ri-close-line" style={{ fontSize: 20 }} />
@@ -878,6 +931,92 @@ export default function CodesPage() {
           </div>
         </div>
       )}
+      {/* Custom Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 24,
+          right: 24,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: toast.type === 'success' 
+            ? '1px solid rgba(60,173,66,0.3)' 
+            : toast.type === 'error' 
+            ? '1px solid rgba(230,51,41,0.3)' 
+            : '1px solid rgba(27,43,110,0.2)',
+          borderRadius: 14,
+          padding: '12px 18px',
+          boxShadow: '0 10px 25px rgba(27, 43, 110, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          zIndex: 2000,
+          animation: 'slide-in-toast 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          maxWidth: '90vw',
+          width: 380
+        }}>
+          <div style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: toast.type === 'success' 
+              ? 'rgba(60,173,66,0.1)' 
+              : toast.type === 'error' 
+              ? 'rgba(230,51,41,0.1)' 
+              : 'rgba(27,43,110,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {toast.type === 'success' ? (
+              <i className="ri-checkbox-circle-fill" style={{ color: 'var(--color-green)', fontSize: 16 }} />
+            ) : toast.type === 'error' ? (
+              <i className="ri-error-warning-fill" style={{ color: 'var(--color-red)', fontSize: 16 }} />
+            ) : (
+              <i className="ri-information-fill" style={{ color: 'var(--color-navy)', fontSize: 16 }} />
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontSize: 13.5,
+              fontWeight: 700,
+              color: 'var(--color-navy)',
+              lineHeight: 1.4
+            }}>
+              {toast.text}
+            </div>
+          </div>
+          <button 
+            onClick={() => setToast(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--color-gray-mid)',
+              fontSize: 16,
+              padding: 4,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              transition: 'background 150ms ease'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <i className="ri-close-line" />
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slide-in-toast {
+          from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }

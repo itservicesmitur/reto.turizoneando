@@ -665,7 +665,7 @@ export default function RegisterPage() {
 
                   {/* Edad */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <label htmlFor="reg-age" style={labelStyle}>{t('register.age') || (i18n.language === 'en' ? 'Age' : 'Edad')}</label>
+                    <label htmlFor="reg-age" style={labelStyle}>{t('register.age')}</label>
                     <FieldInput
                       id="reg-age" type="number" icon="ri-calendar-line"
                       value={ageRange} onChange={setAgeRange}
