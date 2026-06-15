@@ -441,41 +441,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
   }, [statusBlock])
 
-  // Índice de la siguiente parada disponible en la etapa activa (después de la actual)
-  const nextAvailableStopIndex = useMemo(() => {
-    if (selectedStopIndex < 0) return -1
-    const stageStops = stageGroups[activeStageIndex] ?? []
-    // Primero buscar la siguiente en orden después de la actual
-    for (const idx of stageStops) {
-      if (idx > selectedStopIndex && !completedStops[idx]) return idx
-    }
-    // Si no hay ninguna después, buscar cualquier incompleta de la etapa (excepto la actual)
-    for (const idx of stageStops) {
-      if (idx !== selectedStopIndex && !completedStops[idx]) return idx
-    }
-    return -1
-  }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops])
-
-  // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
-  const handleDismissBlock = useCallback(() => {
-    dismissBlock()
-    setSelectedMonument(null)
-  }, [dismissBlock])
-
-  // Ir a la siguiente parada disponible tras una desactivación
-  const handleNextStop = useCallback(() => {
-    const nextIdx = nextAvailableStopIndex
-    dismissBlock()
-    setSelectedMonument(null)
-    if (nextIdx >= 0 && monuments) {
-      const next = monuments[nextIdx]
-      if (next) {
-        setSelectedMonument(next)
-        mapControlsRef.current?.focusOnStop(nextIdx)
-      }
-    }
-  }, [dismissBlock, nextAvailableStopIndex, monuments])
-
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
     return stageGroups.map((group, idx) => {
       const allDone = group.length > 0 && group.every(i => completedStops[i])
@@ -504,6 +469,39 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     if (!selectedMonument || !monuments) return -1
     return monuments.findIndex(m => m.nombre === selectedMonument.nombre)
   }, [selectedMonument, monuments])
+
+  // Índice de la siguiente parada disponible en la etapa activa (después de la actual)
+  const nextAvailableStopIndex = useMemo(() => {
+    if (selectedStopIndex < 0) return -1
+    const stageStops = stageGroups[activeStageIndex] ?? []
+    for (const idx of stageStops) {
+      if (idx > selectedStopIndex && !completedStops[idx]) return idx
+    }
+    for (const idx of stageStops) {
+      if (idx !== selectedStopIndex && !completedStops[idx]) return idx
+    }
+    return -1
+  }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops])
+
+  // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
+  const handleDismissBlock = useCallback(() => {
+    dismissBlock()
+    setSelectedMonument(null)
+  }, [dismissBlock])
+
+  // Ir a la siguiente parada disponible tras una desactivación
+  const handleNextStop = useCallback(() => {
+    const nextIdx = nextAvailableStopIndex
+    dismissBlock()
+    setSelectedMonument(null)
+    if (nextIdx >= 0 && monuments) {
+      const next = monuments[nextIdx]
+      if (next) {
+        setSelectedMonument(next)
+        mapControlsRef.current?.focusOnStop(nextIdx)
+      }
+    }
+  }, [dismissBlock, nextAvailableStopIndex, monuments])
 
   const selectedMonumentIsAvailable = useMemo(() => {
     if (!selectedMonument || selectedStopIndex < 0 || completedStops[selectedStopIndex]) return false
