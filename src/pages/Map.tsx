@@ -432,14 +432,22 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     stopId:   activeStopId,
   })
 
+  // IDs de paradas desactivadas en tiempo real (para ocultarlas del mapa sin recargar)
+  const [deactivatedStopIds, setDeactivatedStopIds] = useState<string[]>([])
+
   // Cuando una parada o etapa se desactiva, cerrar el quiz (pero NO limpiar selectedMonument
   // aquí — eso mataría el listener del stop y causaría una race condition donde el bloqueo
   // se limpia antes de que el usuario lo vea)
   useEffect(() => {
-    if (statusBlock?.type === 'stop_deactivated' || statusBlock?.type === 'stage_deactivated') {
+    if (statusBlock?.type === 'stop_deactivated') {
+      setQuizFlow({ step: 'idle' })
+      if (activeStopId) {
+        setDeactivatedStopIds(prev => prev.includes(activeStopId) ? prev : [...prev, activeStopId])
+      }
+    } else if (statusBlock?.type === 'stage_deactivated') {
       setQuizFlow({ step: 'idle' })
     }
-  }, [statusBlock])
+  }, [statusBlock, activeStopId])
 
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
     return stageGroups.map((group, idx) => {
@@ -1028,6 +1036,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             onLockedStopClick={handleLockedStopClick}
             stageGroups={stageGroups}
             introTarget={introTarget}
+            hiddenStopIds={deactivatedStopIds}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>

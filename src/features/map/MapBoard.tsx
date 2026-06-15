@@ -34,6 +34,7 @@ interface MapBoardProps {
   onLockedStopClick?: (info: { stageIdx: number; isStageBlocked: boolean; availableStopName: string }) => void
   stageGroups?: number[][]
   introTarget?: { lat: number; lng: number }
+  hiddenStopIds?: string[]
 }
 
 interface BoatInstance {
@@ -74,7 +75,7 @@ interface SeagullInstance {
 let isGoogleMapsInitialized = false
 
 const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
-  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget },
+  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget, hiddenStopIds = [] },
   ref
 ) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -415,6 +416,19 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops)
     })
   }, [completedStops])
+
+  // Ocultar inmediatamente marcadores de paradas desactivadas en tiempo real
+  useEffect(() => {
+    if (monumentMarkersRef.current.length === 0) return
+    const hiddenSet = new Set(hiddenStopIds)
+    monumentMarkersRef.current.forEach(({ marker, monumento, stageIdx }) => {
+      if (hiddenSet.size > 0 && monumento.stopId && hiddenSet.has(monumento.stopId)) {
+        marker.map = null
+      } else {
+        marker.map = stageIdx === visibleStageRef.current ? mapInstanceRef.current : null
+      }
+    })
+  }, [hiddenStopIds])
 
   // Centrar y hacer zoom suave al monumento seleccionado
   useEffect(() => {
