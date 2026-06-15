@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { doc, onSnapshot, FirestoreError } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 
 export type BlockType = 'stop_deactivated' | 'stage_deactivated' | 'season_ended'
@@ -74,23 +74,37 @@ export function useRealtimeStatus({ seasonId, stageId, stopId }: Options) {
   }, [seasonId, stageId])
 
   // ── Parada ─────────────────────────────────────────────────────────────────
+  // Guarda el nombre de la parada para usarlo si llega un error permission-denied
+  // (cuando active: false, Firestore deniega la lectura en lugar de enviar el doc)
+  const stopNameRef = useRef<string>('')
+
   useEffect(() => {
     // Cuando stopId queda undefined (selectedMonument limpiado por dismiss),
     // NO limpiamos el bloqueo aquí — lo limpia dismiss() en Map.tsx.
     // Esto evita la race condition donde el bloqueo desaparece antes de mostrarse.
     if (!stopId) return
+    stopNameRef.current = '' // reset al cambiar de parada
     const unsub = onSnapshot(
       doc(db, 'stops', stopId),
       (snap) => {
         if (!snap.exists()) return
         const data = snap.data()
+        stopNameRef.current = String(data.name ?? '') // siempre guardar mientras se pueda leer
         if (data.active === false) {
-          setStopBlock({ type: 'stop_deactivated', name: String(data.name ?? '') })
+          setStopBlock({ type: 'stop_deactivated', name: stopNameRef.current })
         } else {
           setStopBlock(null)
         }
       },
-      () => {}
+      (error: FirestoreError) => {
+        // Las security rules solo permiten leer stops con active === true.
+        // Cuando el admin pone active: false, Firestore envía 'permission-denied'
+        // en lugar de el documento actualizado — lo tratamos como desactivación.
+        if (error.code === 'permission-denied') {
+          setStopBlock({ type: 'stop_deactivated', name: stopNameRef.current })
+        }
+        // Otros errores (red, etc.) → ignorar silenciosamente
+      }
     )
     return unsub
   }, [stopId])

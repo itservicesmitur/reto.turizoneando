@@ -5,12 +5,13 @@ export type StatusBlockType = 'user_banned' | 'season_ended' | 'stop_deactivated
 
 interface Props {
   type: StatusBlockType
-  name?: string      // nombre de parada / etapa / temporada
-  reason?: string    // razón de bloqueo de usuario
-  onDismiss?: () => void  // para parada / etapa (botón "Continuar" / "Ir al mapa")
+  name?: string
+  reason?: string
+  onDismiss?: () => void
+  onNextStop?: () => void  // solo para stop_deactivated cuando hay una siguiente disponible
 }
 
-export default function StatusBlockCard({ type, name, reason, onDismiss }: Props) {
+export default function StatusBlockCard({ type, name, reason, onDismiss, onNextStop }: Props) {
   const navigate = useNavigate()
   const isFull = type === 'user_banned' || type === 'season_ended'
 
@@ -208,29 +209,33 @@ export default function StatusBlockCard({ type, name, reason, onDismiss }: Props
                 border: '1.5px solid rgba(255,255,255,0.12)',
                 background: 'rgba(255,255,255,0.05)',
                 color: 'rgba(255,255,255,0.7)',
-                fontSize: 14, fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Continuar
-            </button>
-            <button
-              onClick={onDismiss}
-              style={{
-                flex: 1, height: 44,
-                borderRadius: 12,
-                border: 'none',
-                background: 'linear-gradient(135deg, #1d4ed8, #1e40af)',
-                color: '#fff',
-                fontSize: 14, fontWeight: 700,
+                fontSize: 13, fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                boxShadow: '0 4px 12px rgba(29,78,216,0.4)',
               }}
             >
-              <i className="ri-map-2-line" style={{ fontSize: 16 }} />
-              Ir al mapa
+              <i className="ri-map-2-line" style={{ fontSize: 15 }} />
+              Volver al mapa
             </button>
+            {type === 'stop_deactivated' && onNextStop && (
+              <button
+                onClick={onNextStop}
+                style={{
+                  flex: 1, height: 44,
+                  borderRadius: 12,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #d97706, #b45309)',
+                  color: '#fff',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  boxShadow: '0 4px 12px rgba(217,119,6,0.4)',
+                }}
+              >
+                <i className="ri-arrow-right-circle-line" style={{ fontSize: 15 }} />
+                Ir a la siguiente
+              </button>
+            )}
           </div>
         </div>
       </div>
