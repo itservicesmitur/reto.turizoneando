@@ -35,6 +35,7 @@ export const getPlayers = onCall(async (request) => {
         baseScore: scoreData.baseScore,
         photoURL: data.photoURL || "",
         mapProgress: data.mapProgress || {},
+        completedStopsCount: typeof data.completedStopsCount === "number" ? data.completedStopsCount : 0,
         currentNodeId: data.currentNodeId || null,
         banned: data.banned === true,
         active: data.active !== false,

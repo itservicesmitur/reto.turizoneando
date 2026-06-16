@@ -33,7 +33,7 @@ export const createSeason = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
     }
 
-    const { name, status, startDate, endDate, stages } = request.data;
+    const { name, status, startDate, endDate, geoLimit, stages } = request.data;
 
     // Validation
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -86,6 +86,11 @@ export const createSeason = onCall(async (request) => {
         }
       }
 
+      // Aggregate all unique prize IDs across stages
+      const allPrizeIds = Array.from(
+        new Set(stages.flatMap((s: any) => s.prizes.map((p: any) => p.prizeId as string)))
+      );
+
       // Create main season doc
       transaction.set(seasonRef, {
         id: seasonRef.id,
@@ -93,6 +98,8 @@ export const createSeason = onCall(async (request) => {
         status,
         startDate: startTS,
         endDate: endTS,
+        geoLimit: geoLimit === true,
+        prizeIds: allPrizeIds,
         createdAt: FieldValue.serverTimestamp(),
         createdBy: uid,
       });
@@ -109,22 +116,6 @@ export const createSeason = onCall(async (request) => {
           prizeIds: uniquePrizeIds,
           prizes: s.prizes,
           pointsCount: s.pointsCount,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      }
-
-      // Create aggregated prizes stock
-      const prizeStocks: Record<string, number> = {};
-      for (const s of stages) {
-        for (const p of s.prizes) {
-          prizeStocks[p.prizeId] = (prizeStocks[p.prizeId] || 0) + p.stock;
-        }
-      }
-      for (const [prizeId, stock] of Object.entries(prizeStocks)) {
-        const prizeRef = seasonRef.collection("prizes").doc(prizeId);
-        transaction.set(prizeRef, {
-          id: prizeId,
-          stock,
           createdAt: FieldValue.serverTimestamp(),
         });
       }
@@ -151,7 +142,7 @@ export const updateSeason = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
-  const { id, name, status, startDate, endDate, stages } = request.data;
+  const { id, name, status, startDate, endDate, geoLimit, stages } = request.data;
 
   if (!id || typeof id !== "string") {
     throw new HttpsError("invalid-argument", "Season ID is required.");
@@ -210,9 +201,6 @@ export const updateSeason = onCall(async (request) => {
         activeSeasonsSnap = await transaction.get(activeSeasonsQuery);
       }
 
-      const oldPrizesCol = seasonRef.collection("prizes");
-      const oldPrizesSnap = await transaction.get(oldPrizesCol);
-
       // 2. All Writes Second
       if (status === "active" && activeSeasonsSnap) {
         for (const doc of activeSeasonsSnap.docs) {
@@ -222,12 +210,19 @@ export const updateSeason = onCall(async (request) => {
         }
       }
 
+      // Aggregate all unique prize IDs across stages
+      const allPrizeIds = Array.from(
+        new Set(stages.flatMap((s: any) => s.prizes.map((p: any) => p.prizeId as string)))
+      );
+
       // Update main season doc
       transaction.update(seasonRef, {
         name: name.trim(),
         status,
         startDate: startTS,
         endDate: endTS,
+        geoLimit: geoLimit === true,
+        prizeIds: allPrizeIds,
       });
 
       // Update stages (variable count)
@@ -243,27 +238,6 @@ export const updateSeason = onCall(async (request) => {
           prizes: s.prizes,
           pointsCount: s.pointsCount,
         }, { merge: true });
-      }
-
-      // Delete existing prizes subcollection docs
-      for (const doc of oldPrizesSnap.docs) {
-        transaction.delete(doc.ref);
-      }
-
-      // Create aggregated prizes stock
-      const prizeStocks: Record<string, number> = {};
-      for (const s of stages) {
-        for (const p of s.prizes) {
-          prizeStocks[p.prizeId] = (prizeStocks[p.prizeId] || 0) + p.stock;
-        }
-      }
-      for (const [prizeId, stock] of Object.entries(prizeStocks)) {
-        const prizeRef = seasonRef.collection("prizes").doc(prizeId);
-        transaction.set(prizeRef, {
-          id: prizeId,
-          stock,
-          createdAt: FieldValue.serverTimestamp(),
-        });
       }
     });
 
@@ -304,18 +278,9 @@ export const deleteSeason = onCall(async (request) => {
       const stagesQuery = seasonRef.collection("stages");
       const stagesSnap = await transaction.get(stagesQuery);
 
-      // Read prizes to delete them
-      const prizesQuery = seasonRef.collection("prizes");
-      const prizesSnap = await transaction.get(prizesQuery);
-
       // 2. All Writes Second
       // Delete stages subcollection docs
       for (const doc of stagesSnap.docs) {
-        transaction.delete(doc.ref);
-      }
-
-      // Delete prizes subcollection docs
-      for (const doc of prizesSnap.docs) {
         transaction.delete(doc.ref);
       }
 

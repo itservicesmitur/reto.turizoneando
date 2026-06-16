@@ -9,8 +9,10 @@ import {
   sendAdminPasswordResetEmail,
   sendAdminCustomEmail,
   getMyPositionsRanking,
+  fetchPlayerStatus,
   type PlayerData,
-  type QuestionAttemptSummary
+  type QuestionAttemptSummary,
+  type PlayerStatusResult
 } from '../../services/adminService'
 
 export default function PlayerDetailPage() {
@@ -33,6 +35,12 @@ export default function PlayerDetailPage() {
   const [attemptsLoading, setAttemptsLoading] = useState(true)
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
   const [attemptsError, setAttemptsError] = useState<string | null>(null)
+
+  // Player status states
+  const [playerStatus, setPlayerStatus] = useState<PlayerStatusResult | null>(null)
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [statusExpanded, setStatusExpanded] = useState(false)
 
   // Email action states
   const [emailLoading, setEmailLoading] = useState(false)
@@ -80,8 +88,23 @@ export default function PlayerDetailPage() {
         setAttemptsLoading(false)
       }
     }
+    async function loadStatus() {
+      if (!playerId) return
+      setStatusLoading(true)
+      setStatusError(null)
+      try {
+        const data = await fetchPlayerStatus(playerId)
+        setPlayerStatus(data)
+      } catch (err) {
+        setStatusError(err instanceof Error ? err.message : 'Error al consultar el status')
+      } finally {
+        setStatusLoading(false)
+      }
+    }
+
     load()
     loadAttempts()
+    loadStatus()
   }, [playerId])
 
   // Handle Ban / Unban Toggle
@@ -128,6 +151,21 @@ export default function PlayerDetailPage() {
       alert(err instanceof Error ? err.message : 'Error al reiniciar el jugador')
     } finally {
       setResetLoading(false)
+    }
+  }
+
+  async function handleFetchStatus() {
+    if (!playerId) return
+    setStatusLoading(true)
+    setStatusError(null)
+    try {
+      const data = await fetchPlayerStatus(playerId)
+      setPlayerStatus(data)
+      setStatusExpanded(true)
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Error al consultar el status')
+    } finally {
+      setStatusLoading(false)
     }
   }
 
@@ -190,10 +228,13 @@ export default function PlayerDetailPage() {
     ? player.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : 'P'
 
-  // Helper to get stops completed count
-  const completedStops = player?.mapProgress
-    ? Object.values(player.mapProgress).filter(status => status === 'completed').length
-    : 0
+  // Stops counter: use live status when available, fall back to denormalized field
+  const completedStops = playerStatus
+    ? playerStatus.stages.reduce((sum, s) => sum + s.completedStops, 0)
+    : (player?.completedStopsCount ?? 0)
+  const totalStops = playerStatus
+    ? playerStatus.stages.reduce((sum, s) => sum + s.totalStops, 0)
+    : null
 
   function formatMs(ms: number | null) {
     if (ms === null) return '-'
@@ -537,7 +578,7 @@ export default function PlayerDetailPage() {
                   Paradas
                 </span>
                 <div style={{ fontSize: 24, fontFamily: 'var(--font-display)', color: 'var(--color-teal)', marginTop: 4 }}>
-                  {completedStops} / 9
+                  {completedStops} / {totalStops ?? '—'}
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--color-gray-mid)' }}>completadas</span>
               </div>
@@ -549,16 +590,160 @@ export default function PlayerDetailPage() {
                 Parada Actual
               </label>
               <div style={{
-                height: 38, borderRadius: 8,
-                border: '1px solid var(--color-border)',
-                background: '#f8f9fb', color: 'var(--color-text)',
+                minHeight: 38, borderRadius: 8,
+                border: `1px solid ${playerStatus ? 'rgba(27,43,110,0.25)' : 'var(--color-border)'}`,
+                background: playerStatus ? 'rgba(27,43,110,0.03)' : '#f8f9fb',
+                color: 'var(--color-text)',
                 padding: '0 12px', fontSize: 14,
                 display: 'flex', alignItems: 'center', gap: 8
               }}>
                 <i className="ri-map-pin-2-line" style={{ color: 'var(--color-orange)' }} />
-                <span>{player.currentNodeId || 'Ninguna (Sin iniciar)'}</span>
+                {playerStatus ? (() => {
+                  const currentStage = playerStatus.stages.find(s => s.number === playerStatus.currentStageNumber)
+                  const currentStop = currentStage?.stops.find(s => s.visited && !s.completed)
+                    ?? currentStage?.stops.find(s => !s.visited)
+                    ?? currentStage?.stops[currentStage.stops.length - 1]
+                  return playerStatus.finished
+                    ? <span style={{ color: 'var(--color-teal)', fontWeight: 700 }}>Rally completado</span>
+                    : currentStop
+                      ? <span><strong>{currentStop.name}</strong>{currentStop.nameEn ? ` / ${currentStop.nameEn}` : ''}</span>
+                      : <span style={{ color: 'var(--color-text-muted)' }}>Sin iniciar</span>
+                })() : (
+                  <span style={{ color: 'var(--color-text-muted)' }}>{player.currentNodeId || 'Consulta el status para ver la parada actual'}</span>
+                )}
               </div>
             </div>
+
+            {/* Status button & error */}
+            {statusError && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(230,51,41,0.07)', border: '1px solid rgba(230,51,41,0.2)', color: 'var(--color-error)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i className="ri-error-warning-line" />
+                {statusError}
+              </div>
+            )}
+
+            <button
+              onClick={handleFetchStatus}
+              disabled={statusLoading}
+              style={{
+                height: 38, borderRadius: 8, border: 'none',
+                background: 'var(--color-navy)', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: statusLoading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '0 16px', opacity: statusLoading ? 0.7 : 1,
+                alignSelf: 'flex-start', transition: 'opacity 150ms ease',
+                boxShadow: '0 4px 12px rgba(27,43,110,0.15)'
+              }}
+            >
+              {statusLoading
+                ? <><i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} />Consultando...</>
+                : <><i className="ri-map-2-line" />{playerStatus ? 'Actualizar Status' : 'Ver Status del Jugador'}</>
+              }
+            </button>
+
+            {/* Status panel — stages breakdown */}
+            {playerStatus && statusExpanded && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-gray-mid)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Desglose por Etapa
+                  </span>
+                  <button
+                    onClick={() => setStatusExpanded(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', fontSize: 12, padding: '2px 6px' }}
+                  >
+                    <i className="ri-eye-off-line" /> Ocultar
+                  </button>
+                </div>
+
+                {playerStatus.finished && (
+                  <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(43,191,184,0.08)', border: '1px solid rgba(43,191,184,0.25)', color: 'var(--color-teal)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="ri-trophy-line" style={{ fontSize: 15 }} />
+                    Rally completado — todas las etapas finalizadas
+                  </div>
+                )}
+
+                {playerStatus.stages.map(stage => {
+                  const pct = stage.totalStops > 0 ? Math.round((stage.completedStops / stage.totalStops) * 100) : 0
+                  const isCurrent = stage.number === playerStatus.currentStageNumber
+                  return (
+                    <div key={stage.id} style={{
+                      borderRadius: 10,
+                      border: `1.5px solid ${stage.completed ? 'rgba(43,191,184,0.3)' : isCurrent ? 'rgba(27,43,110,0.25)' : 'var(--color-border)'}`,
+                      background: stage.completed ? 'rgba(43,191,184,0.04)' : isCurrent ? 'rgba(27,43,110,0.03)' : '#fafbfd',
+                      overflow: 'hidden'
+                    }}>
+                      {/* Stage header */}
+                      <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{
+                            width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 800,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: stage.completed ? 'var(--color-teal)' : isCurrent ? 'var(--color-navy)' : '#d1d5db',
+                            color: '#fff', flexShrink: 0
+                          }}>
+                            {stage.completed ? <i className="ri-check-line" style={{ fontSize: 12 }} /> : stage.number}
+                          </span>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: stage.completed ? 'var(--color-teal)' : 'var(--color-navy)' }}>
+                            Etapa {stage.number}
+                            {isCurrent && !stage.completed && (
+                              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, background: 'rgba(27,43,110,0.1)', color: 'var(--color-navy)', padding: '1px 6px', borderRadius: 4 }}>
+                                ACTUAL
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: 12, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                          {stage.completedStops}/{stage.totalStops} paradas · {pct}%
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div style={{ height: 3, background: '#e5e7eb', margin: '0 14px 10px' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 2,
+                          width: `${pct}%`,
+                          background: stage.completed ? 'var(--color-teal)' : 'var(--color-navy)',
+                          transition: 'width 400ms ease'
+                        }} />
+                      </div>
+
+                      {/* Stops list */}
+                      <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {stage.stops.map(stop => (
+                          <div key={stop.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '5px 8px', borderRadius: 6,
+                            background: stop.completed
+                              ? 'rgba(43,191,184,0.07)'
+                              : stop.visited
+                              ? 'rgba(251,191,36,0.07)'
+                              : 'transparent'
+                          }}>
+                            <i
+                              className={stop.completed ? 'ri-checkbox-circle-fill' : stop.visited ? 'ri-time-line' : 'ri-map-pin-line'}
+                              style={{
+                                fontSize: 14, flexShrink: 0,
+                                color: stop.completed ? 'var(--color-teal)' : stop.visited ? '#d97706' : '#d1d5db'
+                              }}
+                            />
+                            <span style={{ fontSize: 12, fontWeight: stop.visited || stop.completed ? 600 : 400, color: stop.completed ? 'var(--color-teal)' : stop.visited ? 'var(--color-text)' : 'var(--color-text-muted)', flex: 1 }}>
+                              {stop.name || stop.id}
+                            </span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              color: stop.completed ? 'var(--color-teal)' : stop.visited ? '#d97706' : 'var(--color-gray-mid)'
+                            }}>
+                              {stop.completed ? 'Completada' : stop.visited ? 'En progreso' : 'Pendiente'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Card 2: Active / Inactive status */}

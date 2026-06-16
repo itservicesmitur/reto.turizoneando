@@ -31,6 +31,7 @@ setGlobalOptions({ maxInstances: 10 });
 export { getPlayers } from "./admin/getPlayers";
 export { getPlayerAttempts } from "./admin/getPlayerAttempts";
 export { resetPlayer } from "./admin/resetPlayer";
+export { updatePlayerProfile } from "./admin/updatePlayerProfile";
 export {
   getAdmins,
   createAdmin,
@@ -56,12 +57,15 @@ export { seedTestData } from "./admin/seed";
 export { getStopWithQuestions } from "./game/getStopWithQuestions";
 export { getCorrectAnswer } from "./game/validateAnswer";
 export { registerAttempt } from "./game/registerAttempt";
+export { getPlayerStatus, getPlayerStatusAdmin } from "./game/getPlayerStatus";
 export { getTopTen, getMyPositionsRanking } from "./game/leaderboard";
-export { getPrizes, getPrizeById } from "./prizes/prizes";
+export { getPrizes, getPrizeById, claimPrize } from "./prizes/prizes";
 export {
   sendAdminCustomEmail,
   sendAdminPasswordResetEmail,
-  sendAdminPrizeCodeEmail
+  sendAdminPrizeCodeEmail,
+  sendPlayerPrizeCodes,
+  claimPrizeAndNotify
 } from "./email/sendGrid";
 
 

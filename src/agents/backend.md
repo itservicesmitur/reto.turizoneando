@@ -45,6 +45,7 @@
   explanationEn: string
   points: number               ← puntos otorgados si la respuesta es correcta (default: 10)
   isBonus: boolean             ← si es pregunta bonus (otorga puntos extra)
+  active: boolean              ← si false, getStopWithQuestions la omite; docs sin campo se tratan como true
   createdAt: Timestamp
 
 /prizes/{prizeId}
@@ -54,12 +55,9 @@
   imageUrl: string
   categoria: 'Bares' | 'Hoteles' | 'Restaurantes' | 'Museos' | 'Actividades' | 'Experiencias' | ''
   relevance: number            ← relevancia del premio (ej. 1=básico, 2=intermedio, 3=final)
+  stock: number                ← stock total/máximo del catálogo (campo obligatorio)
+  stockCurrent: number         ← stock actual disponible; se decrementa con claimPrize
   requiresAdult: boolean       ← true si requiere ser mayor de edad (+18)
-  createdAt: Timestamp
-
-/seasons/{seasonId}/prizes/{prizeId}
-  id: string                   ← coincide con el prizeId global
-  stock: number                ← stock del premio para esta temporada
   createdAt: Timestamp
 
 /players/{playerId}
@@ -135,6 +133,9 @@
 | `seedTestData` | HTTPS callable | Crea datos de prueba: 3 premios, 1 temporada demo con 3 etapas, 9 paradas y 18 preguntas de la Zona Colonial. Solo admin. Guarda en `/prizes`, `/seasons`, `/stops`, `/questions`. |
 | `getPrizes` | HTTPS callable | Devuelve todos los premios de `/prizes` (máx 100). Uso del cliente de juego. |
 | `getPrizeById` | HTTPS callable | Devuelve un premio por su ID desde `/prizes`. Recibe `{ prizeId }`. Uso del cliente de juego. |
+| `claimPrize` | HTTPS callable | Reclama el premio de una etapa. Recibe `{ prizeId, seasonId, stageId }`. En una transacción: verifica que el premio esté en la etapa (vía `/seasons/{seasonId}/stages/{stageId}.prizes`), verifica `stockCurrent > 0` en `/prizes/{prizeId}`, descuenta 1 de `stockCurrent`, genera código en `/prizeCodes` y registra en `prizesWon` del jugador. |
+| `sendPlayerPrizeCodes` | HTTPS callable | Recibe `{ email }`. Busca todos los códigos activos del jugador en `/prizeCodes` (donde `playerEmail == email` y `status == "active"`), envía un email con todos sus premios vía SendGrid y retorna `{ success, emailSent, codes[] }`. Solo admin. |
+| `claimPrizeAndNotify` | HTTPS callable | Recibe `{ prizeId, seasonId, stageId }`. En una transacción atómica: verifica la etapa, descuenta `stockCurrent`, crea código en `/prizeCodes` y registra en `prizesWon` del jugador. Luego envía automáticamente el email con el código vía SendGrid. Retorna `{ success, code, wonAt, emailSent }`. Si el email falla, el claim ya ocurrió y `emailSent` será `false`. Requiere solo autenticación de jugador (no admin). |
 
 **Agregar nuevas functions aquí antes de implementarlas.**
 

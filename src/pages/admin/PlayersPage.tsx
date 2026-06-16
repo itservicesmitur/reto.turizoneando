@@ -130,11 +130,6 @@ export default function PlayersPage() {
     return processedPlayers.slice(start, start + pageSize)
   }, [processedPlayers, currentPage, pageSize])
 
-  // Count completed stops for a player
-  function getCompletedStopsCount(mapProgress: Record<string, string>): number {
-    return Object.values(mapProgress).filter(status => status === 'completed').length
-  }
-
   // Formatting date
   function formatDate(isoStr: string | null) {
     if (!isoStr) return '-'
@@ -530,7 +525,7 @@ export default function PlayersPage() {
               <tbody>
                 {paginatedPlayers.map((player, idx) => {
                   const initials = player.displayName ? player.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'P'
-                  const completedStops = getCompletedStopsCount(player.mapProgress)
+                  const completedStops = player.completedStopsCount ?? 0
 
                   return (
                     <tr

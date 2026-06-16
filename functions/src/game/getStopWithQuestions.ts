@@ -27,20 +27,22 @@ export const getStopWithQuestions = onCall(async (request) => {
       .where("stopId", "==", stopId)
       .get();
 
-    const allQuestions = questionsSnapshot.docs.map(doc => {
-      const qData = doc.data();
-      return {
-        id: doc.id,
-        stopId: qData.stopId || "",
-        text: qData.text || "",
-        textEn: qData.textEn || "",
-        options: qData.options || [],
-        optionsEn: qData.optionsEn || [],
-        difficulty: qData.difficulty || "easy",
-        points: typeof qData.points === "number" ? qData.points : 10,
-        isBonus: qData.isBonus === true
-      };
-    });
+    const allQuestions = questionsSnapshot.docs
+      .filter(doc => doc.data().active !== false)
+      .map(doc => {
+        const qData = doc.data();
+        return {
+          id: doc.id,
+          stopId: qData.stopId || "",
+          text: qData.text || "",
+          textEn: qData.textEn || "",
+          options: qData.options || [],
+          optionsEn: qData.optionsEn || [],
+          difficulty: qData.difficulty || "easy",
+          points: typeof qData.points === "number" ? qData.points : 10,
+          isBonus: qData.isBonus === true
+        };
+      });
 
     // Shuffle non-bonus questions; bonus questions always go last
     const regular = allQuestions.filter(q => !q.isBonus);

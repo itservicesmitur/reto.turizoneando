@@ -35,6 +35,7 @@ export const resetPlayer = onCall(async (request) => {
     score: 0,
     mapProgress: {},
     currentNodeId: null,
+    completedStopsCount: 0,
   });
 
   return { success: true, attemptsDeleted: deleted };

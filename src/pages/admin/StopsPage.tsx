@@ -451,7 +451,8 @@ export default function StopsPage() {
           : q.options.map((_, i) => (q.optionsEn?.[i] ?? '')),
         explanationEn: q.explanationEn || '',
         points: typeof q.points === 'number' ? q.points : 10,
-        isBonus: q.isBonus === true
+        isBonus: q.isBonus === true,
+        active: q.active !== false
       }))
       setFormQuestions(formatted)
     } catch (err) {
@@ -645,7 +646,8 @@ export default function StopsPage() {
       explanation: '',
       explanationEn: '',
       points: 10,
-      isBonus: false
+      isBonus: false,
+      active: true
     }
     setFormQuestions([...formQuestions, newQuestion as any])
   }
@@ -2012,10 +2014,15 @@ export default function StopsPage() {
                           <div
                             key={qIdx}
                             style={{
-                              background: q.isBonus ? 'rgba(251,191,36,0.06)' : '#f8f9fb',
+                              background: q.active === false
+                                ? 'rgba(148,163,184,0.08)'
+                                : q.isBonus ? 'rgba(251,191,36,0.06)' : '#f8f9fb',
                               borderRadius: 12,
-                              border: q.isBonus ? '1.5px solid rgba(251,191,36,0.5)' : '1px solid var(--color-border)',
-                              padding: 16, position: 'relative'
+                              border: q.active === false
+                                ? '1.5px dashed #cbd5e1'
+                                : q.isBonus ? '1.5px solid rgba(251,191,36,0.5)' : '1px solid var(--color-border)',
+                              padding: 16, position: 'relative',
+                              opacity: q.active === false ? 0.72 : 1
                             }}
                           >
                             {/* Question Title & Remove */}
@@ -2024,6 +2031,15 @@ export default function StopsPage() {
                                 <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                                   {t('stopsManagement.questionNum', { num: qIdx + 1 })}
                                 </span>
+                                {q.active === false && (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
+                                    background: 'rgba(148,163,184,0.2)', color: '#64748b',
+                                    border: '1px solid #cbd5e1', textTransform: 'uppercase', letterSpacing: 0.5
+                                  }}>
+                                    Inactiva
+                                  </span>
+                                )}
                                 {q.isBonus && (
                                   <span style={{
                                     fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
@@ -2066,6 +2082,23 @@ export default function StopsPage() {
                                     Pregunta Bonus
                                   </span>
                                 </label>
+                                {/* Active / Inactive toggle */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuestionChange(qIdx, 'active', q.active === false)}
+                                  style={{
+                                    background: q.active === false ? 'rgba(34,197,94,0.1)' : 'rgba(148,163,184,0.12)',
+                                    border: q.active === false ? '1px solid rgba(34,197,94,0.4)' : '1px solid #cbd5e1',
+                                    borderRadius: 6, cursor: 'pointer',
+                                    color: q.active === false ? '#16a34a' : '#64748b',
+                                    fontSize: 11, fontWeight: 700,
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '4px 10px', transition: 'all 150ms ease'
+                                  }}
+                                >
+                                  <i className={q.active === false ? 'ri-eye-line' : 'ri-eye-off-line'} />
+                                  {q.active === false ? 'Activar' : 'Desactivar'}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveQuestion(qIdx)}

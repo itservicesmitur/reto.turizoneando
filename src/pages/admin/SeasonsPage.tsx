@@ -57,6 +57,7 @@ export default function SeasonsPage() {
   const [formStatus, setFormStatus] = useState<'active' | 'upcoming' | 'archived'>('upcoming')
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
+  const [formGeoLimit, setFormGeoLimit] = useState(false)
   const [formStages, setFormStages] = useState<FormStageState[]>([
     { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
     { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
@@ -90,6 +91,7 @@ export default function SeasonsPage() {
   const [quickPrizeImg, setQuickPrizeImg] = useState('')
   const [quickPrizeCategoria, setQuickPrizeCategoria] = useState<PrizeCategoria | ''>('')
   const [quickPrizeRelevance, setQuickPrizeRelevance] = useState<number>(1)
+  const [quickPrizeStock, setQuickPrizeStock] = useState<number>(0)
   const [quickPrizeRequiresAdult, setQuickPrizeRequiresAdult] = useState(false)
   const [quickPrizeTarget, setQuickPrizeTarget] = useState<{ stageIndex: number; prizeIndex: number } | null>(null)
   const [quickPrizeLoading, setQuickPrizeLoading] = useState(false)
@@ -179,6 +181,7 @@ export default function SeasonsPage() {
     setFormStatus('upcoming')
     setFormStartDate('')
     setFormEndDate('')
+    setFormGeoLimit(false)
     setFormStages([
       { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
       { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
@@ -203,6 +206,7 @@ export default function SeasonsPage() {
     setFormStatus(season.status)
     setFormStartDate(formatDateForInput(season.startDate))
     setFormEndDate(formatDateForInput(season.endDate))
+    setFormGeoLimit(season.geoLimit === true)
     if (season.stages && season.stages.length > 0) {
       setFormStages(season.stages.map(s => ({
         id: s.id,
@@ -231,6 +235,7 @@ export default function SeasonsPage() {
     setQuickPrizeImg('')
     setQuickPrizeCategoria('')
     setQuickPrizeRelevance(1)
+    setQuickPrizeStock(0)
     setQuickPrizeRequiresAdult(false)
     setQuickPrizeTarget({ stageIndex, prizeIndex })
     setQuickPrizeError(null)
@@ -258,6 +263,8 @@ export default function SeasonsPage() {
         imageUrl: quickPrizeImg,
         categoria: quickPrizeCategoria,
         relevance: quickPrizeRelevance,
+        stock: quickPrizeStock,
+        stockCurrent: quickPrizeStock,
         requiresAdult: quickPrizeRequiresAdult
       })
 
@@ -265,13 +272,14 @@ export default function SeasonsPage() {
       const freshPrizes = await fetchPrizesList()
       setPrizes(freshPrizes)
 
-      // Auto-assign new prize to target slot in formStages
+      // Auto-assign new prize to target slot in formStages (also propagate stock)
       const nextStages = [...formStages]
       const targetStage = nextStages[quickPrizeTarget.stageIndex]
       const nextPrizes = [...targetStage.prizes]
       nextPrizes[quickPrizeTarget.prizeIndex] = {
         ...nextPrizes[quickPrizeTarget.prizeIndex],
-        prizeId: newPrizeId
+        prizeId: newPrizeId,
+        stock: quickPrizeStock
       }
       nextStages[quickPrizeTarget.stageIndex] = {
         ...targetStage,
@@ -394,6 +402,7 @@ export default function SeasonsPage() {
         status: formStatus,
         startDate: formStartDate,
         endDate: formEndDate,
+        geoLimit: formGeoLimit,
         stages: formStages.map(s => ({
           pointsCount: Number(s.pointsCount),
           prizes: s.prizes.map(p => ({
@@ -433,6 +442,7 @@ export default function SeasonsPage() {
         status: formStatus,
         startDate: formStartDate,
         endDate: formEndDate,
+        geoLimit: formGeoLimit,
         stages: formStages.map(s => ({
           id: s.id || '',
           pointsCount: Number(s.pointsCount),
@@ -484,6 +494,7 @@ export default function SeasonsPage() {
         status: nextStatus,
         startDate: season.startDate,
         endDate: season.endDate,
+        geoLimit: season.geoLimit === true,
         stages: season.stages.map(s => ({
           id: s.id,
           pointsCount: s.pointsCount,
@@ -1431,6 +1442,37 @@ export default function SeasonsPage() {
                 </div>
               </div>
 
+              {/* Geo Limit toggle */}
+              <div
+                onClick={() => setFormGeoLimit(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderRadius: 10,
+                  border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
+                  background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
+                  cursor: 'pointer', transition: 'all 150ms ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+                  </div>
+                </div>
+                <div style={{
+                  width: 40, height: 22, borderRadius: 11,
+                  background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
+                  position: 'relative', transition: 'background 200ms ease', flexShrink: 0
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                  }} />
+                </div>
+              </div>
+
               {/* Stages config — variable count */}
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, marginTop: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -1875,6 +1917,37 @@ export default function SeasonsPage() {
                       padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Geo Limit toggle */}
+              <div
+                onClick={() => setFormGeoLimit(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderRadius: 10,
+                  border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
+                  background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
+                  cursor: 'pointer', transition: 'all 150ms ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+                  </div>
+                </div>
+                <div style={{
+                  width: 40, height: 22, borderRadius: 11,
+                  background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
+                  position: 'relative', transition: 'background 200ms ease', flexShrink: 0
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                  }} />
                 </div>
               </div>
 
@@ -2421,18 +2494,36 @@ export default function SeasonsPage() {
                   </select>
                 </div>
 
-                {/* Requires Adult Check */}
-                <div style={{ flex: '1 1 140px', display: 'flex', alignItems: 'center', paddingTop: 18 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--color-navy)', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={quickPrizeRequiresAdult}
-                      onChange={e => setQuickPrizeRequiresAdult(e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: 'pointer' }}
-                    />
-                    Solo +18 (Mayor de edad)
+                {/* Stock */}
+                <div style={{ flex: '1 1 140px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                    Stock *
                   </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={quickPrizeStock}
+                    onChange={e => setQuickPrizeStock(Number(e.target.value))}
+                    style={{
+                      height: 36, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                      padding: '0 10px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none'
+                    }}
+                  />
                 </div>
+              </div>
+
+              {/* Requires Adult Check */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--color-navy)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={quickPrizeRequiresAdult}
+                    onChange={e => setQuickPrizeRequiresAdult(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  Solo +18 (Mayor de edad)
+                </label>
               </div>
 
               {/* Error */}

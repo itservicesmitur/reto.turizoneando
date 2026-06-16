@@ -63,10 +63,26 @@ export const registerAttempt = onCall(async (request) => {
     });
 
     // 4. Accumulate score on player document (only when points are actually awarded)
+    // Also track completedStopsCount: increment once per stop on first correct answer
+    const playerUpdate: Record<string, any> = {};
+
     if (pointsAwarded > 0) {
-      await db.collection("players").doc(playerId).update({
-        score: FieldValue.increment(pointsAwarded),
-      });
+      playerUpdate.score = FieldValue.increment(pointsAwarded);
+    }
+
+    if (correct) {
+      const prevCorrectForStop = await attemptsRef
+        .where("stopId", "==", stopId)
+        .where("correct", "==", true)
+        .limit(1)
+        .get();
+      if (prevCorrectForStop.empty) {
+        playerUpdate.completedStopsCount = FieldValue.increment(1);
+      }
+    }
+
+    if (Object.keys(playerUpdate).length > 0) {
+      await db.collection("players").doc(playerId).update(playerUpdate);
     }
 
     return {

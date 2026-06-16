@@ -41,6 +41,8 @@ export default function PrizesPage() {
   const [formImageUrl, setFormImageUrl] = useState('')
   const [formCategoria, setFormCategoria] = useState<PrizeCategoria | ''>('')
   const [formRelevance, setFormRelevance] = useState<number>(1)
+  const [formStock, setFormStock] = useState<number>(0)
+  const [formStockCurrent, setFormStockCurrent] = useState<number>(0)
   const [formRequiresAdult, setFormRequiresAdult] = useState(false)
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -139,6 +141,8 @@ export default function PrizesPage() {
     setFormImageUrl('')
     setFormCategoria('')
     setFormRelevance(1)
+    setFormStock(0)
+    setFormStockCurrent(0)
     setFormRequiresAdult(false)
     setFormError(null)
     setFormLoading(false)
@@ -163,6 +167,8 @@ export default function PrizesPage() {
         imageUrl: formImageUrl.trim(),
         categoria: formCategoria,
         relevance: Number(formRelevance),
+        stock: Number(formStock),
+        stockCurrent: Number(formStock),
         requiresAdult: formRequiresAdult
       })
       setShowCreateModal(false)
@@ -182,6 +188,8 @@ export default function PrizesPage() {
     setFormImageUrl(prize.imageUrl)
     setFormCategoria(prize.categoria || '')
     setFormRelevance(prize.relevance)
+    setFormStock(prize.stock ?? 0)
+    setFormStockCurrent(prize.stockCurrent ?? prize.stock ?? 0)
     setFormRequiresAdult(prize.requiresAdult)
     setFormError(null)
     setFormLoading(false)
@@ -207,6 +215,8 @@ export default function PrizesPage() {
         imageUrl: formImageUrl.trim(),
         categoria: formCategoria,
         relevance: Number(formRelevance),
+        stock: Number(formStock),
+        stockCurrent: Number(formStockCurrent),
         requiresAdult: formRequiresAdult
       })
       setShowEditModal(false)
@@ -522,6 +532,9 @@ export default function PrizesPage() {
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     {t('prizeManagement.colAgeReq')}
                   </th>
+                  <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 160 }}>
+                    Stock (Temporada activa)
+                  </th>
                   <th style={{ padding: '14px 20px', fontSize: 12, fontWeight: 800, color: 'var(--color-gray-dark)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     {t('prizeManagement.colCreated')}
                   </th>
@@ -612,6 +625,43 @@ export default function PrizesPage() {
                             {t('prizeManagement.ageAll')}
                           </span>
                         )}
+                      </td>
+
+                      {/* Stock bar */}
+                      <td style={{ padding: '14px 20px' }}>
+                        {(() => {
+                          const pct = prize.stock > 0 ? Math.max(0, Math.min(100, (prize.stockCurrent / prize.stock) * 100)) : 0
+                          const isEmpty = prize.stockCurrent <= 0
+                          const barColor = isEmpty ? '#d1d5db' : pct > 50 ? '#22c55e' : pct > 20 ? '#f59e0b' : '#ef4444'
+                          return (
+                            <div style={{ minWidth: 130 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 800,
+                                  color: isEmpty ? 'var(--color-gray-mid)' : pct > 50 ? '#16a34a' : pct > 20 ? '#b45309' : '#dc2626'
+                                }}>
+                                  {isEmpty ? 'Agotado' : `${prize.stockCurrent} / ${prize.stock}`}
+                                </span>
+                                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 700 }}>
+                                  {Math.round(pct)}%
+                                </span>
+                              </div>
+                              <div style={{
+                                height: 7, borderRadius: 99,
+                                background: 'rgba(0,0,0,0.07)',
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  height: '100%',
+                                  width: `${pct}%`,
+                                  borderRadius: 99,
+                                  background: barColor,
+                                  transition: 'width 0.4s ease'
+                                }} />
+                              </div>
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       {/* Created Date */}
@@ -890,6 +940,24 @@ export default function PrizesPage() {
                 </select>
               </div>
 
+              {/* Stock */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Stock disponible *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  value={formStock}
+                  onChange={e => setFormStock(Number(e.target.value))}
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                  }}
+                />
+              </div>
+
               {/* Requires Adult Checkbox */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0' }}>
                 <input
@@ -1051,6 +1119,42 @@ export default function PrizesPage() {
                   <option value={4}>4 — {t('prizeManagement.relevance4')}</option>
                   <option value={5}>5 — {t('prizeManagement.relevance5')}</option>
                 </select>
+              </div>
+
+              {/* Stock máximo y actual */}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                    Stock total (máximo) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={formStock}
+                    onChange={e => setFormStock(Number(e.target.value))}
+                    style={{
+                      height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                      padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                    Stock actual *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={formStockCurrent}
+                    onChange={e => setFormStockCurrent(Number(e.target.value))}
+                    style={{
+                      height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                      padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none'
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Requires Adult Checkbox */}

@@ -18,6 +18,7 @@ export interface PlayerData {
   photoURL?: string
   ranking?: number | null
   mapProgress: Record<string, 'locked' | 'active' | 'completed'>
+  completedStopsCount: number
   currentNodeId: string | null
   createdAt: string | null
   banned?: boolean
@@ -62,6 +63,7 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
     score: typeof data.score === 'number' ? data.score : 0,
     photoURL: data.photoURL || '',
     mapProgress: data.mapProgress || {},
+    completedStopsCount: typeof data.completedStopsCount === 'number' ? data.completedStopsCount : 0,
     currentNodeId: data.currentNodeId || null,
     banned: data.banned === true,
     active: data.active !== false,
@@ -86,6 +88,64 @@ export async function updatePlayerBannedStatus(uid: string, banned: boolean): Pr
 export async function updatePlayerActiveStatus(uid: string, active: boolean): Promise<void> {
   const docRef = doc(db, 'players', uid)
   await updateDoc(docRef, { active })
+}
+
+export interface PlayerStopStatus {
+  id: string
+  name: string
+  nameEn: string
+  order: number
+  visited: boolean
+  completed: boolean
+}
+
+export interface PlayerStageStatus {
+  id: string
+  number: number
+  pointsCount: number
+  totalStops: number
+  visitedStops: number
+  completedStops: number
+  completed: boolean
+  stops: PlayerStopStatus[]
+}
+
+export interface PlayerStatusResult {
+  seasonId: string
+  totalStages: number
+  completedStages: number
+  currentStageNumber: number | null
+  finished: boolean
+  stages: PlayerStageStatus[]
+}
+
+export async function fetchPlayerStatus(playerId: string, seasonId?: string): Promise<PlayerStatusResult> {
+  const fn = httpsCallable<{ playerId: string; seasonId?: string }, PlayerStatusResult>(
+    functions,
+    'getPlayerStatusAdmin'
+  )
+  const response = await fn({ playerId, seasonId })
+  return response.data
+}
+
+export interface UpdatePlayerProfileInput {
+  uid: string
+  displayName?: string
+  firstName?: string
+  lastName?: string
+  gender?: string
+  nationality?: string
+  ageRange?: string
+  preferredLang?: string
+  photoURL?: string
+}
+
+export async function updatePlayerProfile(input: UpdatePlayerProfileInput): Promise<void> {
+  const fn = httpsCallable<UpdatePlayerProfileInput, { success: boolean }>(
+    functions,
+    'updatePlayerProfile'
+  )
+  await fn(input)
 }
 
 export interface AttemptData {
@@ -260,10 +320,11 @@ export interface SeasonData {
   status: 'active' | 'upcoming' | 'archived'
   startDate: string
   endDate: string
+  geoLimit: boolean
   createdAt: string | null
   createdBy?: string
   stages: StageData[]
-  prizeStocks?: Record<string, number>
+  prizeIds: string[]
 }
 
 export type PrizeCategoria = 'Bares' | 'Hoteles' | 'Restaurantes' | 'Museos' | 'Actividades' | 'Experiencias'
@@ -279,6 +340,8 @@ export interface PrizeData {
   imageUrl: string
   categoria: PrizeCategoria | ''
   relevance: number
+  stock: number
+  stockCurrent: number
   requiresAdult: boolean
   createdAt: string | null
 }
@@ -293,6 +356,7 @@ export interface CreateSeasonInput {
   status: 'active' | 'upcoming' | 'archived'
   startDate: string
   endDate: string
+  geoLimit: boolean
   stages: CreateStageInput[]
 }
 
@@ -308,6 +372,7 @@ export interface UpdateSeasonInput {
   status: 'active' | 'upcoming' | 'archived'
   startDate: string
   endDate: string
+  geoLimit: boolean
   stages: UpdateStageInput[]
 }
 
@@ -365,15 +430,6 @@ export async function fetchSeasons(): Promise<SeasonData[]> {
     // Sort stages by stage number
     stages.sort((a, b) => a.number - b.number)
 
-    // Fetch prizes subcollection for season-specific stock mapping
-    const prizesSubCol = collection(db, 'seasons', sDoc.id, 'prizes')
-    const prizesSnap = await getDocs(prizesSubCol)
-    const prizeStocks: Record<string, number> = {}
-    prizesSnap.docs.forEach(pDoc => {
-      const pData = pDoc.data()
-      prizeStocks[pDoc.id] = typeof pData.stock === 'number' ? pData.stock : 0
-    })
-
     // Parse dates
     let startDateStr = ''
     if (sData.startDate && typeof sData.startDate.toDate === 'function') {
@@ -406,10 +462,11 @@ export async function fetchSeasons(): Promise<SeasonData[]> {
       status: sData.status || 'upcoming',
       startDate: startDateStr,
       endDate: endDateStr,
+      geoLimit: sData.geoLimit === true,
       createdAt: createdAtStr,
       createdBy: sData.createdBy || '',
       stages,
-      prizeStocks,
+      prizeIds: Array.isArray(sData.prizeIds) ? sData.prizeIds : [],
     })
   }
 
@@ -436,12 +493,39 @@ export async function fetchPrizesList(): Promise<PrizeData[]> {
       imageUrl: data.imageUrl || '',
       categoria: data.categoria || '',
       relevance: typeof data.relevance === 'number' ? data.relevance : 1,
+      stock: typeof data.stock === 'number' ? data.stock : 0,
+      stockCurrent: typeof data.stockCurrent === 'number' ? data.stockCurrent : (typeof data.stock === 'number' ? data.stock : 0),
       requiresAdult: data.requiresAdult === true,
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
     }
   })
+}
+
+export interface PrizeStockInfo {
+  stock: number
+  initialStock: number
+}
+
+export async function fetchActiveSeasonPrizeStocks(): Promise<Record<string, PrizeStockInfo>> {
+  const seasonsSnap = await getDocs(
+    query(collection(db, 'seasons'), where('status', '==', 'active'))
+  )
+  if (seasonsSnap.empty) return {}
+
+  const seasonId = seasonsSnap.docs[0].id
+  const prizesSnap = await getDocs(collection(db, 'seasons', seasonId, 'prizes'))
+
+  const result: Record<string, PrizeStockInfo> = {}
+  prizesSnap.docs.forEach(d => {
+    const data = d.data()
+    result[d.id] = {
+      stock: typeof data.stock === 'number' ? data.stock : 0,
+      initialStock: typeof data.initialStock === 'number' ? data.initialStock : (typeof data.stock === 'number' ? data.stock : 0)
+    }
+  })
+  return result
 }
 
 export async function createPrize(prize: Omit<PrizeData, 'id' | 'createdAt'>): Promise<string> {
@@ -504,6 +588,7 @@ export interface QuestionData {
   explanationEn: string
   points: number
   isBonus: boolean
+  active: boolean
   createdAt?: string | null
 }
 
@@ -581,6 +666,7 @@ export async function fetchQuestionsForStop(stopId: string): Promise<QuestionDat
       explanationEn: data.explanationEn || '',
       points: typeof data.points === 'number' ? data.points : 10,
       isBonus: data.isBonus === true,
+      active: data.active !== false,
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
@@ -659,6 +745,7 @@ export async function updateStop(
         explanationEn: q.explanationEn,
         points: typeof q.points === 'number' ? q.points : 10,
         isBonus: q.isBonus === true,
+        active: q.active !== false,
       }
       batch.update(qRef, updateData)
     } else {
@@ -676,6 +763,7 @@ export async function updateStop(
         explanationEn: q.explanationEn,
         points: typeof q.points === 'number' ? q.points : 10,
         isBonus: q.isBonus === true,
+        active: q.active !== false,
         createdAt: new Date()
       })
     }
