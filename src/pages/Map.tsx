@@ -21,6 +21,8 @@ import MyPrizes from '../features/map/menu/MyPrizes'
 import RallyRules from '../features/map/menu/RallyRules'
 import PrivacyTerms from '../features/map/menu/PrivacyTerms'
 import AboutApp from '../features/map/menu/AboutApp'
+import { useRealtimeStatus } from '../features/map/middleware/useRealtimeStatus'
+import StatusBlockCard from '../components/StatusBlockCard'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
@@ -91,11 +93,18 @@ export default function Map() {
   useEffect(() => {
     if (!navigator.geolocation) { setLocationGranted(true); return }
 
+    // Solo code 1 (PERMISSION_DENIED real) activa el gate.
+    // code 2 (kCLErrorLocationUnknown / señal débil) y code 3 (timeout) dejan pasar.
+    const handleGeoError = (err: GeolocationPositionError) => {
+      if (err.code === 1) { setLocationDenied(true); setShowLocationGate(true) }
+      else setLocationGranted(true)
+    }
+
     const tryCurrentPosition = () => {
       navigator.geolocation.getCurrentPosition(
         () => setLocationGranted(true),
-        () => { setLocationDenied(true); setShowLocationGate(true) },
-        { enableHighAccuracy: false, timeout: 3000 }
+        handleGeoError,
+        { enableHighAccuracy: false, timeout: 5000 }
       )
     }
 
@@ -104,15 +113,19 @@ export default function Map() {
       query({ name: 'geolocation' as PermissionName })
         .then(status => {
           if (status.state === 'granted') {
-            // Verificar que la ubicación del dispositivo también esté activa
             navigator.geolocation.getCurrentPosition(
               () => setLocationGranted(true),
-              () => { setLocationDenied(true); setShowLocationGate(true) },
-              { enableHighAccuracy: false, timeout: 3000 }
+              handleGeoError,
+              { enableHighAccuracy: false, timeout: 5000 }
             )
           } else if (status.state === 'denied') {
-            setLocationDenied(true)
-            setShowLocationGate(true)
+            // Verificar con getCurrentPosition — en macOS puede reportar 'denied'
+            // aunque el switch del navegador esté activado (bloqueo a nivel OS)
+            navigator.geolocation.getCurrentPosition(
+              () => setLocationGranted(true),
+              handleGeoError,
+              { enableHighAccuracy: false, timeout: 5000 }
+            )
           }
           // 'prompt' → no mostrar banner, el usuario explora libremente
         })
@@ -390,9 +403,51 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     return Math.max(stageGroups.length - 1, 0)
   }, [completedStops, stageGroups])
 
+  const introTarget = useMemo(() => {
+    if (!monuments || monuments.length === 0 || stageGroups.length === 0) return undefined
+    const firstIdx = stageGroups[activeStageIndex]?.[0]
+    if (firstIdx === undefined || firstIdx >= monuments.length) return undefined
+    const m = monuments[firstIdx]
+    return { lat: m.lat, lng: m.lng }
+  }, [monuments, stageGroups, activeStageIndex])
+
   useEffect(() => {
     setExpandedStage(activeStageIndex)
   }, [activeStageIndex])
+
+  // ── ID de la etapa activa (para el listener en tiempo real) ──────────────
+  const activeStageId = useMemo(() => {
+    const firstIdx = stageGroups[activeStageIndex]?.[0]
+    if (firstIdx === undefined) return undefined
+    return firestoreStops[firstIdx]?.stageId
+  }, [firestoreStops, stageGroups, activeStageIndex])
+
+  // ── ID de la parada actualmente abierta (solo cuando hay una seleccionada) ──
+  const activeStopId = selectedMonument?.stopId
+
+  // ── Middleware en tiempo real ─────────────────────────────────────────────
+  const { block: statusBlock, dismiss: dismissBlock } = useRealtimeStatus({
+    seasonId: currentSeasonId,
+    stageId:  activeStageId,
+    stopId:   activeStopId,
+  })
+
+  // IDs de paradas desactivadas en tiempo real (para ocultarlas del mapa sin recargar)
+  const [deactivatedStopIds, setDeactivatedStopIds] = useState<string[]>([])
+
+  // Cuando una parada o etapa se desactiva, cerrar el quiz (pero NO limpiar selectedMonument
+  // aquí — eso mataría el listener del stop y causaría una race condition donde el bloqueo
+  // se limpia antes de que el usuario lo vea)
+  useEffect(() => {
+    if (statusBlock?.type === 'stop_deactivated') {
+      setQuizFlow({ step: 'idle' })
+      if (activeStopId) {
+        setDeactivatedStopIds(prev => prev.includes(activeStopId) ? prev : [...prev, activeStopId])
+      }
+    } else if (statusBlock?.type === 'stage_deactivated') {
+      setQuizFlow({ step: 'idle' })
+    }
+  }, [statusBlock, activeStopId])
 
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
     return stageGroups.map((group, idx) => {
@@ -423,6 +478,39 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     return monuments.findIndex(m => m.nombre === selectedMonument.nombre)
   }, [selectedMonument, monuments])
 
+  // Índice de la siguiente parada disponible en la etapa activa (después de la actual)
+  const nextAvailableStopIndex = useMemo(() => {
+    if (selectedStopIndex < 0) return -1
+    const stageStops = stageGroups[activeStageIndex] ?? []
+    for (const idx of stageStops) {
+      if (idx > selectedStopIndex && !completedStops[idx]) return idx
+    }
+    for (const idx of stageStops) {
+      if (idx !== selectedStopIndex && !completedStops[idx]) return idx
+    }
+    return -1
+  }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops])
+
+  // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
+  const handleDismissBlock = useCallback(() => {
+    dismissBlock()
+    setSelectedMonument(null)
+  }, [dismissBlock])
+
+  // Ir a la siguiente parada disponible tras una desactivación
+  const handleNextStop = useCallback(() => {
+    const nextIdx = nextAvailableStopIndex
+    dismissBlock()
+    setSelectedMonument(null)
+    if (nextIdx >= 0 && monuments) {
+      const next = monuments[nextIdx]
+      if (next) {
+        setSelectedMonument(next)
+        mapControlsRef.current?.focusOnStop(nextIdx)
+      }
+    }
+  }, [dismissBlock, nextAvailableStopIndex, monuments])
+
   const selectedMonumentIsAvailable = useMemo(() => {
     if (!selectedMonument || selectedStopIndex < 0 || completedStops[selectedStopIndex]) return false
     const stageIdx = stageGroups.findIndex(g => g.includes(selectedStopIndex))
@@ -439,8 +527,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       // 'prompt': pedir permiso con diálogo nativo directamente
       navigator.geolocation?.getCurrentPosition(
         () => setLocationGranted(true),
-        () => { setLocationDenied(true); setShowLocationGate(true) },
-        { enableHighAccuracy: true, timeout: 10000 }
+        (err) => {
+          if (err.code === 1) { setLocationDenied(true); setShowLocationGate(true) }
+          else setLocationGranted(true)
+        },
+        { enableHighAccuracy: false, timeout: 10000 }
       )
     }
   }, [selectedMonument, selectedMonumentIsAvailable, locationGranted, locationDenied])
@@ -613,6 +704,21 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   useEffect(() => {
     if (mapReady && timerFinished) setMapLoading(false)
   }, [mapReady, timerFinished])
+
+  useEffect(() => {
+    if (mapLoading) return
+    const enter = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {})
+      }
+    }
+    document.addEventListener('touchstart', enter, { once: true, passive: true })
+    document.addEventListener('click', enter, { once: true })
+    return () => {
+      document.removeEventListener('touchstart', enter)
+      document.removeEventListener('click', enter)
+    }
+  }, [mapLoading])
 
 
   return (
@@ -924,11 +1030,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             onSelectMonument={setSelectedMonument}
             selectedMonument={selectedMonument}
             onLoadComplete={() => setMapReady(true)}
-            startIntroAnimation={!mapLoading}
+            startIntroAnimation={!mapLoading && monuments !== null}
             visibleStage={expandedStage ?? 0}
             completedStops={completedStops}
             onLockedStopClick={handleLockedStopClick}
             stageGroups={stageGroups}
+            introTarget={introTarget}
+            hiddenStopIds={deactivatedStopIds}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>
@@ -1425,6 +1533,16 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold-light),transparent)' }} />
           </div>
         </div>
+      )}
+
+      {/* ── Middleware: bloqueo de temporada / etapa / parada ──────── */}
+      {statusBlock && (
+        <StatusBlockCard
+          type={statusBlock.type}
+          name={statusBlock.name}
+          onDismiss={handleDismissBlock}
+          onNextStop={statusBlock.type === 'stop_deactivated' && nextAvailableStopIndex >= 0 ? handleNextStop : undefined}
+        />
       )}
 
     </div>

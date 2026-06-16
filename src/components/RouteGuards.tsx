@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { useTranslation } from 'react-i18next'
 import { savePlayerProfile } from '../services/authService'
 import CountrySelect from './CountrySelect'
+import StatusBlockCard from './StatusBlockCard'
 
-type ClientStatus = 'pending' | 'auth' | 'unauth' | 'incomplete'
+type ClientStatus = 'pending' | 'auth' | 'unauth' | 'incomplete' | 'banned'
 type AdminStatus  = 'pending' | 'ok'  | 'denied'
 
 // ── Shared spinner ────────────────────────────────────────────────────────
@@ -368,51 +369,80 @@ function CompleteProfileForm({ user, onComplete }: CompleteProfileFormProps) {
 
 // ── Client guard: any authenticated Firebase user ─────────────────────────
 export function ProtectedRoute() {
-  const [status, setStatus] = useState<ClientStatus>('pending')
+  const [status,      setStatus]      = useState<ClientStatus>('pending')
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [banReason,   setBanReason]   = useState<string | undefined>(undefined)
+
+  // Ref para saber si el bloqueo ya fue detectado antes del sign-out
+  // (evita que onAuthStateChanged con user=null redirija a /login en vez de mostrar la card)
+  const isBannedRef = useRef(false)
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async user => {
+    let unsubFirestore: (() => void) | null = null
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      // Limpiar listener anterior de Firestore si cambia el usuario
+      if (unsubFirestore) { unsubFirestore(); unsubFirestore = null }
+
       if (!user) {
-        setStatus('unauth')
         setCurrentUser(null)
+        // Si ya detectamos ban, NO redirigimos — la card de ban se encarga
+        if (!isBannedRef.current) setStatus('unauth')
         return
       }
+
       setCurrentUser(user)
-      try {
-        const snap = await getDoc(doc(db, 'players', user.uid))
-        if (snap.exists() && snap.data().banned === true) {
-          await auth.signOut()
-          setStatus('unauth')
-          setCurrentUser(null)
-          return
-        }
 
-        const data = snap.exists() ? snap.data() : null
-        const isIncomplete = !data || 
-                             !data.firstName || 
-                             !data.lastName || 
-                             !data.gender || 
-                             !data.nationality || 
-                             !data.ageRange
+      // Listener en tiempo real sobre el documento del jugador
+      unsubFirestore = onSnapshot(
+        doc(db, 'players', user.uid),
+        (snap) => {
+          const data = snap.exists() ? snap.data() : null
 
-        if (isIncomplete) {
-          setStatus('incomplete')
-        } else {
+          if (data?.banned === true || data?.active === false) {
+            isBannedRef.current = true
+            const reason = data.bannedReason || data.banReason || data.reason || undefined
+            setBanReason(reason ? String(reason) : undefined)
+            setStatus('banned')
+            auth.signOut().catch(() => {})
+            return
+          }
+
+          const isIncomplete = !data ||
+            !data.firstName || !data.lastName ||
+            !data.gender    || !data.nationality || !data.ageRange
+
+          setStatus(isIncomplete ? 'incomplete' : 'auth')
+        },
+        () => {
+          // Permiso denegado u otro error de red → dejar pasar sin bloquear
           setStatus('auth')
         }
-      } catch {
-        // Safe fallback in case of Firestore permissions/network errors
-        setStatus('auth')
-      }
+      )
     })
+
+    return () => {
+      unsubAuth()
+      if (unsubFirestore) unsubFirestore()
+    }
   }, [])
 
-  if (status === 'pending') return <AuthSpinner />
-  if (status === 'unauth')  return <Navigate to="/login" replace />
-  if (status === 'incomplete') {
-    return <CompleteProfileForm user={currentUser} onComplete={() => setStatus('auth')} />
+  if (status === 'banned') {
+    return (
+      <StatusBlockCard
+        type="user_banned"
+        reason={banReason}
+        onDismiss={() => {
+          isBannedRef.current = false
+          setBanReason(undefined)
+          setStatus('unauth')
+        }}
+      />
+    )
   }
+  if (status === 'pending')    return <AuthSpinner />
+  if (status === 'unauth')     return <Navigate to="/login" replace />
+  if (status === 'incomplete') return <CompleteProfileForm user={currentUser} onComplete={() => setStatus('auth')} />
   return <Outlet />
 }
 
