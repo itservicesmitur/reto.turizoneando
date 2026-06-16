@@ -57,6 +57,7 @@ export { getStopWithQuestions } from "./game/getStopWithQuestions";
 export { getCorrectAnswer } from "./game/validateAnswer";
 export { registerAttempt } from "./game/registerAttempt";
 export { getTopTen, getMyPositionsRanking } from "./game/leaderboard";
+export { getPrizes, getPrizeById } from "./prizes/prizes";
 export {
   sendAdminCustomEmail,
   sendAdminPasswordResetEmail,

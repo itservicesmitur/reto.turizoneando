@@ -133,6 +133,8 @@
 | `getPlayers` | HTTPS callable | Devuelve listado de jugadores ordenados por creación |
 | `getAdmins`, `createAdmin`, `updateAdmin`, `deleteAdmin` | HTTPS callable | CRUD completo de administradores agrupado en `admins.ts` |
 | `seedTestData` | HTTPS callable | Crea datos de prueba: 3 premios, 1 temporada demo con 3 etapas, 9 paradas y 18 preguntas de la Zona Colonial. Solo admin. Guarda en `/prizes`, `/seasons`, `/stops`, `/questions`. |
+| `getPrizes` | HTTPS callable | Devuelve todos los premios de `/prizes` (máx 100). Uso del cliente de juego. |
+| `getPrizeById` | HTTPS callable | Devuelve un premio por su ID desde `/prizes`. Recibe `{ prizeId }`. Uso del cliente de juego. |
 
 **Agregar nuevas functions aquí antes de implementarlas.**
 
