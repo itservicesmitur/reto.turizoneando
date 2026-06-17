@@ -121,7 +121,7 @@
     "lang_es":       "Español",
     "lang_en":       "English",
     "rules_title":   "Rally rules",
-    "rules_body":    "To participate in the cultural rally you must:\n• Visit each stop and scan the QR code.\n• Listen to the narrated story of each site.\n• Answer the questions correctly.\n• Prizes are validated based on age and availability.\n• One registration per email address.",
+    "rules_body":    "To participate in the cultural rally you must:\n• Accept location permissions when the browser requests them.\n• Be within 12 meters of each point to activate it.\n• Listen to the narrated story of each site.\n• Answer the questions correctly.\n• Prizes are validated based on age and availability.\n• One registration per email address.",
     "accept":        "I accept the rules and participation conditions",
     "must_accept":   "You must accept the rules to continue",
     "fill_all":      "Please fill in all required fields",

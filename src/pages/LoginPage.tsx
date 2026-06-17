@@ -1,21 +1,20 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
-  OAuthProvider,
   type AuthError,
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import logoImg from '../assets/logo1.png'
 import mascotImg from '../assets/mascota.png'
-import { syncPlayerSocialProfile } from '../services/authService'
+import { syncPlayerSocialProfile, getGoogleRedirectResult } from '../services/authService'
 
 const googleProvider = new GoogleAuthProvider()
-const appleProvider = new OAuthProvider('apple.com')
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
@@ -26,6 +25,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPass, setShowPass] = useState(false)
+
+  useEffect(() => {
+    getGoogleRedirectResult().then(async result => {
+      if (!result) return
+      setLoading(true)
+      try {
+        await syncPlayerSocialProfile(result.user, i18n.language as 'es' | 'en')
+        const snap = await getDoc(doc(db, 'players', result.user.uid))
+        if (snap.exists() && snap.data().banned === true) {
+          await auth.signOut()
+          setError(t('login.bannedError'))
+          return
+        }
+        navigate('/map', { replace: true })
+      } catch (err) {
+        console.error('[LoginPage] redirect result error:', err)
+        setError(t('login.errorGeneric'))
+      } finally {
+        setLoading(false)
+      }
+    }).catch(err => {
+      console.error('[LoginPage] getRedirectResult error:', err)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleLang() {
     i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')
@@ -74,38 +97,25 @@ export default function LoginPage() {
       navigate('/map', { replace: true })
     } catch (err) {
       const code = (err as AuthError).code
-      if (code === 'auth/account-exists-with-different-credential') {
+      console.error('[LoginPage] Google sign-in error:', code, err)
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request'
+      ) {
+        // user dismissed — no message needed
+      } else if (code === 'auth/account-exists-with-different-credential') {
         setError(t('login.errorDifferentCredential'))
-      } else if (code !== 'auth/popup-closed-by-user') {
-        setError(t('login.errorGeneric'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleApple() {
-    setError(null)
-    setLoading(true)
-    try {
-      const userCredential = await signInWithPopup(auth, appleProvider)
-
-      // Sync Apple profile data to Firestore
-      await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
-
-      const snap = await getDoc(doc(db, 'players', userCredential.user.uid))
-      if (snap.exists() && snap.data().banned === true) {
-        await auth.signOut()
-        setError(t('login.bannedError'))
-        return
-      }
-      navigate('/map', { replace: true })
-    } catch (err) {
-      const code = (err as AuthError).code
-      if (code === 'auth/account-exists-with-different-credential') {
-        setError(t('login.errorDifferentCredential'))
-      } else if (code !== 'auth/popup-closed-by-user') {
-        setError(t('login.errorGeneric'))
+      } else if (code === 'auth/popup-blocked') {
+        await signInWithRedirect(auth, googleProvider)
+        return // page will reload; redirect result handled in useEffect
+      } else if (code === 'auth/network-request-failed') {
+        setError('Sin conexión. Verifica tu internet e intenta de nuevo.')
+      } else if (code === 'auth/too-many-requests') {
+        setError('Demasiados intentos. Espera unos minutos e intenta de nuevo.')
+      } else if (code === 'auth/unauthorized-domain') {
+        setError('Este dominio no está autorizado. Contacta al administrador.')
+      } else {
+        setError(`${t('login.errorGeneric')} (${code ?? 'unknown'})`)
       }
     } finally {
       setLoading(false)
@@ -114,14 +124,13 @@ export default function LoginPage() {
 
   return (
     <div className="lp-login-outer" style={{
-      minHeight: '100dvh',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       background: 'var(--color-navy)',
       fontFamily: 'var(--font-body)',
       overflow: 'hidden',
       position: 'relative',
-      paddingTop: 'var(--safe-top)',
     }}>
 
       {/* ── Decorative blobs ─────────────────────────────────── */}
@@ -192,14 +201,14 @@ export default function LoginPage() {
         {/* ── Hero ─────────────────────────────────────────────── */}
         <div className="lp-login-hero" style={{
           flex: '0 0 auto',
-          minHeight: '44dvh',
+          minHeight: '26dvh',
           display: 'flex',
           alignItems: 'flex-end',
           justifyContent: 'space-between',
-          paddingTop: 'calc(var(--safe-top) + 36px)',
+          paddingTop: 'calc(var(--safe-top) + 16px)',
           paddingLeft: 24,
           paddingRight: 0,
-          paddingBottom: 20,
+          paddingBottom: 16,
           position: 'relative',
           zIndex: 1,
         }}>
@@ -208,7 +217,7 @@ export default function LoginPage() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 8 }}>
 
             {/* Logo badge */}
-            <div style={{
+            <div className="lp-logo-badge" style={{
               width: 88, height: 88,
               borderRadius: '50%',
               background: '#fff',
@@ -245,7 +254,7 @@ export default function LoginPage() {
             </div>
 
             {/* Fun badges */}
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="lp-badges" style={{ display: 'flex', gap: 6 }}>
               {(['🗺️', '🎯', '🏆'] as const).map((icon, i) => (
                 <span key={i} style={{
                   background: 'rgba(255,255,255,0.12)',
@@ -259,7 +268,7 @@ export default function LoginPage() {
           </div>
 
           {/* Right — mascot */}
-          <div style={{
+          <div className="lp-mascot-wrap" style={{
             flexShrink: 0,
             width: 150,
             height: 210,
@@ -290,23 +299,29 @@ export default function LoginPage() {
           className="animate-slide-up"
           style={{
             flex: 1,
+            minHeight: 0,
             background: 'var(--color-surface)',
             borderRadius: '28px 28px 0 0',
             boxShadow: '0 -8px 40px rgba(27,43,110,0.25)',
             position: 'relative',
             zIndex: 5,
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Teal accent strip at top */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: 4,
             background: 'linear-gradient(90deg, var(--color-teal), var(--color-yellow), var(--color-orange))',
+            flexShrink: 0,
           }} />
 
           <div style={{
-            padding: '22px 20px',
-            paddingBottom: 'calc(var(--safe-bottom) + 20px)',
+            flex: 1,
+            minHeight: 0,
+            padding: '18px 20px',
+            paddingBottom: 'calc(var(--safe-bottom) + 16px)',
             display: 'flex',
             flexDirection: 'column',
             gap: 0,
@@ -316,11 +331,11 @@ export default function LoginPage() {
             {/* Drag handle */}
             <div style={{
               width: 36, height: 4, borderRadius: 2,
-              background: 'var(--color-border)', margin: '0 auto 18px',
+              background: 'var(--color-border)', margin: '0 auto 14px',
             }} />
 
             {/* Welcome */}
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 14 }}>
               <h2 style={{
                 fontFamily: 'var(--font-display)',
                 color: 'var(--color-navy)', fontSize: 26,
@@ -334,7 +349,7 @@ export default function LoginPage() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
               {/* Email */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -350,7 +365,7 @@ export default function LoginPage() {
                     id="email" type="email" autoComplete="email" inputMode="email"
                     value={email} onChange={e => setEmail(e.target.value)} required
                     style={{
-                      width: '100%', height: 52, borderRadius: 14,
+                      width: '100%', height: 48, borderRadius: 14,
                       border: '2px solid var(--color-border)',
                       paddingLeft: 42, paddingRight: 14, fontSize: 16,
                       fontFamily: 'var(--font-body)', color: 'var(--color-text)',
@@ -388,7 +403,7 @@ export default function LoginPage() {
                     id="password" type={showPass ? 'text' : 'password'} autoComplete="current-password"
                     value={password} onChange={e => setPassword(e.target.value)} required
                     style={{
-                      width: '100%', height: 52, borderRadius: 14,
+                      width: '100%', height: 48, borderRadius: 14,
                       border: '2px solid var(--color-border)',
                       paddingLeft: 42, paddingRight: 48, fontSize: 16,
                       fontFamily: 'var(--font-body)', color: 'var(--color-text)',
@@ -435,7 +450,7 @@ export default function LoginPage() {
               <button
                 type="submit" disabled={loading}
                 style={{
-                  marginTop: 4, width: '100%', height: 54, borderRadius: 16,
+                  marginTop: 2, width: '100%', height: 50, borderRadius: 16,
                   background: loading ? 'var(--color-gray-mid)' : 'var(--color-yellow)',
                   color: loading ? '#fff' : 'var(--color-navy)',
                   fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-body)',
@@ -458,62 +473,38 @@ export default function LoginPage() {
             </form>
 
             {/* Divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
               <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
               <span style={{ fontSize: 12, color: 'var(--color-gray-mid)', fontWeight: 600 }}>{t('login.or')}</span>
               <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
             </div>
 
-            {/* Google + Apple */}
-            <div style={{ display: 'flex', gap: 10 }}>
-              {/* Google */}
-              <button
-                type="button" onClick={handleGoogle} disabled={loading}
-                aria-label={t('login.google')}
-                style={{
-                  flex: 1, height: 52, borderRadius: 16,
-                  background: '#fff', border: '2px solid var(--color-border)',
-                  color: 'var(--color-text)', fontSize: 14, fontWeight: 700,
-                  fontFamily: 'var(--font-body)', cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'transform 150ms ease, box-shadow 150ms ease',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                }}
-                onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-                onTouchStart={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
-                onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
-                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
-                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
-                  <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
-                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
-                </svg>
-                Google
-              </button>
-
-              {/* Apple */}
-              <button
-                type="button" onClick={handleApple} disabled={loading}
-                aria-label={t('login.apple')}
-                style={{
-                  flex: 1, height: 52, borderRadius: 16,
-                  background: '#000', border: '2px solid #000',
-                  color: '#fff', fontSize: 14, fontWeight: 700,
-                  fontFamily: 'var(--font-body)', cursor: loading ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'transform 150ms ease, opacity 150ms ease',
-                }}
-                onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-                onTouchStart={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
-                onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <i className="ri-apple-fill" style={{ fontSize: 19, lineHeight: 1 }} />
-                Apple
-              </button>
-            </div>
+            {/* Google */}
+            <button
+              type="button" onClick={handleGoogle} disabled={loading}
+              aria-label={t('login.google')}
+              style={{
+                width: '100%', height: 48, borderRadius: 16,
+                background: '#fff', border: '2px solid var(--color-border)',
+                color: 'var(--color-text)', fontSize: 14, fontWeight: 700,
+                fontFamily: 'var(--font-body)', cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'transform 150ms ease, box-shadow 150ms ease',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              }}
+              onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
+              onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              onTouchStart={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
+              onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
+            >
+              <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
+                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
+              </svg>
+              {t('login.google')}
+            </button>
 
             {/* Register */}
             <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', margin: '16px 0 0' }}>
@@ -587,6 +578,26 @@ export default function LoginPage() {
             flex: none;
             overflow-y: auto;
           }
+        }
+
+        /* Móvil: ocultar mascot, reducir logo y hero */
+        @media (max-width: 599px) {
+          .lp-mascot-wrap { display: none !important; }
+          .lp-logo-badge { width: 64px !important; height: 64px !important; }
+          .lp-login-hero {
+            min-height: 0 !important;
+            padding-top: calc(var(--safe-top) + 12px) !important;
+            padding-bottom: 12px !important;
+          }
+        }
+        /* Pantallas muy cortas: reducir aún más */
+        @media (max-width: 599px) and (max-height: 700px) {
+          .lp-login-hero {
+            padding-top: calc(var(--safe-top) + 6px) !important;
+            padding-bottom: 6px !important;
+          }
+          .lp-badges { display: none !important; }
+          .lp-logo-badge { width: 52px !important; height: 52px !important; }
         }
       `}</style>
     </div>

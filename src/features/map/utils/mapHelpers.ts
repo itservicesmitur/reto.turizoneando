@@ -50,29 +50,37 @@ export function buildMarkerHTML(
   const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex
 
   let medallionStyle: string
-  let labelStyle: string
+  let nameStyle: string
+  let statusBg: string
+  let statusColor: string
+  let statusText: string
   let innerBadge: string
   let outerBadge: string
-  let labelText: string
 
   if (isCompleted) {
     medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 18px rgba(252,211,77,0.7),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
-    labelStyle = 'border-color:#a87f2a;background-color:#22150c;color:#fcd34d;'
+    nameStyle = 'border-color:#a87f2a;background-color:#22150c;color:#fcd34d;'
+    statusBg = 'rgba(34,21,12,0.90)'
+    statusColor = '#86efac'
+    statusText = '✓ Completado'
     innerBadge = `<div class="treasure-check-badge"><svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
     outerBadge = ''
-    labelText = 'COMPLETADO'
   } else if (isAvailable) {
     medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 14px rgba(252,211,77,0.55),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
-    labelStyle = 'border-color:#fcd34d;background-color:#321e0f;color:#fcd34d;'
+    nameStyle = 'border-color:#fcd34d;background-color:#321e0f;color:#fcd34d;'
+    statusBg = 'rgba(22,101,52,0.92)'
+    statusColor = '#bbf7d0'
+    statusText = '● Disponible'
     innerBadge = ''
     outerBadge = '<div class="treasure-pulse-ring"></div>'
-    labelText = 'DISPONIBLE'
   } else {
     medallionStyle = 'border-color:#6b4a20;'
-    labelStyle = 'border-color:#6b4a20;color:#8a6b2f;'
+    nameStyle = 'border-color:#6b4a20;background-color:#1a110a;color:#a07840;'
+    statusBg = 'rgba(15,10,5,0.85)'
+    statusColor = '#6b4a20'
+    statusText = `🔒 Parada ${indexWithinStage + 1}`
     innerBadge = `<div class="treasure-lock-badge"><svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>`
     outerBadge = ''
-    labelText = `PARADA ${indexWithinStage + 1}`
   }
 
   const completedOverlay = isCompleted
@@ -88,6 +96,7 @@ export function buildMarkerHTML(
         ${innerBadge}
       </div>
     </div>
-    <div class="treasure-label" style="${labelStyle}">${labelText}</div>
+    <div class="treasure-label" style="${nameStyle};max-width:210px;white-space:normal;word-break:break-word;line-height:1.25;text-align:center;">${monumento.nombre}</div>
+    <div style="margin-top:3px;padding:2px 7px;border-radius:10px;background:${statusBg};color:${statusColor};font-family:Georgia,serif;font-size:8px;font-weight:700;letter-spacing:0.3px;text-align:center;white-space:nowrap;">${statusText}</div>
   `
 }

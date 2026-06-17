@@ -7,7 +7,7 @@ import type { Monumento } from '../features/map/types/map.types'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../config/firebase'
-import { getStopWithQuestions, type StopData, type QuestionData } from '../services/adminService'
+import { getStopWithQuestions, fetchMyPlayerStatus, type StopData, type QuestionData } from '../services/adminService'
 import type { QuizQuestion, ClaimedPrize } from '../features/map/types/quiz.types'
 import QuizCard from '../features/map/quiz/QuizCard'
 import HistoryCard from '../features/map/quiz/HistoryCard'
@@ -390,7 +390,20 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         setStageGroups(groups)
         const mapped = stopsWithQuestions.map(stopToMonumento)
         setMonuments(mapped)
-        setCompletedStops(Array(mapped.length).fill(false))
+
+        // ── Hidratar progreso real del jugador desde el servidor ──────────
+        try {
+          const status = await fetchMyPlayerStatus(activeSeasonId)
+          const completedIds = new Set<string>()
+          status.stages.forEach(stage => {
+            stage.stops.forEach(stop => {
+              if (stop.completed) completedIds.add(stop.id)
+            })
+          })
+          setCompletedStops(stopsWithQuestions.map(s => completedIds.has(s.id)))
+        } catch {
+          setCompletedStops(Array(mapped.length).fill(false))
+        }
       } catch (err) {
         console.error('[Turizoneando] ❌ Error al cargar temporada:', err)
         setMonuments([])
@@ -1223,6 +1236,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           prize={quizFlow.claimedPrize}
           stopIndex={quizFlow.stopIndex}
           monumentImage={quizFlow.monument.imagen}
+          isLastStop={quizFlow.showRanking}
           onContinue={() => {
             const showRanking = quizFlow.showRanking
             const idx = quizFlow.stopIndex
@@ -1657,7 +1671,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       )}
 
       {/* ── Feature Tour (primera visita) ───────────────────────────── */}
-      <FeatureTour ready={!mapLoading} />
+      <FeatureTour ready={!mapLoading} userId={auth.currentUser?.uid} />
 
     </div>
   )

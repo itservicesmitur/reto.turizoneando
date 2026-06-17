@@ -1,6 +1,8 @@
 import {
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
   type User,
@@ -27,10 +29,25 @@ export async function registerWithEmail(email: string, password: string): Promis
   return user
 }
 
-export async function signUpWithGoogle(): Promise<{ user: User; isNew: boolean }> {
-  const { user } = await signInWithPopup(auth, googleProvider)
-  const snap = await getDoc(doc(db, 'players', user.uid))
-  return { user, isNew: !snap.exists() }
+export async function signUpWithGoogle(): Promise<{ user: User; isNew: boolean } | null> {
+  try {
+    const { user } = await signInWithPopup(auth, googleProvider)
+    const snap = await getDoc(doc(db, 'players', user.uid))
+    return { user, isNew: !snap.exists() }
+  } catch (err: any) {
+    if (err?.code === 'auth/popup-blocked') {
+      await signInWithRedirect(auth, googleProvider)
+      return null // page will reload, result handled by getGoogleRedirectResult
+    }
+    throw err
+  }
+}
+
+export async function getGoogleRedirectResult(): Promise<{ user: User; isNew: boolean } | null> {
+  const result = await getRedirectResult(auth)
+  if (!result) return null
+  const snap = await getDoc(doc(db, 'players', result.user.uid))
+  return { user: result.user, isNew: !snap.exists() }
 }
 
 export async function signUpWithApple(): Promise<{ user: User; isNew: boolean }> {

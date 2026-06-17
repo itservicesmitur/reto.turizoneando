@@ -128,6 +128,15 @@ export async function fetchPlayerStatus(playerId: string, seasonId?: string): Pr
   return response.data
 }
 
+export async function fetchMyPlayerStatus(seasonId?: string): Promise<PlayerStatusResult> {
+  const fn = httpsCallable<{ seasonId?: string }, PlayerStatusResult>(
+    functions,
+    'getPlayerStatus'
+  )
+  const response = await fn(seasonId ? { seasonId } : {})
+  return response.data
+}
+
 export interface UpdatePlayerProfileInput {
   uid: string
   displayName?: string

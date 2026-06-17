@@ -1,11 +1,11 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { type AuthError } from 'firebase/auth'
 import {
   registerWithEmail,
   signUpWithGoogle,
-  signUpWithApple,
+  getGoogleRedirectResult,
   savePlayerProfile,
 } from '../services/authService'
 import type { User } from 'firebase/auth'
@@ -74,7 +74,7 @@ function FieldInput({
         value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          width: '100%', height: 52, borderRadius: 14,
+          width: '100%', height: 48, borderRadius: 14,
           border: '2px solid var(--color-border)',
           paddingLeft: 42, paddingRight: rightSlot ? 48 : 14, fontSize: 16,
           fontFamily: 'var(--font-body)', color: 'var(--color-text)',
@@ -129,6 +129,23 @@ export default function RegisterPage() {
   // Step 3 — rules
   const [accepted, setAccepted] = useState(false)
 
+  useEffect(() => {
+    getGoogleRedirectResult().then(result => {
+      if (!result) return
+      if (!result.isNew) { navigate('/map', { replace: true }); return }
+      if (result.user.email) setEmail(result.user.email)
+      if (result.user.displayName) {
+        const parts = result.user.displayName.split(' ')
+        setFirstName(parts[0] || '')
+        setLastName(parts.slice(1).join(' ') || '')
+      }
+      setFbUser(result.user)
+      goForward(2)
+    }).catch(err => {
+      console.error('[RegisterPage] getRedirectResult error:', err)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   function toggleLang() {
     i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')
   }
@@ -170,14 +187,14 @@ export default function RegisterPage() {
     }
   }
 
-  // ── Step 1: create account with Google or Apple ────────────────────────
-  async function handleSocial(provider: 'google' | 'apple') {
+  // ── Step 1: create account with Google ────────────────────────────────
+  async function handleSocial() {
     setError(null)
     setLoading(true)
     try {
-      const { user, isNew } = provider === 'google'
-        ? await signUpWithGoogle()
-        : await signUpWithApple()
+      const result = await signUpWithGoogle()
+      if (!result) return // redirect initiated — page will reload
+      const { user, isNew } = result
 
       if (!isNew) {
         navigate('/map', { replace: true })
@@ -195,10 +212,24 @@ export default function RegisterPage() {
       goForward(2)
     } catch (err) {
       const code = (err as AuthError).code
-      if (code === 'auth/account-exists-with-different-credential') {
+      console.error('[RegisterPage] Social sign-in error:', code, err)
+      if (
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request'
+      ) {
+        // user dismissed — no message needed
+      } else if (code === 'auth/account-exists-with-different-credential') {
         setError(t('register.err_different_credential'))
-      } else if (code !== 'auth/popup-closed-by-user') {
-        setError(t('register.err_generic'))
+      } else if (code === 'auth/popup-blocked') {
+        setError('El navegador bloqueó la ventana emergente. Permite ventanas emergentes para este sitio e intenta de nuevo.')
+      } else if (code === 'auth/network-request-failed') {
+        setError('Sin conexión. Verifica tu internet e intenta de nuevo.')
+      } else if (code === 'auth/too-many-requests') {
+        setError('Demasiados intentos. Espera unos minutos e intenta de nuevo.')
+      } else if (code === 'auth/unauthorized-domain') {
+        setError('Este dominio no está autorizado. Contacta al administrador.')
+      } else {
+        setError(`${t('register.err_generic')} (${code ?? 'unknown'})`)
       }
     } finally {
       setLoading(false)
@@ -289,13 +320,12 @@ export default function RegisterPage() {
     <div
       className="rp-outer"
       style={{
-        minHeight: '100dvh',
+        height: '100dvh',
         display: 'flex', flexDirection: 'column',
         background: 'var(--color-navy)',
         fontFamily: 'var(--font-body)',
         overflow: 'hidden',
         position: 'relative',
-        paddingTop: 'var(--safe-top)',
       }}
     >
       {/* ── Decorative blobs ──────────────────────────────────── */}
@@ -348,19 +378,19 @@ export default function RegisterPage() {
           className="rp-hero"
           style={{
             flex: '0 0 auto',
-            minHeight: '40dvh',
+            minHeight: '26dvh',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'space-between',
-            paddingTop: 'calc(var(--safe-top) + 36px)',
-            paddingLeft: 24, paddingRight: 0, paddingBottom: 20,
+            paddingTop: 'calc(var(--safe-top) + 16px)',
+            paddingLeft: 24, paddingRight: 0, paddingBottom: 16,
             position: 'relative', zIndex: 1,
           }}
         >
           {/* Left — logo + info + step pills */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, paddingBottom: 8 }}>
 
-            <div style={{
+            <div className="rp-logo-badge" style={{
               width: 80, height: 80, borderRadius: '50%',
               background: '#fff', padding: 5,
               boxShadow: '0 0 0 3px rgba(245,200,0,0.5), 0 0 0 6px rgba(245,200,0,0.2), 0 12px 32px rgba(0,0,0,0.3)',
@@ -411,7 +441,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Right — mascot */}
-          <div style={{ flexShrink: 0, width: 130, height: 190, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', overflow: 'hidden' }}>
+          <div className="rp-mascot-wrap" style={{ flexShrink: 0, width: 130, height: 190, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', overflow: 'hidden' }}>
             <img
               src={mascotImg} alt="Mascota Turizoneando"
               style={{
@@ -429,10 +459,12 @@ export default function RegisterPage() {
           className="animate-slide-up rp-form"
           style={{
             flex: 1,
+            minHeight: 0,
             background: 'var(--color-surface)',
             borderRadius: '28px 28px 0 0',
             boxShadow: '0 -8px 40px rgba(27,43,110,0.25)',
             position: 'relative', zIndex: 5, overflow: 'hidden',
+            display: 'flex', flexDirection: 'column',
           }}
         >
           {/* Accent strip */}
@@ -442,17 +474,19 @@ export default function RegisterPage() {
           }} />
 
           <div style={{
-            padding: '20px 20px',
-            paddingBottom: 'calc(var(--safe-bottom) + 20px)',
+            flex: 1,
+            minHeight: 0,
+            padding: '18px 20px',
+            paddingBottom: 'calc(var(--safe-bottom) + 16px)',
             display: 'flex', flexDirection: 'column', gap: 0,
-            overflowY: 'auto', maxHeight: '62dvh',
+            overflowY: 'auto',
           }}>
 
             {/* Drag handle */}
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-border)', margin: '0 auto 16px' }} />
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-border)', margin: '0 auto 12px' }} />
 
             {/* ── Step indicator ──────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', marginBottom: 14 }}>
               {([1, 2, 3] as Step[]).map((s, i) => (
                 <Fragment key={s}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -612,10 +646,7 @@ export default function RegisterPage() {
                   <Divider label={t('register.or')} />
 
                   {/* Social buttons */}
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <SocialBtn type="google" disabled={loading} onClick={() => handleSocial('google')} />
-                    <SocialBtn type="apple"  disabled={loading} onClick={() => handleSocial('apple')} />
-                  </div>
+                  <SocialBtn disabled={loading} onClick={handleSocial} />
 
                   {/* Login link */}
                   <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', margin: '8px 0 0' }}>
@@ -682,7 +713,7 @@ export default function RegisterPage() {
                         <button
                           key={l} type="button" onClick={() => setPrefLang(l)}
                           style={{
-                            flex: 1, height: 52, borderRadius: 14,
+                            flex: 1, height: 48, borderRadius: 14,
                             border: `2px solid ${prefLang === l ? 'var(--color-navy)' : 'var(--color-border)'}`,
                             background: prefLang === l ? 'var(--color-navy)' : 'var(--color-gray-light)',
                             color: prefLang === l ? '#fff' : 'var(--color-text-muted)',
@@ -837,6 +868,14 @@ export default function RegisterPage() {
           display: flex; flex-direction: column; width: 100%; flex: 1;
         }
 
+        @media (max-width: 599px) {
+          .rp-hero { display: none !important; }
+          .rp-form {
+            border-radius: 0 !important;
+            padding-top: var(--safe-top) !important;
+          }
+        }
+
         @media (min-width: 600px) {
           .rp-outer {
             align-items: center; justify-content: center;
@@ -854,7 +893,9 @@ export default function RegisterPage() {
             padding-top: 36px !important;
             background: linear-gradient(145deg, #1e306e 0%, var(--color-navy) 100%) !important;
           }
-          .rp-form { border-radius: 0 !important; max-height: none !important; }
+          .rp-mascot-wrap { display: flex !important; }
+          .rp-logo-badge { width: 80px !important; height: 80px !important; }
+          .rp-form { border-radius: 0 !important; }
         }
 
         @media (min-width: 900px) {
@@ -866,9 +907,8 @@ export default function RegisterPage() {
           }
           .rp-form {
             width: 440px; flex-shrink: 0; flex: none;
-            overflow-y: auto; max-height: none !important;
+            overflow-y: auto;
           }
-          .rp-form > div { max-height: none !important; }
         }
       `}</style>
     </div>
@@ -900,39 +940,33 @@ function Divider({ label }: { label: string }) {
   )
 }
 
-function SocialBtn({ type, disabled, onClick }: { type: 'google' | 'apple'; disabled: boolean; onClick: () => void }) {
-  const isGoogle = type === 'google'
+function SocialBtn({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   return (
     <button
       type="button" onClick={onClick} disabled={disabled}
       style={{
-        flex: 1, height: 52, borderRadius: 16,
-        background: isGoogle ? '#fff' : '#000',
-        border: isGoogle ? '2px solid var(--color-border)' : '2px solid #000',
-        color: isGoogle ? 'var(--color-text)' : '#fff',
+        width: '100%', height: 48, borderRadius: 16,
+        background: '#fff',
+        border: '2px solid var(--color-border)',
+        color: 'var(--color-text)',
         fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-body)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         transition: 'transform 150ms ease',
-        boxShadow: isGoogle ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       }}
       onMouseDown={e => { if (!disabled) e.currentTarget.style.transform = 'scale(0.97)' }}
       onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
       onTouchStart={e => { if (!disabled) e.currentTarget.style.transform = 'scale(0.97)' }}
       onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
     >
-      {isGoogle
-        ? (
-          <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
-            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
-            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
-            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
-          </svg>
-        )
-        : <i className="ri-apple-fill" style={{ fontSize: 19, lineHeight: 1 }} />
-      }
-      {isGoogle ? 'Google' : 'Apple'}
+      <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
+      </svg>
+      Google
     </button>
   )
 }
@@ -943,7 +977,7 @@ const labelStyle: React.CSSProperties = {
 
 function ctaStyle(disabled: boolean): React.CSSProperties {
   return {
-    width: '100%', height: 54, borderRadius: 16,
+    width: '100%', height: 50, borderRadius: 16,
     background: disabled ? 'var(--color-gray-mid)' : 'var(--color-yellow)',
     color: disabled ? '#fff' : 'var(--color-navy)',
     fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-body)',
@@ -956,7 +990,7 @@ function ctaStyle(disabled: boolean): React.CSSProperties {
 }
 
 const backBtnStyle: React.CSSProperties = {
-  height: 54, paddingLeft: 16, paddingRight: 16,
+  height: 50, paddingLeft: 16, paddingRight: 16,
   borderRadius: 16,
   background: 'var(--color-gray-light)',
   border: '2px solid var(--color-border)',

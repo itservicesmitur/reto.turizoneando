@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ClaimedPrize } from '../types/quiz.types'
 import Ranking from './Ranking'
@@ -10,34 +11,128 @@ interface Props {
   prize: ClaimedPrize
   monumentImage: string
   stopIndex: number
+  isLastStop?: boolean
   onContinue: () => void
 }
 
-export default function PrizeCard({ prize, monumentImage, stopIndex, onContinue }: Props) {
+export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop = false, onContinue }: Props) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const [showRanking, setShowRanking] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const handleDownload = () => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(prize.code)}&color=50-30-15`
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(img, 0, 0)
-        const url = canvas.toDataURL('image/png')
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `qr-turizoneando-${prize.code}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-      }
+  const handleDownload = async () => {
+    const tryLoadViaBlob = (src: string): Promise<HTMLImageElement | null> =>
+      fetch(src, { mode: 'cors' })
+        .then(r => r.blob())
+        .then(blob => new Promise<HTMLImageElement | null>(res => {
+          const url = URL.createObjectURL(blob)
+          const img = new Image()
+          img.onload = () => { URL.revokeObjectURL(url); res(img) }
+          img.onerror = () => { URL.revokeObjectURL(url); res(null) }
+          img.src = url
+        }))
+        .catch(() => null)
+
+    const W = 420
+    const QR_SIZE = 160
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const [bannerImg, qrImg] = await Promise.all([
+      tryLoadViaBlob(bannerImage),
+      tryLoadViaBlob(`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(prize.code)}&color=50-30-15&bgcolor=f5ead6`),
+    ])
+
+    const BANNER_H = bannerImg ? 220 : 0
+    const HEADER_H = bannerImg ? 0 : 110
+    const CODE_H = 160
+    const QR_H = qrImg ? QR_SIZE + 56 : 0
+    const FOOTER_H = 48
+    const H = BANNER_H + HEADER_H + CODE_H + QR_H + FOOTER_H
+    canvas.width = W
+    canvas.height = H
+
+    // Fondo crema
+    ctx.fillStyle = '#f5ead6'
+    ctx.fillRect(0, 0, W, H)
+
+    if (bannerImg) {
+      // Banner foto
+      ctx.save()
+      ctx.beginPath(); ctx.rect(0, 0, W, BANNER_H); ctx.clip()
+      ctx.drawImage(bannerImg, 0, 0, W, BANNER_H)
+      ctx.restore()
+      // Degradado inferior del banner
+      const g1 = ctx.createLinearGradient(0, BANNER_H - 90, 0, BANNER_H)
+      g1.addColorStop(0, 'rgba(245,234,214,0)'); g1.addColorStop(1, '#f5ead6')
+      ctx.fillStyle = g1; ctx.fillRect(0, BANNER_H - 90, W, 90)
+      // Degradado superior oscuro para texto
+      const g2 = ctx.createLinearGradient(0, 0, 0, 72)
+      g2.addColorStop(0, 'rgba(0,0,0,0.70)'); g2.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, W, 72)
+      // Etiqueta PREMIO
+      ctx.fillStyle = '#fcd34d'; ctx.font = 'bold 10px Georgia,serif'
+      ctx.textAlign = 'left'; ctx.fillText('PREMIO', 20, 28)
+      // Nombre del premio
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Georgia,serif'
+      ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 6
+      ctx.fillText(prize.prizeName || 'Premio', 20, 56, W - 40)
+      ctx.shadowBlur = 0
+    } else {
+      // Header sin imagen: fondo degradado oscuro
+      const g = ctx.createLinearGradient(0, 0, 0, HEADER_H)
+      g.addColorStop(0, '#22150c'); g.addColorStop(1, '#f5ead6')
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, HEADER_H)
+      ctx.fillStyle = '#fcd34d'; ctx.font = 'bold 11px Georgia,serif'
+      ctx.textAlign = 'center'; ctx.fillText('TURIZONEANDO · PREMIO', W / 2, 36)
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Georgia,serif'
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
+      ctx.fillText(prize.prizeName || 'Premio', W / 2, 72, W - 40)
+      ctx.shadowBlur = 0
     }
+
+    const baseY = BANNER_H + HEADER_H
+
+    // Separador punteado
+    ctx.strokeStyle = '#a87f2a66'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(24, baseY + 20); ctx.lineTo(W - 24, baseY + 20); ctx.stroke()
+    ctx.setLineDash([])
+
+    // Etiqueta código
+    ctx.fillStyle = '#a87f2a'; ctx.font = '700 10px Georgia,serif'; ctx.textAlign = 'center'
+    ctx.fillText('CÓDIGO DE CANJE', W / 2, baseY + 48)
+
+    // Código grande
+    ctx.fillStyle = '#321e0f'; ctx.font = 'bold 62px monospace'; ctx.textAlign = 'center'
+    ctx.fillText(prize.code, W / 2, baseY + 120)
+
+    // Separador punteado
+    ctx.strokeStyle = '#a87f2a66'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(24, baseY + CODE_H - 10); ctx.lineTo(W - 24, baseY + CODE_H - 10); ctx.stroke()
+    ctx.setLineDash([])
+
+    if (qrImg) {
+      const qrX = (W - QR_SIZE) / 2
+      const qrY = baseY + CODE_H + 14
+      // Fondo blanco QR
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.roundRect(qrX - 10, qrY - 10, QR_SIZE + 20, QR_SIZE + 20, 10); ctx.fill()
+      ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE)
+      ctx.fillStyle = '#6b4a20'; ctx.font = '600 10px Georgia,serif'; ctx.textAlign = 'center'
+      ctx.fillText('Escanea para validar tu premio', W / 2, qrY + QR_SIZE + 24)
+    }
+
+    // Footer
+    ctx.fillStyle = '#a87f2a'; ctx.font = 'bold 12px Georgia,serif'; ctx.textAlign = 'center'
+    ctx.fillText('turizoneando.com', W / 2, H - 16)
+
+    const url = canvas.toDataURL('image/png')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `premio-turizoneando-${prize.code}.png`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
   }
 
   const handleCopy = () => {
@@ -188,6 +283,13 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, onContinue 
             Ranking
           </GameButton>
         </div>
+        <GameButton variant="dark" className="w-full max-w-[360px] h-12 text-[11px]" onClick={() => { onContinue(); navigate('/map') }}>
+          {isLastStop ? (
+            <><i className="ri-flag-line text-sm mr-1.5" />Finalizar reto</>
+          ) : (
+            <><i className="ri-map-pin-line text-sm mr-1.5" />Ir a siguiente parada</>
+          )}
+        </GameButton>
       </div>
 
       {showRanking && (

@@ -536,7 +536,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
           monumentsRef.current.forEach((monumento, index) => {
             const markerDiv = document.createElement('div')
             markerDiv.className = 'treasure-pin-container'
-            markerDiv.style.cssText = 'width:120px;height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'
+            markerDiv.style.cssText = 'width:220px;height:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'
             markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current, stageGroupsRef.current)
 
             const gs = stageGroupsRef.current
@@ -970,6 +970,16 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       if (threeRendererRef) threeRendererRef.dispose()
     }
   }, [onSelectMonument])
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && mapInstanceRef.current) {
+        ;(window as any).google?.maps?.event?.trigger(mapInstanceRef.current, 'resize')
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
 
   const handleRotateLeft = () => {
     if (mapInstanceRef.current) {

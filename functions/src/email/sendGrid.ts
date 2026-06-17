@@ -259,7 +259,7 @@ export const sendAdminPasswordResetEmail = onCall({
       url: "https://turizoneando.mitur.gob.do/login",
     };
     const defaultLink = await admin.auth().generatePasswordResetLink(email.trim().toLowerCase(), actionCodeSettings);
-    
+
     const urlObj = new URL(defaultLink);
     const oobCode = urlObj.searchParams.get("oobCode") || "";
     const apiKey = urlObj.searchParams.get("apiKey") || "";
@@ -368,9 +368,6 @@ export const sendPlayerPrizeCodes = onCall({
           <span style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Código de Canje</span>
           <div style="display: inline-block; font-family: monospace; font-size: 20px; font-weight: 800; color: #d97706; background-color: #fef3c7; border: 2px dashed #f59e0b; padding: 8px 20px; border-radius: 8px; margin: 6px 0 12px; letter-spacing: 2px;">
             ${c.code}
-          </div>
-          <div>
-            <a href="${c.validationUrl}" style="display: inline-block; font-size: 12px; color: #1b2b6e; text-decoration: none; border: 1px solid #1b2b6e; padding: 6px 14px; border-radius: 6px; font-weight: 700;">Ver y validar en línea</a>
           </div>
         </div>
       `;
@@ -581,9 +578,6 @@ export const claimPrizeAndNotify = onCall({
               ${claimed.code}
             </div>
           </div>
-          <div style="text-align:center;margin:16px 0;">
-            <a href="${validationUrl}" class="btn-cta" target="_blank" style="color:#1b2b6e !important;">Ver y Validar en Línea</a>
-          </div>
           <ol style="margin:0 0 16px 0;padding-left:20px;color:#475569;font-size:14px;">
             <li style="margin-bottom:8px;">Dirígete al establecimiento participante que corresponde a tu premio.</li>
             <li style="margin-bottom:8px;">Muestra este correo o tu código en la aplicación al personal.</li>
@@ -693,10 +687,6 @@ export const sendAdminPrizeCodeEmail = onCall({
           <li style="margin-bottom: 8px;">Muestra este correo o tu código en la aplicación al personal.</li>
           <li style="margin-bottom: 8px;">Ellos escanearán o ingresarán tu código para validarlo y entregarte tu recompensa.</li>
         </ol>
-
-        <div style="text-align: center;">
-          <a href="${validationUrl}" class="btn-cta" target="_blank" style="color: #1b2b6e !important;">Ver y Validar en Línea</a>
-        </div>
 
         <p style="margin: 24px 0 0 0; font-size: 12px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 16px;">
           Este código es válido para un único canje en el establecimiento. Conserva este correo de forma privada.

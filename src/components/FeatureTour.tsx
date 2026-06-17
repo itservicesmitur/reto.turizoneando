@@ -1,7 +1,7 @@
 import React from 'react'
 import { Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from 'react-joyride'
 
-const TOUR_KEY = 'turizoneando_tour_done'
+const TOUR_KEY = 'turizoneando_tour_done_users'
 
 // ─── Joyride steps (fase 1) ────────────────────────────────────────────────
 
@@ -486,10 +486,21 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
 
 type Phase = 'tour' | 'demo' | 'done'
 
-interface Props { ready: boolean }
+interface Props { ready: boolean; userId?: string }
 
-export default function FeatureTour({ ready }: Props) {
-  const alreadyDone = localStorage.getItem(TOUR_KEY) === 'true'
+function getDoneUsers(): string[] {
+  try { return JSON.parse(localStorage.getItem(TOUR_KEY) ?? '[]') } catch { return [] }
+}
+
+function markUserDone(userId: string) {
+  const users = getDoneUsers()
+  if (!users.includes(userId)) {
+    localStorage.setItem(TOUR_KEY, JSON.stringify([...users, userId]))
+  }
+}
+
+export default function FeatureTour({ ready, userId }: Props) {
+  const alreadyDone = userId ? getDoneUsers().includes(userId) : false
   const [run, setRun] = React.useState(false)
   const [phase, setPhase] = React.useState<Phase>('tour')
 
@@ -506,14 +517,14 @@ export default function FeatureTour({ ready }: Props) {
       setRun(false)
       setPhase('demo')
     } else if (status === STATUS.SKIPPED) {
-      localStorage.setItem(TOUR_KEY, 'true')
+      if (userId) markUserDone(userId)
       setRun(false)
       setPhase('done')
     }
   }
 
   const handleDemoFinish = () => {
-    localStorage.setItem(TOUR_KEY, 'true')
+    if (userId) markUserDone(userId)
     setPhase('done')
   }
 
