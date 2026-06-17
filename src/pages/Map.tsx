@@ -5,9 +5,10 @@ import MapBoard, { type MapBoardHandle, type RouteInfo } from '../features/map/M
 import LocationGate from '../features/map/LocationGate'
 import type { Monumento } from '../features/map/types/map.types'
 import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from '../config/firebase'
+import { signOut } from 'firebase/auth'
+import { auth, db } from '../config/firebase'
 import { getStopWithQuestions, type StopData, type QuestionData } from '../services/adminService'
-import type { QuizQuestion } from '../features/map/types/quiz.types'
+import type { QuizQuestion, ClaimedPrize } from '../features/map/types/quiz.types'
 import QuizCard from '../features/map/quiz/QuizCard'
 import HistoryCard from '../features/map/quiz/HistoryCard'
 import RouletteCard from '../features/map/quiz/RouletteCard'
@@ -23,6 +24,7 @@ import PrivacyTerms from '../features/map/menu/PrivacyTerms'
 import AboutApp from '../features/map/menu/AboutApp'
 import { useRealtimeStatus } from '../features/map/middleware/useRealtimeStatus'
 import StatusBlockCard from '../components/StatusBlockCard'
+import FeatureTour from '../components/FeatureTour'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
@@ -73,11 +75,13 @@ type QuizStopData = {
 
 type QuizStep =
   | { step: 'idle' }
-  | { step: 'history';  stopIndex: number; monument: Monumento; quizData: QuizStopData }
-  | { step: 'quiz';     stopIndex: number; monument: Monumento; quizData: QuizStopData }
-  | { step: 'roulette'; stopIndex: number; monument: Monumento }
-  | { step: 'prize';    stopIndex: number; monument: Monumento }
-  | { step: 'levelup';  stopIndex: number; monument: Monumento; earnedPoints: number }
+  | { step: 'history';     stopIndex: number; monument: Monumento; quizData: QuizStopData }
+  | { step: 'quiz';        stopIndex: number; monument: Monumento; quizData: QuizStopData; retryCount: number }
+  | { step: 'quiz_failed'; stopIndex: number; monument: Monumento; quizData: QuizStopData; retryCount: number }
+  | { step: 'roulette';    stopIndex: number; monument: Monumento; showRanking: boolean; stageId: string; prizeId: string }
+  | { step: 'prize';       stopIndex: number; monument: Monumento; showRanking: boolean; claimedPrize: ClaimedPrize }
+  | { step: 'levelup';     stopIndex: number; monument: Monumento; earnedPoints: number; mode: 'complete' | 'partial'; quizData: QuizStopData; retryCount: number }
+  | { step: 'ranking_end'; stopIndex: number }
 
 export default function Map() {
   const navigate = useNavigate()
@@ -254,6 +258,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const mapControlsRef = useRef<MapBoardHandle>(null)
 
   const [firestoreStops, setFirestoreStops] = useState<StopData[]>([])
+  const [stageIdToPrizeId, setStageIdToPrizeId] = useState<Record<string, string>>({})
   const [stageGroups, setStageGroups] = useState<number[][]>([])
   const [monuments, setMonuments] = useState<Monumento[] | null>(null)
   const [noActiveSeason, setNoActiveSeason] = useState(false)
@@ -293,7 +298,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         // /seasons/{id}/stages: allow read if request.auth != null  → siempre OK
         const stagesSnap = await getDocs(collection(db, 'seasons', activeSeasonId, 'stages'))
         const stagesRaw = stagesSnap.docs
-          .map(d => ({ id: d.id, number: Number(d.data().number) || 0 }))
+          .map(d => {
+            const data = d.data()
+            const prizeIds = Array.isArray(data.prizeIds) ? data.prizeIds as string[] : []
+            return { id: d.id, number: Number(data.number) || 0, prizeId: prizeIds[0] ?? '' }
+          })
           .sort((a, b) => a.number - b.number)
 
         // ── PASO 3: Stops activos ─────────────────────────────────
@@ -377,6 +386,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         console.groupEnd()
 
         setFirestoreStops(stopsWithQuestions)
+        setStageIdToPrizeId(Object.fromEntries(stagesRaw.map(s => [s.id, s.prizeId])))
         setStageGroups(groups)
         const mapped = stopsWithQuestions.map(stopToMonumento)
         setMonuments(mapped)
@@ -492,6 +502,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops])
 
   // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
+  const handleLogout = () => signOut(auth).then(() => navigate('/'))
+
   const handleDismissBlock = useCallback(() => {
     dismissBlock()
     setSelectedMonument(null)
@@ -588,14 +600,35 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     setQuizFlow({ step: 'history', stopIndex: selectedStopIndex, monument: selectedMonument, quizData })
   }, [selectedMonument, selectedStopIndex, firestoreStops, i18n])
 
-  const handleQuizComplete = useCallback((stopIndex: number, monument: Monumento, earnedPoints: number) => {
-    const isLastStop = stopIndex === (monuments?.length ?? 0) - 1
-    if (isLastStop) {
-      setQuizFlow({ step: 'roulette', stopIndex, monument })
-    } else {
-      setQuizFlow({ step: 'levelup', stopIndex, monument, earnedPoints })
+  const handleQuizComplete = useCallback((
+    stopIndex: number,
+    monument: Monumento,
+    earnedPoints: number,
+    correctCount: number,
+    quizData: QuizStopData,
+    retryCount: number,
+  ) => {
+    const totalQuestions = quizData.questions.length
+    if (correctCount < totalQuestions) {
+      if (correctCount === 0) {
+        setQuizFlow({ step: 'quiz_failed', stopIndex, monument, quizData, retryCount })
+      } else {
+        setQuizFlow({ step: 'levelup', stopIndex, monument, earnedPoints, mode: 'partial', quizData, retryCount })
+      }
+      return
     }
-  }, [monuments?.length])
+    const stageIdx = stageGroups.findIndex(g => g.includes(stopIndex))
+    const stageGroup = stageGroups[stageIdx] ?? []
+    const completesStage = stageGroup.length > 0 && stageGroup.every(i => i === stopIndex || completedStops[i])
+    if (completesStage) {
+      const isLastStage = stageIdx === stageGroups.length - 1
+      const stageId = firestoreStops[stopIndex]?.stageId ?? ''
+      const prizeId = stageIdToPrizeId[stageId] ?? ''
+      setQuizFlow({ step: 'roulette', stopIndex, monument, showRanking: isLastStage, stageId, prizeId })
+    } else {
+      setQuizFlow({ step: 'levelup', stopIndex, monument, earnedPoints, mode: 'complete', quizData, retryCount })
+    }
+  }, [stageGroups, completedStops, firestoreStops, stageIdToPrizeId])
 
   const handleStopComplete = useCallback((stopIndex: number) => {
     setCompletedStops(prev => {
@@ -705,20 +738,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     if (mapReady && timerFinished) setMapLoading(false)
   }, [mapReady, timerFinished])
 
-  useEffect(() => {
-    if (mapLoading) return
-    const enter = () => {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {})
-      }
-    }
-    document.addEventListener('touchstart', enter, { once: true, passive: true })
-    document.addEventListener('click', enter, { once: true })
-    return () => {
-      document.removeEventListener('touchstart', enter)
-      document.removeEventListener('click', enter)
-    }
-  }, [mapLoading])
 
 
   return (
@@ -821,6 +840,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {/* ── Botón pantalla completa top-left ─────────────────────── */}
       {!mapLoading && (
         <button
+          id="tour-fullscreen"
           onClick={toggleFullscreen}
           className="absolute top-7.5 left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md text-map-gold-light active:scale-90 transition-all"
           style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
@@ -833,6 +853,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {/* ── Botón menú top-right ─────────────────────────────────── */}
       {!mapLoading && (
         <button
+          id="tour-menu"
           onClick={openMenu}
           className={`absolute top-7.5 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md text-map-gold-light transition-all ${menuBtnAnimating ? 'menu-btn-pulse' : ''}`}
           style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
@@ -844,7 +865,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       {/* ── Barra top-center: Menú + Etapas + Ajustes ─────────────── */}
       {!mapLoading && navPhase !== 'navigating' && (
-        <div className="absolute top-7.5 left-1/2 -translate-x-1/2 z-30">
+        <div id="tour-stages" className="absolute top-7.5 left-1/2 -translate-x-1/2 z-30">
           <div
             className="flex items-center gap-2 rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md px-2 py-1.5"
             style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
@@ -1022,7 +1043,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       )}
 
       {/* ── Tablero del Mapa ─────────────────────────────────────── */}
-      <main className="h-full w-full">
+      <main id="tour-map" className="h-full w-full">
         {monuments !== null ? (
           <MapBoard
             ref={mapControlsRef}
@@ -1079,11 +1100,15 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
           {/* ── FASE IDLE: descripción + botón IR AL RETO ── */}
           {navPhase === 'idle' && (
-            <div className="p-3.5 space-y-3.5 flex-1 overflow-y-auto max-h-[50vh]">
-              <div className="bg-map-cream-light border border-map-gold/30 rounded-sm p-3 shadow-inner">
-                <p className="text-[11.5px] text-map-wood-dark leading-relaxed font-serif font-medium">
+            <div className="p-3.5 space-y-3.5">
+              <div className="bg-map-cream-light border border-map-gold/30 rounded-sm p-3 shadow-inner relative">
+                <p
+                  className="text-[11.5px] text-map-wood-dark leading-relaxed font-serif font-medium"
+                  style={{ display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                >
                   {selectedMonument.descripcion}
                 </p>
+                <div className="absolute bottom-0 left-0 right-0 h-14 rounded-b-sm pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--color-map-cream-light) 75%)' }} />
               </div>
               {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
                 <div className="flex items-center justify-center gap-1.5 px-1 py-1">
@@ -1160,7 +1185,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       {/* ── Quiz Flow ────────────────────────────────────────────── */}
       {quizFlow.step === 'history' && (() => {
-        const advance = () => setQuizFlow({ step: 'quiz', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, quizData: quizFlow.quizData })
+        const advance = () => setQuizFlow({ step: 'quiz', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, quizData: quizFlow.quizData, retryCount: 0 })
         return (
           <HistoryCard
             stopIndex={quizFlow.stopIndex}
@@ -1175,36 +1200,114 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       })()}
       {quizFlow.step === 'quiz' && (
         <QuizCard
+          key={quizFlow.retryCount}
           stopId={quizFlow.quizData.stopId}
           seasonId={currentSeasonId}
           questions={quizFlow.quizData.questions}
-          onComplete={(earnedPoints) => handleQuizComplete(quizFlow.stopIndex, quizFlow.monument, earnedPoints)}
+          onComplete={(earnedPoints, correctCount) =>
+            handleQuizComplete(quizFlow.stopIndex, quizFlow.monument, earnedPoints, correctCount, quizFlow.quizData, quizFlow.retryCount)
+          }
           onClose={() => setQuizFlow({ step: 'idle' })}
         />
       )}
       {quizFlow.step === 'roulette' && (
         <RouletteCard
           stopIndex={quizFlow.stopIndex}
-          onSpinComplete={() => setQuizFlow({ step: 'prize', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument })}
+          seasonId={currentSeasonId}
+          stageId={quizFlow.stageId}
+          onSpinComplete={(claimedPrize) => setQuizFlow({ step: 'prize', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, showRanking: quizFlow.showRanking, claimedPrize })}
         />
       )}
       {quizFlow.step === 'prize' && (
         <PrizeCard
+          prize={quizFlow.claimedPrize}
           stopIndex={quizFlow.stopIndex}
           monumentImage={quizFlow.monument.imagen}
-          onContinue={() => handleStopComplete(quizFlow.stopIndex)}
+          onContinue={() => {
+            const showRanking = quizFlow.showRanking
+            const idx = quizFlow.stopIndex
+            setCompletedStops(prev => { const n = [...prev]; n[idx] = true; return n })
+            setSelectedMonument(null)
+            if (showRanking) {
+              setQuizFlow({ step: 'ranking_end', stopIndex: idx })
+            } else {
+              setQuizFlow({ step: 'idle' })
+            }
+          }}
         />
       )}
-      {quizFlow.step === 'levelup' && (
-        <LevelUpCard
-          level={completedStops.filter(Boolean).length + 1}
-          coins={quizFlow.earnedPoints}
-          stopNumber={quizFlow.stopIndex + 1}
-          stopName={quizFlow.monument.nombre}
-          onContinue={() => handleStopComplete(quizFlow.stopIndex)}
-          onBackToMap={() => handleStopComplete(quizFlow.stopIndex)}
-        />
+      {quizFlow.step === 'ranking_end' && (
+        <div className="fixed inset-0 z-60">
+          <Ranking
+            onClose={() => setQuizFlow({ step: 'idle' })}
+            onContinue={() => setQuizFlow({ step: 'idle' })}
+          />
+        </div>
       )}
+      {quizFlow.step === 'levelup' && (() => {
+        const { stopIndex, monument, earnedPoints, mode, quizData, retryCount } = quizFlow
+        const doRetry = () => setQuizFlow({ step: 'quiz', stopIndex, monument, quizData, retryCount: retryCount + 1 })
+        return (
+          <LevelUpCard
+            level={completedStops.filter(Boolean).length + 1}
+            coins={earnedPoints}
+            stopNumber={stopIndex + 1}
+            stopName={monument.nombre}
+            mode={mode}
+            onContinue={mode === 'complete' ? () => handleStopComplete(stopIndex) : doRetry}
+            onBackToMap={mode === 'complete' ? () => handleStopComplete(stopIndex) : () => setQuizFlow({ step: 'idle' })}
+          />
+        )
+      })()}
+      {quizFlow.step === 'quiz_failed' && (() => {
+        const { stopIndex, monument, quizData, retryCount } = quizFlow
+        return (
+          <div
+            className="fixed inset-0 z-60 flex items-center justify-center px-6"
+            style={{ background: 'rgba(8,4,2,0.82)', backdropFilter: 'blur(6px)' }}
+          >
+            <div
+              style={{
+                width: '100%', maxWidth: 340,
+                background: 'linear-gradient(160deg, var(--color-map-wood-dark) 0%, var(--color-map-wood-deep) 100%)',
+                borderRadius: 20,
+                border: '2px solid var(--color-map-gold)',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.7), 0 0 32px rgba(168,127,42,0.15)',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ height: 3, background: 'linear-gradient(90deg,transparent,var(--color-map-gold),transparent)' }} />
+              <div style={{ padding: '28px 24px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(168,127,42,0.12)', border: '2px solid rgba(168,127,42,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ri-close-circle-line" style={{ fontSize: 28, color: 'var(--color-map-gold)' }} />
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 6px', fontFamily: 'var(--font-display, Georgia, serif)', fontSize: 17, fontWeight: 800, color: 'var(--color-map-gold-light)' }}>
+                    {t('map.quiz_failed_title')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55 }}>
+                    {t('map.quiz_failed_msg')}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 4 }}>
+                  <button
+                    onClick={() => setQuizFlow({ step: 'idle' })}
+                    style={{ flex: 1, height: 46, borderRadius: 12, border: '1.5px solid rgba(168,127,42,0.3)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {t('map.back_map')}
+                  </button>
+                  <button
+                    onClick={() => setQuizFlow({ step: 'quiz', stopIndex, monument, quizData, retryCount: retryCount + 1 })}
+                    style={{ flex: 2, height: 46, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, var(--color-map-wood-dark), var(--color-map-wood-mid))', color: 'var(--color-map-gold-light)', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(168,127,42,0.25)' }}
+                  >
+                    {t('map.quiz_retry')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Menú pantalla completa ───────────────────────────────── */}
       {showMenu && menuView === 'main' && (
@@ -1225,11 +1328,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                 className="h-10 w-10 rounded-full flex items-center justify-center border border-map-gold shrink-0"
                 style={{ background: 'linear-gradient(135deg,var(--color-map-wood-dark),var(--color-map-wood-mid))' }}
               >
-                <span className="text-sm font-black text-map-gold-light leading-none" style={{ fontFamily: 'Georgia, serif' }}>CM</span>
+                <span className="text-sm font-black text-map-gold-light leading-none" style={{ fontFamily: 'Georgia, serif' }}>
+                  {auth.currentUser?.displayName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                </span>
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-black text-map-wood-dark truncate" style={{ fontFamily: 'Georgia, serif' }}>Capitán Marco</h3>
-                <p className="text-[10px] text-map-gold truncate">marco.p@explorador.do</p>
+                <h3 className="text-sm font-black text-map-wood-dark truncate" style={{ fontFamily: 'Georgia, serif' }}>{auth.currentUser?.displayName || ''}</h3>
+                <p className="text-[10px] text-map-gold truncate">{auth.currentUser?.email || ''}</p>
               </div>
             </div>
             <button
@@ -1435,10 +1540,16 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           <div className="menu-section-in px-4 pb-8 pt-3 shrink-0" style={{ background: 'var(--color-map-cream-light)', animationDelay: '0.33s' }}>
             <div className="h-px mb-4" style={{ background: 'linear-gradient(90deg,transparent,rgba(168,127,42,0.3),transparent)' }} />
             <button
-              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all active:scale-95"
-              style={{ background: 'rgba(168,127,42,0.08)', border: '1.5px solid var(--color-map-tan)', color: 'var(--color-map-wood-dark)' }}
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+              style={{
+                background: 'linear-gradient(180deg, #7a4824 0%, #321e0f 100%)',
+                border: '1.5px solid rgba(199,163,97,0.35)',
+                color: '#fcd34d',
+                boxShadow: '0 3px 0 #1a0d05, inset 0 1px 0 rgba(255,255,255,0.08)',
+              }}
             >
-              <i className="ri-logout-box-r-line text-lg" />
+              <i className="ri-logout-box-r-line text-base" />
               {t('map.menu_logout')}
             </button>
           </div>
@@ -1544,6 +1655,9 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           onNextStop={statusBlock.type === 'stop_deactivated' && nextAvailableStopIndex >= 0 ? handleNextStop : undefined}
         />
       )}
+
+      {/* ── Feature Tour (primera visita) ───────────────────────────── */}
+      <FeatureTour ready={!mapLoading} />
 
     </div>
   )

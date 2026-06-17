@@ -22,12 +22,9 @@ export const functions = getFunctions(app)
 export const storage = getStorage(app)
 
 //Connect to emulators in development
-const isLocal = window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname.startsWith('192.168.') ||
-  window.location.hostname.startsWith('10.');
 
-if (isLocal) {
+if (import.meta.env.VITE_ENV === 'local') {
+
   const emulatorHost = window.location.hostname;
   connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
   connectFirestoreEmulator(db, emulatorHost, 8080)

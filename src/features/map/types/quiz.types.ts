@@ -15,9 +15,12 @@ export interface StopPrize {
   validUntil: string
 }
 
-export interface StopQuizData {
-  questions: [QuizQuestion, QuizQuestion]
-  prize: StopPrize
-  narration: string
-  audioUrl?: string
+export interface ClaimedPrize {
+  code: string
+  prizeId: string
+  prizeName: string
+  prizeImageUrl: string
+  prizeCategory: string
+  description: string
 }
+

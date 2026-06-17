@@ -23,7 +23,7 @@ interface Options {
   stopId: string
   seasonId: string
   questions: QuizQuestion[]
-  onComplete: (earnedPoints: number) => void
+  onComplete: (earnedPoints: number, correctCount: number) => void
 }
 
 export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options) {
@@ -31,14 +31,17 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
 
   const [questionIdx,    setQuestionIdx]    = useState(() => loadProgress(stopId)?.questionIdx ?? 0)
   const [selectedOption, setSelectedOption] = useState<number | null>(() => loadProgress(stopId)?.wrongAnswer ?? null)
-  const [isWrong,        setIsWrong]        = useState(() => (loadProgress(stopId)?.wrongAnswer ?? null) !== null)
-  const [shakeKey,       setShakeKey]       = useState(0)
+  const [isWrong,             setIsWrong]             = useState(() => (loadProgress(stopId)?.wrongAnswer ?? null) !== null)
+  const [correctAnswerIndex,  setCorrectAnswerIndex]  = useState<number | null>(null)
+  const [isCorrect,           setIsCorrect]           = useState(false)
+  const [shakeKey,            setShakeKey]            = useState(0)
   const [needsSelection, setNeedsSelection] = useState(false)
   const [needsShakeKey,  setNeedsShakeKey]  = useState(0)
   const [hasAnimated,    setHasAnimated]    = useState(false)
   const [checking,       setChecking]       = useState(false)
   const questionStartRef  = useRef(Date.now())
   const earnedPointsRef   = useRef(0)
+  const wrongCountRef     = useRef(0)
 
   useEffect(() => {
     const timer = setTimeout(() => setHasAnimated(true), 1500)
@@ -88,23 +91,17 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
       }
 
       if (correct) {
-        if (questionIdx + 1 >= totalQuestions) {
-          clearProgress(stopId)
-          onComplete(earnedPointsRef.current)
-        } else {
-          const next = questionIdx + 1
-          saveProgress(stopId, next, null)
-          setQuestionIdx(next)
-          setSelectedOption(null)
-          setIsWrong(false)
-        }
+        setIsCorrect(true)
       } else {
         saveProgress(stopId, questionIdx, selectedOption)
+
         setIsWrong(true)
         setShakeKey(k => k + 1)
       }
     } catch {
       saveProgress(stopId, questionIdx, selectedOption)
+      setCorrectAnswerIndex(null)
+      setIsCorrect(false)
       setIsWrong(true)
       setShakeKey(k => k + 1)
     } finally {
@@ -112,10 +109,27 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
     }
   }
 
-  const handleContinueWrong = () => {
+  const handleContinueCorrect = () => {
+    setIsCorrect(false)
+    setCorrectAnswerIndex(null)
     if (questionIdx + 1 >= totalQuestions) {
       clearProgress(stopId)
-      onComplete(earnedPointsRef.current)
+      onComplete(earnedPointsRef.current, totalQuestions - wrongCountRef.current)
+    } else {
+      const next = questionIdx + 1
+      saveProgress(stopId, next, null)
+      setQuestionIdx(next)
+      setSelectedOption(null)
+      setIsWrong(false)
+    }
+  }
+
+  const handleContinueWrong = () => {
+    wrongCountRef.current += 1
+    setCorrectAnswerIndex(null)
+    if (questionIdx + 1 >= totalQuestions) {
+      clearProgress(stopId)
+      onComplete(earnedPointsRef.current, totalQuestions - wrongCountRef.current)
     } else {
       const next = questionIdx + 1
       saveProgress(stopId, next, null)
@@ -132,12 +146,15 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
     selectedOption,
     setSelectedOption,
     isWrong,
+    isCorrect,
+    correctAnswerIndex,
     shakeKey,
     needsSelection,
     needsShakeKey,
     skipIntro,
     checking,
     handleCheck,
+    handleContinueCorrect,
     handleContinueWrong,
   }
 }

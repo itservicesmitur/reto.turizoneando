@@ -6,6 +6,7 @@ interface Props {
   coins: number
   stopNumber: number
   stopName: string
+  mode?: 'complete' | 'partial'
   onContinue: () => void
   onBackToMap: () => void
 }
@@ -30,16 +31,26 @@ export default function LevelUpCard({
   coins,
   stopNumber,
   stopName,
+  mode = 'complete',
   onContinue,
   onBackToMap,
 }: Props) {
   const { t } = useTranslation()
-  const [display, setDisplay]     = useState(0)
-  const [phase, setPhase]         = useState<'in' | 'open' | 'coins'>('in')
-  const [frozenSrc, setFrozenSrc] = useState<string | null>(null)
+  const [display, setDisplay]         = useState(0)
+  const [phase, setPhase]             = useState<'in' | 'open' | 'coins'>('in')
+  const [frozenSrc, setFrozenSrc]     = useState<string | null>(null)
   const [chestLoaded, setChestLoaded] = useState(false)
+  const [boxPulse, setBoxPulse]       = useState(false)
 
   const rafRef  = useRef<number>(0)
+
+  // En modo partial: cuando el texto ya aterrizó dentro del recuadro, activar pulso suave
+  useEffect(() => {
+    if (mode !== 'partial' || phase !== 'coins') return
+    // última letra (índice ~13) aterriza en ~1.74s → esperar 2s para asegurar
+    const timer = setTimeout(() => setBoxPulse(true), 2000)
+    return () => clearTimeout(timer)
+  }, [phase, mode])
 
   useEffect(() => {
     // Safety fallback: if load event doesn't fire in 1s, trigger anyway
@@ -69,6 +80,7 @@ export default function LevelUpCard({
   // Contador arranca al entrar en fase 'coins'
   useEffect(() => {
     if (phase !== 'coins') return
+    if (mode === 'partial') return
     const duration = 4300
     let startTs: number | null = null
     const tick = (ts: number) => {
@@ -86,7 +98,7 @@ export default function LevelUpCard({
     }
     const d2 = setTimeout(() => { rafRef.current = requestAnimationFrame(tick) }, 100)
     return () => { clearTimeout(d2); cancelAnimationFrame(rafRef.current) }
-  }, [phase, coins])
+  }, [phase, coins, mode])
 
   return (
       <div
@@ -234,15 +246,15 @@ export default function LevelUpCard({
         <div
           className="absolute inset-0 flex flex-col items-center px-6"
           style={{
-            paddingTop: 'max(env(safe-area-inset-top, 0px) + 32px, 44px)',
-            paddingBottom: 400,
+            paddingTop: 'max(env(safe-area-inset-top, 0px) + 16px, 32px)',
+            paddingBottom: 'clamp(240px, 40vh, 400px)',
             justifyContent: 'center',
             zIndex: 3,
             animation: 'lu-content-in .5s ease .2s both',
           }}
         >
           {/* CROWN & BADGE CONTAINER */}
-          <div className="relative flex flex-col items-center z-20" style={{ marginTop: 0, marginBottom: -32 }}>
+          <div className="relative flex flex-col items-center z-20" style={{ marginTop: 0, marginBottom: 'clamp(-24px, -3vh, -32px)' }}>
             {/* GOLDEN CROWN */}
             <div 
               style={{
@@ -273,8 +285,8 @@ export default function LevelUpCard({
             {/* CIRCULAR LEVEL BADGE */}
             <div
               style={{
-                width: 96,
-                height: 96,
+                width: 'clamp(72px, 12vh, 96px)',
+                height: 'clamp(72px, 12vh, 96px)',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #a75a28 0%, #52250d 100%)',
                 border: '8px solid var(--color-map-gold-light)',
@@ -336,9 +348,11 @@ export default function LevelUpCard({
             {/* Stop Information */}
             <div className="text-center mb-4">
               <p className="text-map-gold font-black text-xs uppercase tracking-wider">
-                {t('map.stop_completed_n', { n: stopNumber })}
+                {mode === 'partial'
+                  ? t('map.stop_almost_n', { n: stopNumber })
+                  : t('map.stop_completed_n', { n: stopNumber })}
               </p>
-              <p className="text-map-wood-dark font-black text-xl leading-tight">
+              <p className="text-map-wood-dark font-black text-xl leading-tight mt-2">
                 {stopName}
               </p>
             </div>
@@ -349,32 +363,69 @@ export default function LevelUpCard({
               style={{
                 background: 'rgba(82, 49, 22, 0.08)',
                 border: '2px solid rgba(82, 49, 22, 0.15)',
+                ...(mode === 'partial' && {
+                  animation: boxPulse
+                    ? 'lu-box-pulse 2.2s ease-in-out infinite'
+                    : 'lu-box-pop 0.85s cubic-bezier(.34,1.56,.64,1) both',
+                }),
               }}
             >
-              {/* Coin stack image */}
-              <div className="relative w-12 h-12 flex items-center justify-center lu-coin-pop">
-                {/* Flying coins anchor */}
-                {phase === 'coins' && !frozenSrc && FLYING.map((c, i) => (
-                  <div key={i} style={{
-                    position: 'absolute',
-                    top: '40%', left: '50%',
-                    marginLeft: -11, marginTop: -11,
-                    pointerEvents: 'none',
-                    zIndex: 20,
-                    ['--sx' as string]: c.sx,
-                    ['--sy' as string]: c.sy,
-                    animation: `lu-coin-fly .85s cubic-bezier(.4,0,1,1) ${c.delay} infinite`,
-                  }}>
-                    <img src="/assets/img/coin_only.png" className="w-5 h-5 object-contain" />
+              {mode === 'partial' ? (
+                <div
+                  className="flex flex-wrap justify-center items-center py-2 w-full"
+                  style={{ minHeight: 40 }}
+                  aria-label={t('map.quiz_try_again_msg')}
+                >
+                  {phase === 'coins' && t('map.quiz_try_again_msg').toUpperCase().split('').map((char, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        display: 'inline-block',
+                        ['--lx' as string]: `${Math.round(Math.sin(i * 1.8) * 55)}px`,
+                        ['--ly' as string]: '360px',
+                        ['--lr' as string]: `${Math.round(Math.sin(i * 2.3) * 18)}deg`,
+                        animation: `lu-letter-fly 0.6s cubic-bezier(.16,1,.3,1) ${0.1 + i * 0.08}s both`,
+                        color: '#ffe87a',
+                        fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+                        fontSize: 24,
+                        fontWeight: 900,
+                        textShadow: '0 1px 0 #fff0a0, 0 2px 0 #d4a000, 0 3px 0 #8b6600, 0 4px 0 #5a3e0a, 0 6px 14px rgba(0,0,0,0.9)',
+                        letterSpacing: '0.04em',
+                        whiteSpace: 'pre',
+                      }}
+                    >
+                      {char}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {/* Coin stack image */}
+                  <div className="relative w-12 h-12 flex items-center justify-center lu-coin-pop">
+                    {/* Flying coins anchor */}
+                    {phase === 'coins' && !frozenSrc && FLYING.map((c, i) => (
+                      <div key={i} style={{
+                        position: 'absolute',
+                        top: '40%', left: '50%',
+                        marginLeft: -11, marginTop: -11,
+                        pointerEvents: 'none',
+                        zIndex: 20,
+                        ['--sx' as string]: c.sx,
+                        ['--sy' as string]: c.sy,
+                        animation: `lu-coin-fly .85s cubic-bezier(.4,0,1,1) ${c.delay} infinite`,
+                      }}>
+                        <img src="/assets/img/coin_only.png" className="w-5 h-5 object-contain" />
+                      </div>
+                    ))}
+                    <img src="/assets/img/coins.png" className="w-full h-full object-contain" alt="Coins" />
                   </div>
-                ))}
-                <img src="/assets/img/coins.png" className="w-full h-full object-contain" alt="Coins" />
-              </div>
 
-              {/* Coins counter value */}
-              <div className="flex flex-col justify-center">
-                <span className="text-map-gold font-black text-2xl tracking-tight">+{display}</span>
-              </div>
+                  {/* Coins counter value */}
+                  <div className="flex flex-col justify-center">
+                    <span className="text-map-gold font-black text-2xl tracking-tight">+{display}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Buttons */}
@@ -427,7 +478,7 @@ export default function LevelUpCard({
                 onPointerDown={e => { e.currentTarget.style.transform = 'translateY(4px)'; e.currentTarget.style.borderBottomWidth = '3px' }}
                 onPointerUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderBottomWidth = '7px' }}
               >
-                {t('map.next_stop')}
+                {mode === 'partial' ? t('map.quiz_retry') : t('map.next_stop')}
               </button>
             </div>
           </div>
@@ -437,10 +488,10 @@ export default function LevelUpCard({
         <div
           style={{
             position: 'absolute',
-            bottom: 24,
+            bottom: 'min(24px, 2vh)',
             left: '50%',
             width: 'min(95vw, 420px)',
-            height: 380,
+            height: 'clamp(240px, 40vh, 380px)',
             zIndex: 10,
             opacity: chestLoaded ? 1 : 0,
             animation: chestLoaded
@@ -518,15 +569,21 @@ export default function LevelUpCard({
               </div>
             </div>
           ) : (
-            <img
-              src="/assets/img/COFRE.gif"
-              onLoad={() => setChestLoaded(true)}
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              onLoadedData={() => setChestLoaded(true)}
               style={{
                 width: '100%', height: '100%',
                 objectFit: 'contain',
                 display: 'block',
               }}
-            />
+            >
+              <source src="/assets/img/COFRE.webm" type="video/webm" />
+              <source src="/assets/img/COFRE.gif" type="image/gif" />
+            </video>
           )}
         </div>
       </div>

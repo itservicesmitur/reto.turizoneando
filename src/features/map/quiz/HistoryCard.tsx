@@ -88,7 +88,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
         />
 
         {/* ── HERO ── */}
-        <div className="relative h-[250px] shrink-0 z-10">
+        <div className="relative h-[180px] shrink-0 z-10">
           <div className="absolute inset-0 overflow-hidden">
             <img
               src={monumentImage}
@@ -141,8 +141,8 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
           />
         </div>
 
-        {/* ── CONTENIDO SCROLLABLE ── */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-2 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
+        {/* ── CONTENIDO ── */}
+        <div className="flex-1 min-h-0 overflow-hidden px-4 pb-2 flex flex-col gap-4">
           <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
             <defs>
               <filter id="torn-paper">
@@ -152,7 +152,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
             </defs>
           </svg>
 
-          <div className="relative px-6 pb-6 pt-10 parchment-unfurl" style={{ maxHeight: 'calc(100vh - 360px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="relative px-6 pb-6 pt-10 parchment-unfurl flex-1 min-h-0" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div
               className="absolute inset-x-0 bottom-0 z-0"
               style={{
@@ -164,7 +164,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
               }}
             />
 
-            <div className="relative z-10 flex flex-col min-h-0">
+            <div className="relative z-10 flex flex-col min-h-0 flex-1">
               <svg className="absolute bottom-2 left-2 w-7 h-7 pointer-events-none text-map-gold opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M2 14v8h8M4 18v-2h2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
