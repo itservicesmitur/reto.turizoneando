@@ -51,7 +51,8 @@ export {
 } from "./admin/prizeCodes";
 export {
   getElevenLabsVoices,
-  generateElevenLabsAudio
+  generateElevenLabsAudio,
+  previewMusicTrack
 } from "./admin/elevenLabs";
 export { seedTestData } from "./admin/seed";
 export { getStopWithQuestions } from "./game/getStopWithQuestions";
@@ -59,7 +60,7 @@ export { getCorrectAnswer } from "./game/validateAnswer";
 export { registerAttempt } from "./game/registerAttempt";
 export { getPlayerStatus, getPlayerStatusAdmin } from "./game/getPlayerStatus";
 export { getTopTen, getMyPositionsRanking } from "./game/leaderboard";
-export { getPrizes, getPrizeById, claimPrize } from "./prizes/prizes";
+export { getPrizes, getPrizeById, getPrizesForStage, claimPrize } from "./prizes/prizes";
 export {
   sendAdminCustomEmail,
   sendAdminPasswordResetEmail,

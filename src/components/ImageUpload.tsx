@@ -298,7 +298,7 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
                 alignItems: 'center',
                 gap: 6
               }}>
-                <i className="ri-loader-4-line animate-spin" style={{ animation: 'spin-circle 0.8s linear infinite' }} />
+                <i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} />
                 Subiendo archivo ({progress}%)
               </div>
               <div style={{

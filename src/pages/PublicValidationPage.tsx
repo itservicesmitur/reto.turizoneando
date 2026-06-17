@@ -124,6 +124,8 @@ export default function PublicValidationPage() {
     })
   }
 
+  const isExpired = data?.status === 'active' && !!data.expiresAt && new Date(data.expiresAt) < new Date()
+
   return (
     <div style={{
       minHeight: '100dvh',
@@ -397,6 +399,15 @@ export default function PublicValidationPage() {
                   <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{formatDate(data.createdAt)}</span>
                 </div>
 
+                {data.expiresAt && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--color-gray-light)', paddingBottom: 8 }}>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>{t('publicValidation.expiresAtLabel')}</span>
+                    <span style={{ color: isExpired ? 'var(--color-red)' : 'var(--color-text)', fontWeight: isExpired ? 700 : 500 }}>
+                      {formatDate(data.expiresAt)}
+                    </span>
+                  </div>
+                )}
+
                 {claimedAtDate && (
                   <div style={{
                     background: 'rgba(27,43,110,0.04)', padding: 12, borderRadius: 8,
@@ -429,6 +440,16 @@ export default function PublicValidationPage() {
                 </div>
               )}
 
+              {isExpired && (
+                <div style={{
+                  padding: 12, borderRadius: 10, background: 'rgba(230,51,41,0.06)',
+                  color: 'var(--color-red)', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center', lineHeight: 1.4
+                }}>
+                  <i className="ri-time-line" style={{ fontSize: 18, flexShrink: 0 }} />
+                  <span>{t('publicValidation.errExpired', { date: formatDate(data.expiresAt) })}</span>
+                </div>
+              )}
+
               {/* Celebration Screen inside card when redeemed successfully */}
               {successRedeem && (
                 <div style={{
@@ -453,7 +474,7 @@ export default function PublicValidationPage() {
 
               {/* Action Buttons Footer inside main view */}
               <div style={{ marginTop: 'auto', paddingTop: 16 }}>
-                {data.status === 'active' ? (
+                {data.status === 'active' && !isExpired ? (
                   <button
                     onClick={handleRedeem}
                     disabled={redeeming}

@@ -484,7 +484,7 @@ export const claimPrizeAndNotify = onCall({
         }
 
         if (!prizeSnap.exists) throw new HttpsError("not-found", "Prize not found.");
-        const prizeData = prizeSnap.data()!;
+        const prizeData = prizeSnap.data() ?? {};
         const stockCurrent = typeof prizeData.stockCurrent === "number"
           ? prizeData.stockCurrent
           : (typeof prizeData.stock === "number" ? prizeData.stock : 0);
@@ -497,8 +497,9 @@ export const claimPrizeAndNotify = onCall({
 
         if (codeSnap.exists) return null; // code collision — retry
 
-        const playerData = playerSnap.data()!;
+        const playerData = playerSnap.data() ?? {};
         const now = Timestamp.now();
+        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
 
         tx.update(prizeRef, { stockCurrent: FieldValue.increment(-1) });
         tx.set(prizeCodeRef, {
@@ -514,11 +515,12 @@ export const claimPrizeAndNotify = onCall({
           prizeImageUrl: prizeData.imageUrl || "",
           status: "active",
           createdAt: now,
+          expiresAt,
           claimedAt: null,
           claimedBy: null
         });
 
-        const prizeEntry = { prizeId, stageId, claimedCode: code, wonAt: now, claimedAt: null };
+        const prizeEntry = { prizeId, stageId, claimedCode: code, wonAt: now, expiresAt, claimedAt: null };
         if (playerSeasonSnap.exists) {
           tx.update(playerSeasonRef, { prizesWon: FieldValue.arrayUnion(prizeEntry) });
         } else {
@@ -638,7 +640,7 @@ export const sendAdminPrizeCodeEmail = onCall({
       throw new HttpsError("not-found", "The specified prize code does not exist.");
     }
 
-    const cData = codeSnap.data()!;
+    const cData = codeSnap.data() ?? {};
     const playerEmail = cData.playerEmail;
     const playerDisplayName = cData.playerDisplayName || "Ganador";
     const prizeName = cData.prizeName || "Premio del Rally";

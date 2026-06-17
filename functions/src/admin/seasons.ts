@@ -66,9 +66,6 @@ export const createSeason = onCall(async (request) => {
         if (!p.prizeId || typeof p.prizeId !== "string") {
           throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} must have a valid prizeId.`);
         }
-        if (typeof p.stock !== "number" || p.stock < 0) {
-          throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} stock must be a non-negative number.`);
-        }
       }
     }
 
@@ -176,9 +173,6 @@ export const updateSeason = onCall(async (request) => {
       const p = s.prizes[j];
       if (!p.prizeId || typeof p.prizeId !== "string") {
         throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} must have a valid prizeId.`);
-      }
-      if (typeof p.stock !== "number" || p.stock < 0) {
-        throw new HttpsError("invalid-argument", `Stage ${i + 1} prize ${j + 1} stock must be a non-negative number.`);
       }
     }
   }

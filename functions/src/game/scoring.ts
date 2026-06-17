@@ -29,12 +29,13 @@ export async function computePlayerScores(): Promise<Map<string, PlayerScoreData
   const playerAttemptsMap = new Map<string, any[]>();
   for (const doc of attemptsSnapshot.docs) {
     // Navigate from /players/{playerId}/attempts/{attemptId} to get playerId
-    const playerId = doc.ref.parent.parent!.id;
+    const playerId = doc.ref.parent.parent?.id ?? "";
+    if (!playerId) continue;
     const data = doc.data();
     if (!playerAttemptsMap.has(playerId)) {
       playerAttemptsMap.set(playerId, []);
     }
-    playerAttemptsMap.get(playerId)!.push({
+    (playerAttemptsMap.get(playerId) ?? []).push({
       questionId: data.questionId || "",
       correct: data.correct === true,
       pointsAwarded: typeof data.pointsAwarded === "number" ? data.pointsAwarded : 0,
@@ -52,7 +53,7 @@ export async function computePlayerScores(): Promise<Map<string, PlayerScoreData
       if (!questionAttempts.has(a.questionId)) {
         questionAttempts.set(a.questionId, []);
       }
-      questionAttempts.get(a.questionId)!.push(a);
+      (questionAttempts.get(a.questionId) ?? []).push(a);
     }
 
     let realScore = 0;

@@ -26,7 +26,7 @@ export const getCorrectAnswer = onCall(async (request) => {
       throw new HttpsError("not-found", "Question not found");
     }
 
-    const qData = questionDoc.data()!;
+    const qData = questionDoc.data() ?? {};
     const correctIndex: number = typeof qData.correctIndex === "number" ? qData.correctIndex : 0;
     const correct = selectedIndex === correctIndex;
     const points: number = typeof qData.points === "number" ? qData.points : 10;

@@ -56,7 +56,7 @@ export const getPlayerAttempts = onCall(async (request) => {
     const stopMap = new Map<string, { name: string; nameEn: string; stageId: string }>();
     stopDocs.forEach(snap => {
       if (snap.exists) {
-        const d = snap.data()!;
+        const d = snap.data() ?? {};
         stopMap.set(snap.id, {
           name: d.name || "",
           nameEn: d.nameEn || "",
@@ -84,7 +84,7 @@ export const getPlayerAttempts = onCall(async (request) => {
     stageEntries.forEach(([key], i) => {
       const snap = stageDocs[i];
       if (snap.exists) {
-        stageMap.set(key, snap.data()!.number ?? null);
+        stageMap.set(key, snap.data()?.number ?? null);
       }
     });
 

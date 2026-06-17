@@ -8,24 +8,45 @@ import AdminLoginPage from './pages/admin/AdminLoginPage'
 import LandingPage from './pages/LandingPage'
 import { ProtectedRoute, AdminRoute } from './components/RouteGuards'
 
+// Wraps lazy() so that a chunk-not-found error (stale deploy) triggers a page
+// reload instead of crashing the React Router ErrorBoundary.
+function lazyLoad<T extends React.ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return lazy(() =>
+    factory().catch((err: Error) => {
+      const msg = err?.message ?? ''
+      if (
+        msg.includes('Failed to fetch dynamically imported module') ||
+        msg.includes('Importing a module script failed') ||
+        msg.includes('error loading dynamically imported module')
+      ) {
+        window.location.reload()
+        return new Promise<never>(() => undefined)
+      }
+      throw err
+    })
+  )
+}
+
 // Lazy-loaded placeholders — replace with real pages as they are built
-const MapPage = lazy(() => import('./pages/Map'))
+const MapPage = lazyLoad(() => import('./pages/Map'))
 const PrizesPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Premios (coming soon)</div> }))
 const ProfilePage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Perfil (coming soon)</div> }))
 const ScannerPage = lazy(() => Promise.resolve({ default: () => <div style={{ padding: 24 }}>Scanner (coming soon)</div> }))
 
-const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
-const StopsPage = lazy(() => import('./pages/admin/StopsPage'))
-const AdminPrizesPage = lazy(() => import('./pages/admin/PrizesPage'))
-const PlayersPage = lazy(() => import('./pages/admin/PlayersPage'))
-const PlayerDetailPage = lazy(() => import('./pages/admin/PlayerDetailPage'))
-const AdminsPage = lazy(() => import('./pages/admin/AdminsPage'))
-const SeasonsPage = lazy(() => import('./pages/admin/SeasonsPage'))
-const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
-const CodesPage = lazy(() => import('./pages/admin/CodesPage'))
-const AttemptsLogPage = lazy(() => import('./pages/admin/AttemptsLogPage'))
-const PublicValidationPage = lazy(() => import('./pages/PublicValidationPage'))
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const DashboardPage = lazyLoad(() => import('./pages/admin/DashboardPage'))
+const StopsPage = lazyLoad(() => import('./pages/admin/StopsPage'))
+const AdminPrizesPage = lazyLoad(() => import('./pages/admin/PrizesPage'))
+const PlayersPage = lazyLoad(() => import('./pages/admin/PlayersPage'))
+const PlayerDetailPage = lazyLoad(() => import('./pages/admin/PlayerDetailPage'))
+const AdminsPage = lazyLoad(() => import('./pages/admin/AdminsPage'))
+const SeasonsPage = lazyLoad(() => import('./pages/admin/SeasonsPage'))
+const SettingsPage = lazyLoad(() => import('./pages/admin/SettingsPage'))
+const CodesPage = lazyLoad(() => import('./pages/admin/CodesPage'))
+const AttemptsLogPage = lazyLoad(() => import('./pages/admin/AttemptsLogPage'))
+const PublicValidationPage = lazyLoad(() => import('./pages/PublicValidationPage'))
+const ResetPasswordPage = lazyLoad(() => import('./pages/ResetPasswordPage'))
 
 
 const router = createBrowserRouter([

@@ -95,6 +95,8 @@ export const generateTestPrizeCode = onCall(async (request) => {
         }
         
         // Write the code inside the transaction to lock it
+        const now = Timestamp.now();
+        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
         transaction.set(docRef, {
           code: candidateCode,
           playerId,
@@ -108,7 +110,8 @@ export const generateTestPrizeCode = onCall(async (request) => {
           prizeCategory,
           prizeImageUrl,
           status: "active",
-          createdAt: Timestamp.now(),
+          createdAt: now,
+          expiresAt,
           claimedAt: null,
           claimedBy: null
         });
@@ -163,6 +166,7 @@ export const getPublicPrizeCode = onCall(async (request) => {
       playerDisplayName: data.playerDisplayName,
       status: data.status, // 'active' | 'inactive' | 'claimed'
       createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+      expiresAt: data.expiresAt ? data.expiresAt.toDate().toISOString() : null,
       claimedAt: data.claimedAt ? data.claimedAt.toDate().toISOString() : null
     };
   } catch (error) {
@@ -200,6 +204,10 @@ export const redeemPublicPrizeCode = onCall(async (request) => {
 
       if (data.status === "inactive") {
         throw new HttpsError("failed-precondition", "Este código está desactivado y no se puede canjear.");
+      }
+
+      if (data.expiresAt && (data.expiresAt as Timestamp).toMillis() < Date.now()) {
+        throw new HttpsError("failed-precondition", "Este código ha expirado y ya no puede ser canjeado.");
       }
 
       const claimedAt = Timestamp.now();

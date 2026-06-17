@@ -64,7 +64,7 @@ export const getPrizeById = onCall(async (request) => {
       throw new HttpsError("not-found", "Prize not found.");
     }
 
-    const d = doc.data()!;
+    const d = doc.data() ?? {};
     return {
       prize: {
         id: doc.id,
@@ -82,6 +82,72 @@ export const getPrizeById = onCall(async (request) => {
   } catch (error: any) {
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message || "Failed to retrieve prize.");
+  }
+});
+
+// Player-facing: returns prizes available for a specific stage, filtered by player's age.
+// Accepts: { seasonId, stageId } — playerId is resolved from request.auth.uid.
+export const getPrizesForStage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  const uid = request.auth.uid;
+  const { seasonId, stageId } = request.data as { seasonId?: string; stageId?: string };
+
+  if (!seasonId?.trim()) throw new HttpsError("invalid-argument", "seasonId is required.");
+  if (!stageId?.trim()) throw new HttpsError("invalid-argument", "stageId is required.");
+
+  const db = getFirestore();
+
+  try {
+    // 1. Determine if player is 18+
+    const playerSnap = await db.collection("players").doc(uid).get();
+    if (!playerSnap.exists) throw new HttpsError("not-found", "Player not found.");
+    const playerData = playerSnap.data() ?? {};
+    const ageNum = parseInt(playerData.ageRange || "0", 10);
+    const isAdult = !isNaN(ageNum) && ageNum >= 18;
+
+    // 2. Get the prize list for this stage
+    const stageSnap = await db
+      .collection("seasons").doc(seasonId.trim())
+      .collection("stages").doc(stageId.trim())
+      .get();
+    if (!stageSnap.exists) throw new HttpsError("not-found", "Stage not found.");
+
+    const stagePrizes: { prizeId: string }[] = stageSnap.data()?.prizes || [];
+    if (stagePrizes.length === 0) return { prizes: [] };
+
+    // 3. Fetch each prize from the global catalog
+    const prizeIds = [...new Set(stagePrizes.map(p => p.prizeId).filter(Boolean))];
+    const prizeDocs = await Promise.all(
+      prizeIds.map(id => db.collection("prizes").doc(id).get())
+    );
+
+    // 4. Build list, filtering by requiresAdult vs player age
+    const prizes = prizeDocs
+      .filter(doc => doc.exists)
+      .map(doc => {
+        const d = doc.data() ?? {};
+        return {
+          id: doc.id,
+          name: d.name || "",
+          description: d.description || "",
+          imageUrl: d.imageUrl || "",
+          categoria: d.categoria || "",
+          relevance: typeof d.relevance === "number" ? d.relevance : 1,
+          stock: typeof d.stock === "number" ? d.stock : 0,
+          stockCurrent: typeof d.stockCurrent === "number" ? d.stockCurrent : (typeof d.stock === "number" ? d.stock : 0),
+          requiresAdult: d.requiresAdult === true,
+        };
+      })
+      .filter(prize => prize.stockCurrent > 0 && (!prize.requiresAdult || isAdult))
+      .sort((a, b) => b.relevance - a.relevance);
+
+    return { prizes };
+  } catch (error: any) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to retrieve prizes for stage.");
   }
 });
 
@@ -108,6 +174,7 @@ export const claimPrize = onCall(async (request) => {
   const db = getFirestore();
 
   // Refs necesarias
+  const seasonRef = db.collection("seasons").doc(seasonId);
   const stageRef = db.collection("seasons").doc(seasonId).collection("stages").doc(stageId);
   const prizeRef = db.collection("prizes").doc(prizeId);
   const playerSeasonRef = db.collection("players").doc(uid).collection("seasons").doc(seasonId);
@@ -127,7 +194,8 @@ export const claimPrize = onCall(async (request) => {
 
       const result = await db.runTransaction(async (tx) => {
         // Leer docs dentro de la transacción
-        const [stageSnap, prizeSnap, playerSeasonSnap, playerSnap, codeSnap] = await Promise.all([
+        const [seasonSnap, stageSnap, prizeSnap, playerSeasonSnap, playerSnap, codeSnap] = await Promise.all([
+          tx.get(seasonRef),
           tx.get(stageRef),
           tx.get(prizeRef),
           tx.get(playerSeasonRef),
@@ -149,7 +217,7 @@ export const claimPrize = onCall(async (request) => {
         if (!prizeSnap.exists) {
           throw new HttpsError("not-found", "Prize not found.");
         }
-        const prizeData = prizeSnap.data()!;
+        const prizeData = prizeSnap.data() ?? {};
         const stockCurrent = typeof prizeData.stockCurrent === "number" ? prizeData.stockCurrent : (typeof prizeData.stock === "number" ? prizeData.stock : 0);
         if (stockCurrent <= 0) {
           throw new HttpsError("resource-exhausted", "No hay stock disponible para este premio.");
@@ -167,8 +235,10 @@ export const claimPrize = onCall(async (request) => {
         // Colisión de código — reintentar fuera de la transacción
         if (codeSnap.exists) return null;
 
-        const playerData = playerSnap.data()!;
+        const playerData = playerSnap.data() ?? {};
+        const seasonName = seasonSnap.exists ? (seasonSnap.data()?.name || "") : "";
         const now = Timestamp.now();
+        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
 
         // 1. Descontar stockCurrent del catálogo global
         tx.update(prizeRef, { stockCurrent: FieldValue.increment(-1) });
@@ -180,6 +250,7 @@ export const claimPrize = onCall(async (request) => {
           playerEmail: playerData.email || "",
           playerDisplayName: playerData.displayName || "",
           seasonId,
+          seasonName,
           stageId,
           prizeId,
           prizeName: prizeData.name || "",
@@ -187,6 +258,7 @@ export const claimPrize = onCall(async (request) => {
           prizeImageUrl: prizeData.imageUrl || "",
           status: "active",
           createdAt: now,
+          expiresAt,
           claimedAt: null,
           claimedBy: null
         });
@@ -197,6 +269,7 @@ export const claimPrize = onCall(async (request) => {
           stageId,
           claimedCode: code,
           wonAt: now,
+          expiresAt,
           claimedAt: null
         };
 
@@ -215,11 +288,11 @@ export const claimPrize = onCall(async (request) => {
           });
         }
 
-        return { code, wonAt: now.toDate().toISOString() };
+        return { code, wonAt: now.toDate().toISOString(), expiresAt: expiresAt.toDate().toISOString() };
       });
 
       if (result !== null) {
-        return { success: true, code: result.code, wonAt: result.wonAt };
+        return { success: true, code: result.code, wonAt: result.wonAt, expiresAt: result.expiresAt };
       }
       // result === null significa colisión de código, intentar con otro
     }

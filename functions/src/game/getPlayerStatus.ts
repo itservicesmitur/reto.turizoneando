@@ -69,8 +69,9 @@ async function resolvePlayerStatus(playerId: string, seasonId: string | undefine
         ? [data.seasonId]
         : [];
       if (!seasonIds.includes(resolvedSeasonId)) return;
-      if (!stopsByStage.has(stageId)) return;
-      stopsByStage.get(stageId)!.push({
+      const stageStops = stopsByStage.get(stageId);
+      if (!stageStops) return;
+      stageStops.push({
         id: d.id,
         name: data.name || "",
         nameEn: data.nameEn || "",

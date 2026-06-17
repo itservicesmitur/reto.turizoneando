@@ -10,6 +10,7 @@ import {
   fetchSeasons,
   fetchElevenLabsVoices,
   generateElevenLabsAudio,
+  previewMusicTrack,
   type StopData,
   type QuestionData,
   type SeasonData
@@ -76,6 +77,19 @@ export default function StopsPage() {
   const [customVoiceIdEn, setCustomVoiceIdEn] = useState('')
   const [generatingAudioEn, setGeneratingAudioEn] = useState(false)
   const [audioErrorEn, setAudioErrorEn] = useState<string | null>(null)
+
+  // Music states (shared for both ES and EN audio)
+  const [selectedMusicPreset, setSelectedMusicPreset] = useState<string>('none')
+  const [musicVolume, setMusicVolume] = useState<number>(0.15)
+
+  // Preview states — audio generated but not yet committed to the stop
+  const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null)
+  const [previewAudioUrlEn, setPreviewAudioUrlEn] = useState<string | null>(null)
+
+  // Music track preview state
+  const [musicPreviewUrl, setMusicPreviewUrl] = useState<string | null>(null)
+  const [generatingMusicPreview, setGeneratingMusicPreview] = useState(false)
+  const [musicPreviewError, setMusicPreviewError] = useState<string | null>(null)
 
   // Fetch ElevenLabs voices on mount/modal open from backend Cloud Function
   useEffect(() => {
@@ -409,6 +423,10 @@ export default function StopsPage() {
     setActiveTab('info')
     setFormError(null)
     setFormLoading(false)
+    setPreviewAudioUrl(null)
+    setPreviewAudioUrlEn(null)
+    setMusicPreviewUrl(null)
+    setMusicPreviewError(null)
     setShowCreateModal(true)
   }
 
@@ -438,6 +456,10 @@ export default function StopsPage() {
     setActiveTab('info')
     setFormError(null)
     setFormLoading(true)
+    setPreviewAudioUrl(null)
+    setPreviewAudioUrlEn(null)
+    setMusicPreviewUrl(null)
+    setMusicPreviewError(null)
     setShowEditModal(true)
 
     try {
@@ -478,8 +500,14 @@ export default function StopsPage() {
 
     try {
       setGeneratingAudio(true)
-      const result = await generateElevenLabsAudio(formNarration.trim(), voiceId.trim())
-      setFormAudioUrl(result.downloadUrl)
+      setPreviewAudioUrl(null)
+      const result = await generateElevenLabsAudio(
+        formNarration.trim(),
+        voiceId.trim(),
+        selectedMusicPreset !== 'none' ? selectedMusicPreset : undefined,
+        selectedMusicPreset !== 'none' ? musicVolume : undefined
+      )
+      setPreviewAudioUrl(result.downloadUrl)
     } catch (err: any) {
       console.error('ElevenLabs generation error:', err)
       
@@ -513,8 +541,14 @@ export default function StopsPage() {
 
     try {
       setGeneratingAudioEn(true)
-      const result = await generateElevenLabsAudio(formNarrationEn.trim(), voiceId.trim())
-      setFormAudioUrlEn(result.downloadUrl)
+      setPreviewAudioUrlEn(null)
+      const result = await generateElevenLabsAudio(
+        formNarrationEn.trim(),
+        voiceId.trim(),
+        selectedMusicPreset !== 'none' ? selectedMusicPreset : undefined,
+        selectedMusicPreset !== 'none' ? musicVolume : undefined
+      )
+      setPreviewAudioUrlEn(result.downloadUrl)
     } catch (err: any) {
       console.error('ElevenLabs generation error (EN):', err)
       let friendlyMessage = 'Error inesperado al generar el audio en inglés.'
@@ -1455,6 +1489,157 @@ export default function StopsPage() {
                         }}
                       />
 
+                      {/* Music Preset Selector — shared for ES and EN */}
+                      <div style={{
+                        marginTop: 4,
+                        padding: 12,
+                        borderRadius: 8,
+                        background: 'rgba(16,185,129,0.04)',
+                        border: '1px dashed rgba(16,185,129,0.35)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <i className="ri-music-2-line" style={{ fontSize: 16, color: '#059669' }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>
+                            Música de Fondo (aplica a ES y EN)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {/* Preset selector + preview button */}
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                                Estilo de música (generado con ElevenLabs)
+                              </label>
+                              <select
+                                value={selectedMusicPreset}
+                                onChange={e => {
+                                  setSelectedMusicPreset(e.target.value)
+                                  setMusicPreviewUrl(null)
+                                  setMusicPreviewError(null)
+                                }}
+                                style={{
+                                  height: 32, borderRadius: 6, border: '1px solid rgba(16,185,129,0.4)',
+                                  padding: '0 8px', fontSize: 12, fontFamily: 'var(--font-body)',
+                                  outline: 'none', cursor: 'pointer', background: '#fff'
+                                }}
+                              >
+                                <option value="none">Sin música de fondo</option>
+                                <optgroup label="── Ambiente / Exploración ──">
+                                  <option value="historico">🏛️ Histórico — cuerdas y piano suaves</option>
+                                  <option value="naturaleza">🌿 Naturaleza — guitarra acústica y aves</option>
+                                  <option value="colonial">🎸 Colonial Caribeño — guitarra y percusión</option>
+                                  <option value="aventura">⚔️ Aventura — orquesta exploración</option>
+                                  <option value="tropical">🌴 Tropical Lounge — marimba y bossa nova</option>
+                                  <option value="mar">🌊 Mar Tranquilo — olas y ambiente náutico</option>
+                                </optgroup>
+                                <optgroup label="── Pirata / Suspenso / Motivación ──">
+                                  <option value="pirata">🏴‍☠️ Pirata Épico — metales y percusión dramática</option>
+                                  <option value="suspenso">🔦 Suspenso — cuerdas tensas, caza del tesoro</option>
+                                  <option value="misterio">🕳️ Misterio — ambiente oscuro, cueva subterránea</option>
+                                  <option value="epico">⚡ Épico Motivacional — fanfarria triunfal</option>
+                                  <option value="descubrimiento">✨ Descubrimiento — fanfarria de logro heroico</option>
+                                  <option value="taberna">🍺 Taberna Pirata — violín y acordeón festivo</option>
+                                </optgroup>
+                              </select>
+                            </div>
+
+                            {selectedMusicPreset !== 'none' && (
+                              <button
+                                type="button"
+                                disabled={generatingMusicPreview}
+                                onClick={async () => {
+                                  setMusicPreviewError(null)
+                                  setMusicPreviewUrl(null)
+                                  setGeneratingMusicPreview(true)
+                                  try {
+                                    const result = await previewMusicTrack(selectedMusicPreset)
+                                    setMusicPreviewUrl(result.downloadUrl)
+                                  } catch (err: any) {
+                                    setMusicPreviewError(err?.message || 'Error al generar vista previa')
+                                  } finally {
+                                    setGeneratingMusicPreview(false)
+                                  }
+                                }}
+                                style={{
+                                  height: 32, padding: '0 12px', borderRadius: 6, flexShrink: 0,
+                                  background: generatingMusicPreview ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.12)',
+                                  border: '1px solid rgba(16,185,129,0.5)',
+                                  color: '#059669', fontSize: 11, fontWeight: 700,
+                                  cursor: generatingMusicPreview ? 'not-allowed' : 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {generatingMusicPreview ? (
+                                  <>
+                                    <div style={{
+                                      width: 10, height: 10, borderRadius: '50%',
+                                      border: '2px solid rgba(5,150,105,0.3)',
+                                      borderTopColor: '#059669',
+                                      animation: 'spin-circle 0.8s linear infinite'
+                                    }} />
+                                    Generando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <i className="ri-play-circle-line" style={{ fontSize: 13 }} />
+                                    Escuchar pista
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Music preview player */}
+                          {musicPreviewError && (
+                            <div style={{ fontSize: 11, color: 'var(--color-red)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <i className="ri-error-warning-line" />
+                              {musicPreviewError}
+                            </div>
+                          )}
+                          {musicPreviewUrl && (
+                            <div style={{
+                              padding: '8px 10px', borderRadius: 6,
+                              background: 'rgba(16,185,129,0.07)',
+                              border: '1px solid rgba(16,185,129,0.3)',
+                              display: 'flex', flexDirection: 'column', gap: 4
+                            }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#059669' }}>
+                                <i className="ri-music-2-line" /> Pista de muestra (~10 s)
+                              </span>
+                              <audio key={musicPreviewUrl} src={resolveAudioUrl(musicPreviewUrl)} controls style={{ width: '100%', height: 28 }} autoPlay />
+                            </div>
+                          )}
+
+                          {/* Volume slider — only when music is selected */}
+                          {selectedMusicPreset !== 'none' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                                Volumen mezcla: {Math.round(musicVolume * 100)}%
+                              </label>
+                              <input
+                                type="range"
+                                min={0.05}
+                                max={0.40}
+                                step={0.05}
+                                value={musicVolume}
+                                onChange={e => setMusicVolume(Number(e.target.value))}
+                                style={{ accentColor: '#059669', flex: 1 }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedMusicPreset !== 'none' && (
+                          <p style={{ fontSize: 10, color: '#059669', margin: 0 }}>
+                            ✓ El archivo .mp3 guardado incluirá la narración mezclada con la pista musical
+                          </p>
+                        )}
+                      </div>
+
                       {/* ElevenLabs Spanish Audio Generation Section */}
                       <div style={{
                         marginTop: 4,
@@ -1574,7 +1759,53 @@ export default function StopsPage() {
                           </div>
                         )}
 
-                        {/* Generated Audio Player */}
+                        {/* Preview Player — generated but not yet committed */}
+                        {previewAudioUrl && (
+                          <div style={{
+                            padding: 10,
+                            borderRadius: 8,
+                            background: 'rgba(16,185,129,0.05)',
+                            border: '1.5px solid rgba(16,185,129,0.4)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <i className="ri-headphone-line" style={{ color: '#059669', fontSize: 14 }} />
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#059669' }}>
+                                Vista previa — escucha antes de guardar
+                              </span>
+                            </div>
+                            <audio key={previewAudioUrl} src={resolveAudioUrl(previewAudioUrl)} controls style={{ width: '100%', height: 32 }} />
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAudioUrl(null)}
+                                style={{
+                                  height: 28, padding: '0 12px', borderRadius: 6,
+                                  background: 'none', border: '1px solid rgba(160,168,184,0.5)',
+                                  color: 'var(--color-text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer'
+                                }}
+                              >
+                                Descartar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setFormAudioUrl(previewAudioUrl); setPreviewAudioUrl(null) }}
+                                style={{
+                                  height: 28, padding: '0 14px', borderRadius: 6,
+                                  background: '#059669', border: 'none',
+                                  color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 4
+                                }}
+                              >
+                                <i className="ri-save-line" /> Usar este audio
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Committed Audio Player */}
                         {formAudioUrl && (
                           <div style={{
                             padding: 8,
@@ -1586,7 +1817,7 @@ export default function StopsPage() {
                             gap: 4
                           }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-teal)' }}>
-                              <i className="ri-checkbox-circle-line" /> Audio español listo
+                              <i className="ri-checkbox-circle-line" /> Audio español guardado
                             </span>
                             <audio key={formAudioUrl} src={resolveAudioUrl(formAudioUrl)} controls style={{ width: '100%', height: 32 }} />
                             <button
@@ -1755,7 +1986,53 @@ export default function StopsPage() {
                           </div>
                         )}
 
-                        {/* Generated Audio Player */}
+                        {/* Preview Player EN — generated but not yet committed */}
+                        {previewAudioUrlEn && (
+                          <div style={{
+                            padding: 10,
+                            borderRadius: 8,
+                            background: 'rgba(16,185,129,0.05)',
+                            border: '1.5px solid rgba(16,185,129,0.4)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <i className="ri-headphone-line" style={{ color: '#059669', fontSize: 14 }} />
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#059669' }}>
+                                Vista previa (Inglés) — escucha antes de guardar
+                              </span>
+                            </div>
+                            <audio key={previewAudioUrlEn} src={resolveAudioUrl(previewAudioUrlEn)} controls style={{ width: '100%', height: 32 }} />
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAudioUrlEn(null)}
+                                style={{
+                                  height: 28, padding: '0 12px', borderRadius: 6,
+                                  background: 'none', border: '1px solid rgba(160,168,184,0.5)',
+                                  color: 'var(--color-text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer'
+                                }}
+                              >
+                                Descartar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setFormAudioUrlEn(previewAudioUrlEn); setPreviewAudioUrlEn(null) }}
+                                style={{
+                                  height: 28, padding: '0 14px', borderRadius: 6,
+                                  background: '#059669', border: 'none',
+                                  color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 4
+                                }}
+                              >
+                                <i className="ri-save-line" /> Usar este audio
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Committed Audio Player EN */}
                         {formAudioUrlEn && (
                           <div style={{
                             padding: 8,
@@ -1767,7 +2044,7 @@ export default function StopsPage() {
                             gap: 4
                           }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-teal)' }}>
-                              <i className="ri-checkbox-circle-line" /> Audio inglés listo
+                              <i className="ri-checkbox-circle-line" /> Audio inglés guardado
                             </span>
                             <audio key={formAudioUrlEn} src={resolveAudioUrl(formAudioUrlEn)} controls style={{ width: '100%', height: 32 }} />
                             <button

@@ -291,7 +291,6 @@ export async function updateSelfAdminProfile(input: UpdateSelfAdminInput): Promi
 
 export interface StagePrizeConfig {
   prizeId: string
-  stock: number
 }
 
 export interface StageStopData {
@@ -811,6 +810,7 @@ export interface PrizeCodeData {
   prizeImageUrl: string
   status: 'active' | 'inactive' | 'claimed'
   createdAt: string | null
+  expiresAt: string | null
   claimedAt: string | null
   claimedBy?: string | null
 }
@@ -827,6 +827,13 @@ export async function fetchPrizeCodes(): Promise<PrizeCodeData[]> {
       createdAtStr = data.createdAt.toDate().toISOString()
     } else if (data.createdAt && typeof data.createdAt.seconds === 'number') {
       createdAtStr = new Date(data.createdAt.seconds * 1000).toISOString()
+    }
+
+    let expiresAtStr: string | null = null
+    if (data.expiresAt && typeof data.expiresAt.toDate === 'function') {
+      expiresAtStr = data.expiresAt.toDate().toISOString()
+    } else if (data.expiresAt && typeof data.expiresAt.seconds === 'number') {
+      expiresAtStr = new Date(data.expiresAt.seconds * 1000).toISOString()
     }
 
     let claimedAtStr: string | null = null
@@ -850,6 +857,7 @@ export async function fetchPrizeCodes(): Promise<PrizeCodeData[]> {
       prizeImageUrl: data.prizeImageUrl || '',
       status: data.status || 'active',
       createdAt: createdAtStr,
+      expiresAt: expiresAtStr,
       claimedAt: claimedAtStr,
       claimedBy: data.claimedBy || null
     }
@@ -913,12 +921,26 @@ export async function fetchElevenLabsVoices(): Promise<{ voices: ElevenLabsVoice
   return response.data
 }
 
-export async function generateElevenLabsAudio(text: string, voiceId: string): Promise<{ downloadUrl: string }> {
-  const generateAudioFn = httpsCallable<{ text: string; voiceId: string }, { downloadUrl: string }>(
+export async function generateElevenLabsAudio(
+  text: string,
+  voiceId: string,
+  musicPreset?: string,
+  musicVolume?: number
+): Promise<{ downloadUrl: string }> {
+  const generateAudioFn = httpsCallable<
+    { text: string; voiceId: string; musicPreset?: string; musicVolume?: number },
+    { downloadUrl: string }
+  >(functions, 'generateElevenLabsAudio')
+  const response = await generateAudioFn({ text, voiceId, musicPreset, musicVolume })
+  return response.data
+}
+
+export async function previewMusicTrack(musicPreset: string): Promise<{ downloadUrl: string }> {
+  const fn = httpsCallable<{ musicPreset: string }, { downloadUrl: string }>(
     functions,
-    'generateElevenLabsAudio'
+    'previewMusicTrack'
   )
-  const response = await generateAudioFn({ text, voiceId })
+  const response = await fn({ musicPreset })
   return response.data
 }
 
@@ -988,6 +1010,27 @@ export async function getMyPositionsRanking(playerId?: string): Promise<{ uid: s
   )
   const response = await fn({ playerId })
   return response.data
+}
+
+export interface StagePrize {
+  id: string
+  name: string
+  description: string
+  imageUrl: string
+  categoria: string
+  relevance: number
+  stock: number
+  stockCurrent: number
+  requiresAdult: boolean
+}
+
+export async function getPrizesForStage(seasonId: string, stageId: string): Promise<StagePrize[]> {
+  const fn = httpsCallable<{ seasonId: string; stageId: string }, { prizes: StagePrize[] }>(
+    functions,
+    'getPrizesForStage'
+  )
+  const response = await fn({ seasonId, stageId })
+  return response.data.prizes
 }
 
 

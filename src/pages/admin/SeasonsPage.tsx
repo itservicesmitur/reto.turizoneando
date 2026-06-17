@@ -15,7 +15,6 @@ import { PRIZE_CATEGORIAS, type PrizeCategoria } from '../../services/adminServi
 
 interface FormStagePrize {
   prizeId: string
-  stock: number
 }
 
 interface FormStageState {
@@ -59,16 +58,16 @@ export default function SeasonsPage() {
   const [formEndDate, setFormEndDate] = useState('')
   const [formGeoLimit, setFormGeoLimit] = useState(false)
   const [formStages, setFormStages] = useState<FormStageState[]>([
-    { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-    { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-    { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
+    { pointsCount: 0, prizes: [{ prizeId: '' }] },
+    { pointsCount: 0, prizes: [{ prizeId: '' }] },
+    { pointsCount: 0, prizes: [{ prizeId: '' }] },
   ])
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [activeStageTab, setActiveStageTab] = useState<number>(0)
 
   // Helper to build a blank stage
-  const blankStage = (): FormStageState => ({ pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] })
+  const blankStage = (): FormStageState => ({ pointsCount: 0, prizes: [{ prizeId: '' }] })
 
   function handleAddStage() {
     if (formStages.length >= 10) return
@@ -183,9 +182,9 @@ export default function SeasonsPage() {
     setFormEndDate('')
     setFormGeoLimit(false)
     setFormStages([
-      { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-      { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-      { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
+      { pointsCount: 0, prizes: [{ prizeId: '' }] },
+      { pointsCount: 0, prizes: [{ prizeId: '' }] },
+      { pointsCount: 0, prizes: [{ prizeId: '' }] },
     ]) // default 3 stages; admin can add/remove
     setFormError(null)
     setFormLoading(false)
@@ -212,14 +211,14 @@ export default function SeasonsPage() {
         id: s.id,
         pointsCount: s.pointsCount,
         prizes: (Array.isArray(s.prizes) && s.prizes.length > 0)
-          ? s.prizes.map(p => ({ prizeId: p.prizeId, stock: p.stock || 0 }))
-          : [{ prizeId: '', stock: 0 }]
+          ? s.prizes.map(p => ({ prizeId: p.prizeId }))
+          : [{ prizeId: '' }]
       })))
     } else {
       setFormStages([
-        { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-        { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
-        { pointsCount: 0, prizes: [{ prizeId: '', stock: 0 }] },
+        { pointsCount: 0, prizes: [{ prizeId: '' }] },
+        { pointsCount: 0, prizes: [{ prizeId: '' }] },
+        { pointsCount: 0, prizes: [{ prizeId: '' }] },
       ])
     }
     setFormError(null)
@@ -272,14 +271,13 @@ export default function SeasonsPage() {
       const freshPrizes = await fetchPrizesList()
       setPrizes(freshPrizes)
 
-      // Auto-assign new prize to target slot in formStages (also propagate stock)
+      // Auto-assign new prize to target slot in formStages
       const nextStages = [...formStages]
       const targetStage = nextStages[quickPrizeTarget.stageIndex]
       const nextPrizes = [...targetStage.prizes]
       nextPrizes[quickPrizeTarget.prizeIndex] = {
         ...nextPrizes[quickPrizeTarget.prizeIndex],
         prizeId: newPrizeId,
-        stock: quickPrizeStock
       }
       nextStages[quickPrizeTarget.stageIndex] = {
         ...targetStage,
@@ -324,7 +322,7 @@ export default function SeasonsPage() {
   // Add an empty prize row to a stage
   function handleAddPrizeToStage(stageIndex: number) {
     const nextStages = [...formStages]
-    const nextPrizes = [...nextStages[stageIndex].prizes, { prizeId: '', stock: 0 }]
+    const nextPrizes = [...nextStages[stageIndex].prizes, { prizeId: '' }]
     nextStages[stageIndex] = {
       ...nextStages[stageIndex],
       prizes: nextPrizes
@@ -378,10 +376,6 @@ export default function SeasonsPage() {
           setFormError(t('seasonManagement.errStagePrize'))
           return false
         }
-        if (typeof p.stock !== 'number' || p.stock < 0) {
-          setFormError(t('seasonManagement.errStageStock'))
-          return false
-        }
       }
     }
 
@@ -405,10 +399,7 @@ export default function SeasonsPage() {
         geoLimit: formGeoLimit,
         stages: formStages.map(s => ({
           pointsCount: Number(s.pointsCount),
-          prizes: s.prizes.map(p => ({
-            prizeId: p.prizeId,
-            stock: Number(p.stock)
-          }))
+          prizes: s.prizes.map(p => ({ prizeId: p.prizeId }))
         }))
       })
       
@@ -446,10 +437,7 @@ export default function SeasonsPage() {
         stages: formStages.map(s => ({
           id: s.id || '',
           pointsCount: Number(s.pointsCount),
-          prizes: s.prizes.map(p => ({
-            prizeId: p.prizeId,
-            stock: Number(p.stock)
-          }))
+          prizes: s.prizes.map(p => ({ prizeId: p.prizeId }))
         }))
       })
       
@@ -500,7 +488,6 @@ export default function SeasonsPage() {
           pointsCount: s.pointsCount,
           prizes: s.prizes.map(p => ({
             prizeId: p.prizeId,
-            stock: p.stock
           }))
         }))
       })
@@ -888,7 +875,6 @@ export default function SeasonsPage() {
                                     const prize = prizes.find(p => p.id === sp.prizeId)
                                     return (
                                       <div key={pIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text-muted)', fontSize: 11 }}>
-                                        <span style={{ fontWeight: 600 }}>Qty: {sp.stock || 0}</span>
                                         <span style={{ color: 'var(--color-border)' }}>•</span>
                                         <span style={{ color: 'var(--color-text)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: 140 }} title={prize?.name}>
                                           {prize?.name || 'Cargando...'}
@@ -1081,7 +1067,6 @@ export default function SeasonsPage() {
                                 const prize = prizes.find(p => p.id === sp.prizeId)
                                 return (
                                   <div key={pIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-text)', fontSize: 11 }}>
-                                    <span style={{ fontWeight: 700, color: 'var(--color-navy)' }}>{sp.stock || 0} u.</span>
                                     <span style={{ color: 'var(--color-gray-mid)' }}>-</span>
                                     <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flex: 1 }} title={prize?.name}>
                                       {prize?.name || 'Cargando...'}
@@ -1706,31 +1691,6 @@ export default function SeasonsPage() {
                                   </button>
                                 </div>
                               </div>
-
-                              {/* Stock */}
-                              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                                  {t('seasonManagement.stageStock')}
-                                </label>
-                                <div style={{ position: 'relative' }}>
-                                  <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    value={pConfig.stock}
-                                    onChange={e => handleStagePrizeChange(activeStageTab, pIdx, 'stock', Number(e.target.value))}
-                                    style={{
-                                      height: 34, borderRadius: 6, border: '1px solid var(--color-border)',
-                                      padding: '0 8px 0 24px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
-                                      width: '100%', boxSizing: 'border-box'
-                                    }}
-                                  />
-                                  <i className="ri-archive-line" style={{
-                                    position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-                                    color: 'var(--color-gray-mid)', fontSize: 13
-                                  }} />
-                                </div>
-                              </div>
                             </div>
                           </div>
                         ))}
@@ -2183,31 +2143,6 @@ export default function SeasonsPage() {
                                   >
                                     <i className="ri-add-line" style={{ fontSize: 16, fontWeight: 'bold' }} />
                                   </button>
-                                </div>
-                              </div>
-
-                              {/* Stock */}
-                              <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                                  {t('seasonManagement.stageStock')}
-                                </label>
-                                <div style={{ position: 'relative' }}>
-                                  <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    value={pConfig.stock}
-                                    onChange={e => handleStagePrizeChange(activeStageTab, pIdx, 'stock', Number(e.target.value))}
-                                    style={{
-                                      height: 34, borderRadius: 6, border: '1px solid var(--color-border)',
-                                      padding: '0 8px 0 24px', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
-                                      width: '100%', boxSizing: 'border-box'
-                                    }}
-                                  />
-                                  <i className="ri-archive-line" style={{
-                                    position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-                                    color: 'var(--color-gray-mid)', fontSize: 13
-                                  }} />
                                 </div>
                               </div>
                             </div>

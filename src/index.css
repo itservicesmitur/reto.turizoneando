@@ -308,6 +308,10 @@ html {
   to   { transform: rotate(360deg); }
 }
 
+@keyframes spin-circle {
+  to { transform: rotate(360deg); }
+}
+
 /* === GOOGLE PLACES WEB COMPONENT THEMING === */
 gmp-place-autocomplete {
   background-color: #ffffff !important;

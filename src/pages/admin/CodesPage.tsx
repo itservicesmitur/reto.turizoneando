@@ -484,6 +484,9 @@ export default function CodesPage() {
                     <th style={{ padding: '16px 20px', fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                       {t('adminCodes.colDate')}
                     </th>
+                    <th style={{ padding: '16px 20px', fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                      {t('adminCodes.colExpires')}
+                    </th>
                     <th style={{ padding: '16px 20px', fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
                       {t('adminCodes.colActions')}
                     </th>
@@ -561,6 +564,21 @@ export default function CodesPage() {
                         {/* Date */}
                         <td style={{ padding: '16px 20px', fontSize: 13, color: 'var(--color-text-muted)' }}>
                           {formatDate(codeDoc.createdAt)}
+                        </td>
+
+                        {/* Expires */}
+                        <td style={{ padding: '16px 20px', fontSize: 13 }}>
+                          {codeDoc.expiresAt ? (() => {
+                            const expired = codeDoc.status === 'active' && new Date(codeDoc.expiresAt!) < new Date()
+                            return (
+                              <span style={{ color: expired ? 'var(--color-red)' : 'var(--color-text-muted)', fontWeight: expired ? 700 : 400 }}>
+                                {expired && <i className="ri-time-line" style={{ marginRight: 4, fontSize: 13 }} />}
+                                {formatDate(codeDoc.expiresAt)}
+                              </span>
+                            )
+                          })() : (
+                            <span style={{ color: 'var(--color-gray-mid)' }}>-</span>
+                          )}
                         </td>
 
                         {/* Actions */}
