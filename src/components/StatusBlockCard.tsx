@@ -42,15 +42,15 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
           <div style={{
             height: 4,
             background: type === 'user_banned'
-              ? 'linear-gradient(90deg, #ef4444, #b91c1c)'
-              : 'linear-gradient(90deg, #f59e0b, #d97706)',
+              ? 'linear-gradient(90deg, #E63329, #a8211b)'
+              : 'linear-gradient(90deg, #F5C800, #F4762B)',
           }} />
 
           <div style={{ padding: '28px 24px 24px' }}>
             {/* Icono */}
             <div style={{
               width: 60, height: 60, borderRadius: '50%',
-              background: type === 'user_banned' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
+              background: type === 'user_banned' ? 'rgba(230,51,41,0.15)' : 'rgba(245,200,0,0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: 20,
             }}>
@@ -58,7 +58,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 className={type === 'user_banned' ? 'ri-user-forbid-line' : 'ri-flag-2-line'}
                 style={{
                   fontSize: 28,
-                  color: type === 'user_banned' ? '#ef4444' : '#f59e0b',
+                  color: type === 'user_banned' ? '#E63329' : '#F5C800',
                 }}
               />
             </div>
@@ -90,11 +90,11 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
               <div style={{
                 marginBottom: 16, padding: '10px 14px',
                 borderRadius: 12,
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.2)',
+                background: 'rgba(230,51,41,0.08)',
+                border: '1px solid rgba(230,51,41,0.2)',
               }}>
                 <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>
-                  <strong style={{ color: '#fca5a5' }}>Motivo: </strong>{reason}
+                  <strong style={{ color: '#f87171' }}>Motivo: </strong>{reason}
                 </p>
               </div>
             )}
@@ -124,14 +124,14 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 borderRadius: 14,
                 border: 'none', cursor: 'pointer',
                 background: type === 'user_banned'
-                  ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
-                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#fff',
+                  ? 'linear-gradient(135deg, #E63329, #a8211b)'
+                  : 'linear-gradient(135deg, #F5C800, #F4762B)',
+                color: type === 'user_banned' ? '#fff' : '#1B2B6E',
                 fontSize: 15, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 boxShadow: type === 'user_banned'
-                  ? '0 4px 16px rgba(239,68,68,0.35)'
-                  : '0 4px 16px rgba(245,158,11,0.35)',
+                  ? '0 4px 16px rgba(230,51,41,0.35)'
+                  : '0 4px 16px rgba(245,200,0,0.35)',
               }}
             >
               <i className="ri-home-4-line" style={{ fontSize: 18 }} />
@@ -143,53 +143,54 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
     )
   }
 
-  // ── Card pequeña (parada / etapa desactivada) ────────────────────────────
+  // ── Card pequeña (parada / etapa desactivada) — tema mapa madera/oro ────
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9000,
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       padding: '0 16px 32px',
-      background: 'rgba(0,0,0,0.45)',
-      backdropFilter: 'blur(4px)',
-      fontFamily: 'var(--font-body, sans-serif)',
+      background: 'rgba(10,5,2,0.55)',
+      backdropFilter: 'blur(5px)',
+      fontFamily: 'var(--font-map-ui, system-ui, sans-serif)',
     }}>
       <div style={{
         width: '100%', maxWidth: 420,
-        background: 'linear-gradient(160deg, #1a2a44 0%, #0f172a 100%)',
-        borderRadius: 20,
-        border: '1.5px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
+        background: 'linear-gradient(160deg, #faf6eb 0%, #f0e8d0 100%)',
+        borderRadius: 18,
+        border: '1.5px solid rgba(168,127,42,0.5)',
+        borderBottom: '3px solid rgba(168,127,42,0.65)',
+        boxShadow: '0 -6px 32px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.9)',
         overflow: 'hidden',
       }}>
-        {/* Franja ámbar */}
-        <div style={{ height: 3, background: 'linear-gradient(90deg, #f59e0b, #ef4444)' }} />
+        {/* Franja oro */}
+        <div style={{ height: 3, background: 'linear-gradient(90deg, #a87f2a, #fcd34d 50%, #a87f2a)' }} />
 
-        <div style={{ padding: '20px 20px 20px' }}>
+        <div style={{ padding: '18px 18px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             {/* Icono */}
             <div style={{
               flexShrink: 0,
-              width: 44, height: 44, borderRadius: 12,
-              background: 'rgba(245,158,11,0.15)',
+              width: 36, height: 36,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <i
                 className={type === 'stop_deactivated' ? 'ri-map-pin-2-line' : 'ri-route-line'}
-                style={{ fontSize: 22, color: '#f59e0b' }}
+                style={{ fontSize: 26, color: '#a87f2a' }}
               />
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <h3 style={{
-                margin: '0 0 4px',
-                fontFamily: 'var(--font-display, Georgia, serif)',
-                fontSize: 16, fontWeight: 800, color: '#fff',
+                margin: '0 0 5px',
+                fontFamily: 'var(--font-map-parchment, Georgia, serif)',
+                fontSize: 16, fontWeight: 800,
+                color: '#321e0f',
               }}>
                 {type === 'stop_deactivated' ? 'Parada no disponible' : 'Etapa no disponible'}
               </h3>
               <p style={{
                 margin: 0, fontSize: 13,
-                color: 'rgba(255,255,255,0.6)', lineHeight: 1.5,
+                color: 'rgba(50,30,15,0.68)', lineHeight: 1.5,
               }}>
                 {type === 'stop_deactivated'
                   ? `La parada${name ? ` "${name}"` : ''} ha sido desactivada por el organizador.`
@@ -199,40 +200,28 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
             </div>
           </div>
 
+          {/* Separador oro */}
+          <div style={{
+            margin: '14px 0 16px',
+            height: 1,
+            background: 'linear-gradient(90deg, transparent, rgba(168,127,42,0.4), transparent)',
+          }} />
+
           {/* Botones */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={onDismiss}
-              style={{
-                flex: 1, height: 44,
-                borderRadius: 12,
-                border: '1.5px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: 13, fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
+              className="game-btn-tan"
+              style={{ flex: 1, height: 52, fontSize: 14 }}
             >
-              <i className="ri-map-2-line" style={{ fontSize: 15 }} />
               Volver al mapa
             </button>
             {type === 'stop_deactivated' && onNextStop && (
               <button
                 onClick={onNextStop}
-                style={{
-                  flex: 1, height: 44,
-                  borderRadius: 12,
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #d97706, #b45309)',
-                  color: '#fff',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  boxShadow: '0 4px 12px rgba(217,119,6,0.4)',
-                }}
+                className="game-btn-dark"
+                style={{ flex: 1, height: 52, fontSize: 14 }}
               >
-                <i className="ri-arrow-right-circle-line" style={{ fontSize: 15 }} />
                 Ir a la siguiente
               </button>
             )}

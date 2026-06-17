@@ -1,13 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { useQuizFlow } from './useQuizFlow'
 import GameButton from './GameButton'
+import PirateTimer from './PirateTimer'
 import type { QuizQuestion } from '../types/quiz.types'
 
 interface Props {
   stopId: string
   seasonId: string
   questions: QuizQuestion[]
-  onComplete: (earnedPoints: number) => void
+  onComplete: (earnedPoints: number, correctCount: number) => void
   onClose: () => void
 }
 
@@ -22,12 +23,15 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
     selectedOption,
     setSelectedOption,
     isWrong,
+    isCorrect,
+    correctAnswerIndex,
     shakeKey,
     needsSelection,
     needsShakeKey,
     skipIntro,
     checking,
     handleCheck,
+    handleContinueCorrect,
     handleContinueWrong,
   } = useQuizFlow({ stopId, seasonId, questions, onComplete })
 
@@ -94,7 +98,7 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
           </svg>
 
           {/* Question card */}
-          <div className={`relative px-6 pb-6 pt-25 mt-4 transition-all duration-300 ${skipIntro ? '' : 'parchment-unfurl'}`}>
+          <div className={`relative px-6 pb-6 pt-8 mt-4 transition-all duration-300 ${skipIntro ? '' : 'parchment-unfurl'}`}>
             <div
               className="absolute inset-x-0 bottom-0 z-0"
               style={{
@@ -143,8 +147,15 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                 <path d="M22 14v8h-8M20 18v-2h-2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
 
+              {/* Temporizador pirata */}
+              <PirateTimer
+                questionIdx={questionIdx}
+                paused={isWrong || isCorrect || checking}
+                onTimeUp={handleContinueWrong}
+              />
+
               {/* Contador con líneas decorativas */}
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-4 mt-3">
                 <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.45))' }} />
                 <p className="text-[11px] font-bold tracking-[0.18em] uppercase shrink-0" style={{ color: 'var(--color-map-gold)', fontFamily: 'var(--font-map-parchment)' }}>
                   {t('map.question_of', { current: questionIdx + 1, total: totalQuestions })}
@@ -175,7 +186,7 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                 <div className="absolute top-0 inset-x-4 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.35), transparent)' }} />
                 <p
                   className="text-center font-bold leading-[1.65]"
-                  style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '17px' }}
+                  style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '15px' }}
                 >
                   ¿{question.text.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
                 </p>
@@ -185,18 +196,20 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
               {/* Options */}
               <div className={`flex flex-col gap-3 mt-6 ${needsSelection ? 'quiz-option-wrong' : ''}`} key={needsShakeKey}>
                 {question.options.map((option, i) => {
-                  const isSelected  = selectedOption === i
-                  const isIncorrect = isWrong && isSelected
+                  const isSelected      = selectedOption === i
+                  const isIncorrect     = isWrong && isSelected
+                  const isCorrectFlash  = isCorrect && isSelected
+                  const isCorrectReveal = isWrong && correctAnswerIndex === i && !isSelected
                   return (
                     <button
                       key={`${questionIdx}-${i}-${shakeKey}`}
-                      onClick={() => { if (!isWrong) { setSelectedOption(i); } }}
-                      className={`game-option-btn option-slide-in ${isSelected ? 'option-selected' : ''} ${isIncorrect ? 'option-incorrect' : ''}`}
+                      onClick={() => { if (!isWrong && !isCorrect) { setSelectedOption(i); } }}
+                      className={`game-option-btn option-slide-in ${isSelected && !isIncorrect && !isCorrectFlash ? 'option-selected' : ''} ${isIncorrect ? 'option-incorrect' : ''} ${isCorrectFlash || isCorrectReveal ? 'option-correct' : ''}`}
                       style={{ animationDelay: skipIntro ? '0s' : `${1.1 + i * 0.12}s` }}
                     >
                       <div className="option-letter-badge">{OPTION_LABELS[i]}</div>
                       <span className="flex-1 text-[15px] font-bold text-map-wood-dark text-left">{option}</span>
-                      {isSelected && !isIncorrect && (
+                      {isSelected && !isIncorrect && !isCorrectFlash && (
                         <div className="option-checkbox-circle bg-map-wood-dark text-map-gold-light">
                           <i className="ri-check-line text-xs font-bold" />
                         </div>
@@ -206,7 +219,12 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                           <i className="ri-close-line text-xs font-bold" />
                         </div>
                       )}
-                      {!isSelected && !isIncorrect && (
+                      {(isCorrectFlash || isCorrectReveal) && (
+                        <div className="option-checkbox-circle option-correct-circle">
+                          <i className="ri-check-line text-xs font-bold" />
+                        </div>
+                      )}
+                      {!isSelected && !isIncorrect && !isCorrectReveal && (
                         <div className="option-checkbox-circle" />
                       )}
                     </button>
@@ -219,14 +237,31 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                 <div
                   className="flex items-center justify-center gap-3 px-4 py-3.5 mt-10 animate-fade-in text-center"
                   style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(50,30,15,0.1) 15%, rgba(50,30,15,0.1) 85%, transparent)',
-                    borderTop: '1px solid rgba(50,30,15,0.35)',
-                    borderBottom: '1px solid rgba(50,30,15,0.35)',
+                    background: 'linear-gradient(90deg, transparent, rgba(220,38,38,0.08) 15%, rgba(220,38,38,0.08) 85%, transparent)',
+                    borderTop: '1px solid rgba(220,38,38,0.35)',
+                    borderBottom: '1px solid rgba(220,38,38,0.35)',
                   }}
                 >
-                  <i className="ri-close-large-line text-map-wood-dark text-base font-black shrink-0" />
-                  <p className="text-sm font-bold leading-snug" style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
+                  <i className="ri-close-large-line text-base font-black shrink-0" style={{ color: '#dc2626' }} />
+                  <p className="text-sm font-bold leading-snug" style={{ color: '#dc2626', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
                     {t('map.wrong_answer')}
+                  </p>
+                </div>
+              )}
+
+              {/* Correct feedback */}
+              {isCorrect && (
+                <div
+                  className="flex items-center justify-center gap-3 px-4 py-3.5 mt-10 animate-fade-in text-center"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent, rgba(22,163,74,0.08) 15%, rgba(22,163,74,0.08) 85%, transparent)',
+                    borderTop: '1px solid rgba(22,163,74,0.35)',
+                    borderBottom: '1px solid rgba(22,163,74,0.35)',
+                  }}
+                >
+                  <i className="ri-check-line text-base font-black shrink-0" style={{ color: '#16a34a' }} />
+                  <p className="text-sm font-bold leading-snug" style={{ color: '#16a34a', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
+                    {t('map.correct_answer')}
                   </p>
                 </div>
               )}
@@ -264,6 +299,15 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                 {t('map.exit')}
               </GameButton>
               <GameButton variant="dark" className="flex-1 h-16 text-base" onClick={handleContinueWrong}>
+                {questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.continue')}
+              </GameButton>
+            </>
+          ) : isCorrect ? (
+            <>
+              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose}>
+                {t('map.exit')}
+              </GameButton>
+              <GameButton variant="dark" className="flex-1 h-16 text-base" onClick={handleContinueCorrect}>
                 {questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.continue')}
               </GameButton>
             </>

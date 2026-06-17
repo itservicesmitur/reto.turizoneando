@@ -413,9 +413,9 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
   useEffect(() => {
     if (monumentMarkersRef.current.length === 0) return
     monumentMarkersRef.current.forEach(({ markerDiv, index, monumento }) => {
-      markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops)
+      markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops, stageGroups)
     })
-  }, [completedStops])
+  }, [completedStops, stageGroups])
 
   // Ocultar inmediatamente marcadores de paradas desactivadas en tiempo real
   useEffect(() => {
@@ -537,7 +537,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             const markerDiv = document.createElement('div')
             markerDiv.className = 'treasure-pin-container'
             markerDiv.style.cssText = 'width:120px;height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'
-            markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current)
+            markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current, stageGroupsRef.current)
 
             const gs = stageGroupsRef.current
             const stageIdx = gs.length > 0

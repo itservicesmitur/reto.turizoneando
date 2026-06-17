@@ -20,18 +20,34 @@ export function createDotElement(nav = false): HTMLDivElement {
 export function buildMarkerHTML(
   monumento: Pick<Monumento, 'imagen' | 'nombre'>,
   index: number,
-  completedStops: boolean[]
+  completedStops: boolean[],
+  stageGroups: number[][] = []
 ): string {
-  const stageIdx = Math.floor(index / 4)
-  const stageStart = stageIdx * 4
-  const indexWithinStage = index % 4
+  const stageIdx = stageGroups.length > 0
+    ? stageGroups.findIndex(g => g.includes(index))
+    : Math.floor(index / 4)
+  const safeStageIdx = Math.max(stageIdx, 0)
+  const indexWithinStage = stageGroups.length > 0
+    ? (stageGroups[safeStageIdx]?.indexOf(index) ?? index % 4)
+    : index % 4
   const isCompleted = completedStops[index] ?? false
-  const prevStagesDone = stageIdx === 0 ? true : completedStops.slice(0, stageStart).every(Boolean)
-  let activeStageIndex = 2
-  for (let s = 0; s < 3; s++) {
-    if (!completedStops.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStageIndex = s; break }
+  const prevStagesDone = safeStageIdx === 0 ? true
+    : stageGroups.length > 0
+      ? stageGroups.slice(0, safeStageIdx).every(g => g.every(i => completedStops[i]))
+      : completedStops.slice(0, safeStageIdx * 4).every(Boolean)
+  let activeStageIndex: number
+  if (stageGroups.length > 0) {
+    activeStageIndex = stageGroups.length - 1
+    for (let s = 0; s < stageGroups.length; s++) {
+      if (!stageGroups[s].every(i => completedStops[i])) { activeStageIndex = s; break }
+    }
+  } else {
+    activeStageIndex = 2
+    for (let s = 0; s < 3; s++) {
+      if (!completedStops.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStageIndex = s; break }
+    }
   }
-  const isAvailable = !isCompleted && prevStagesDone && stageIdx === activeStageIndex
+  const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex
 
   let medallionStyle: string
   let labelStyle: string
