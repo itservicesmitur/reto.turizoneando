@@ -351,7 +351,98 @@ export interface PrizeData {
   stock: number
   stockCurrent: number
   requiresAdult: boolean
+  localId: string
+  localName: string
+  codeExpirationDays: number
   createdAt: string | null
+}
+
+// ── Locales ──────────────────────────────────────────────────────────────────
+export interface LocalData {
+  id: string
+  name: string
+  description: string
+  address: string
+  lat: number | null
+  lng: number | null
+  phone: string
+  email: string
+  imageUrl: string
+  category: string
+  active: boolean
+  createdAt: string | null
+}
+
+export async function fetchLocals(): Promise<LocalData[]> {
+  const fn = httpsCallable<unknown, { locals: LocalData[] }>(functions, 'getLocals')
+  const response = await fn()
+  return response.data.locals
+}
+
+export async function createLocal(data: Omit<LocalData, 'id' | 'createdAt' | 'active'>): Promise<string> {
+  const fn = httpsCallable<typeof data, { id: string }>(functions, 'createLocal')
+  const response = await fn(data)
+  return response.data.id
+}
+
+export async function updateLocal(id: string, data: Omit<LocalData, 'id' | 'createdAt'>): Promise<void> {
+  const fn = httpsCallable<{ id: string } & Omit<LocalData, 'id' | 'createdAt'>, { success: boolean }>(functions, 'updateLocal')
+  await fn({ id, ...data })
+}
+
+export async function deleteLocal(id: string): Promise<void> {
+  const fn = httpsCallable<{ id: string }, { success: boolean }>(functions, 'deleteLocal')
+  await fn({ id })
+}
+
+// ── Providers ────────────────────────────────────────────────────────────────
+export interface ProviderData {
+  uid: string
+  email: string
+  displayName: string
+  localId: string
+  localName: string
+  status: 'active' | 'inactive'
+  createdAt: string | null
+}
+
+export async function fetchProviders(): Promise<ProviderData[]> {
+  const fn = httpsCallable<unknown, { providers: ProviderData[] }>(functions, 'getProviders')
+  const response = await fn()
+  return response.data.providers
+}
+
+export async function createProvider(data: {
+  email: string
+  password: string
+  displayName: string
+  localId: string
+  localName: string
+}): Promise<string> {
+  const fn = httpsCallable<typeof data, { uid: string }>(functions, 'createProvider')
+  const response = await fn(data)
+  return response.data.uid
+}
+
+export async function updateProvider(data: {
+  uid: string
+  displayName: string
+  localId: string
+  localName: string
+  status: 'active' | 'inactive'
+}): Promise<void> {
+  const fn = httpsCallable<typeof data, { success: boolean }>(functions, 'updateProvider')
+  await fn(data)
+}
+
+export async function deleteProvider(uid: string): Promise<void> {
+  const fn = httpsCallable<{ uid: string }, { success: boolean }>(functions, 'deleteProvider')
+  await fn({ uid })
+}
+
+export async function changeProviderPassword(uid: string, newPassword: string): Promise<void> {
+  const fn = httpsCallable<{ uid: string; newPassword: string }, { success: boolean }>(functions, 'changeProviderPassword')
+  await fn({ uid, newPassword })
 }
 
 export interface CreateStageInput {
@@ -504,6 +595,9 @@ export async function fetchPrizesList(): Promise<PrizeData[]> {
       stock: typeof data.stock === 'number' ? data.stock : 0,
       stockCurrent: typeof data.stockCurrent === 'number' ? data.stockCurrent : (typeof data.stock === 'number' ? data.stock : 0),
       requiresAdult: data.requiresAdult === true,
+      localId: data.localId || '',
+      localName: data.localName || '',
+      codeExpirationDays: typeof data.codeExpirationDays === 'number' ? data.codeExpirationDays : 30,
       createdAt: data.createdAt && typeof data.createdAt.toDate === 'function'
         ? data.createdAt.toDate().toISOString()
         : null
@@ -817,6 +911,8 @@ export interface PrizeCodeData {
   prizeName: string
   prizeCategory: string
   prizeImageUrl: string
+  localId: string
+  localName: string
   status: 'active' | 'inactive' | 'claimed'
   createdAt: string | null
   expiresAt: string | null
@@ -864,6 +960,8 @@ export async function fetchPrizeCodes(): Promise<PrizeCodeData[]> {
       prizeName: data.prizeName || '',
       prizeCategory: data.prizeCategory || '',
       prizeImageUrl: data.prizeImageUrl || '',
+      localId: data.localId || '',
+      localName: data.localName || '',
       status: data.status || 'active',
       createdAt: createdAtStr,
       expiresAt: expiresAtStr,
@@ -888,6 +986,7 @@ export async function generateTestPrizeCode(input: {
   prizeId: string
   seasonId: string
   stageId: string
+  expiresAt?: string
 }): Promise<{ code: string }> {
   const generateTestPrizeCodeFn = httpsCallable<typeof input, { success: boolean; code: string }>(
     functions,
@@ -913,6 +1012,30 @@ export async function redeemPublicPrizeCode(code: string): Promise<{ success: bo
   )
   const response = await redeemPublicPrizeCodeFn({ code })
   return response.data
+}
+
+export async function validatePrizeCode(code: string): Promise<{
+  success: boolean
+  claimedAt: string
+  prizeName: string
+  playerDisplayName: string
+  playerEmail: string
+}> {
+  const fn = httpsCallable<{ code: string }, {
+    success: boolean
+    claimedAt: string
+    prizeName: string
+    playerDisplayName: string
+    playerEmail: string
+  }>(functions, 'validatePrizeCode')
+  const response = await fn({ code })
+  return response.data
+}
+
+export async function fetchProviderCodes(): Promise<PrizeCodeData[]> {
+  const fn = httpsCallable<unknown, { codes: PrizeCodeData[] }>(functions, 'getProviderCodes')
+  const response = await fn()
+  return response.data.codes
 }
 
 export interface ElevenLabsVoice {

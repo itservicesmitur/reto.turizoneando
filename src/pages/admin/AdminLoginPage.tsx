@@ -28,7 +28,12 @@ export default function AdminLoginPage() {
       const tokenResult = await userCredential.user.getIdTokenResult(true)
 
 
-      if ((tokenResult.claims.role as string | undefined)?.toLowerCase() !== 'admin') {
+      const role = (tokenResult.claims.role as string | undefined)?.toLowerCase()
+      if (role === 'provider') {
+        navigate('/provider', { replace: true })
+        return
+      }
+      if (role !== 'admin') {
         await auth.signOut()
         setError(t('adminLogin.unauthorized'))
         return

@@ -32,7 +32,7 @@ export const generateTestPrizeCode = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
-  const { email, prizeId, seasonId, stageId } = request.data;
+  const { email, prizeId, seasonId, stageId, expiresAt: expiresAtInput } = request.data;
   if (!email || typeof email !== "string" || !email.includes("@")) {
     throw new HttpsError("invalid-argument", "A valid player email is required.");
   }
@@ -44,6 +44,15 @@ export const generateTestPrizeCode = onCall(async (request) => {
   }
   if (!stageId || typeof stageId !== "string") {
     throw new HttpsError("invalid-argument", "A valid Stage ID is required.");
+  }
+  // Validate optional expiresAt — must be a future date if provided
+  let customExpiresAt: Timestamp | null = null;
+  if (expiresAtInput) {
+    const parsed = new Date(expiresAtInput as string);
+    if (isNaN(parsed.getTime()) || parsed <= new Date()) {
+      throw new HttpsError("invalid-argument", "La fecha de expiración debe ser una fecha futura válida.");
+    }
+    customExpiresAt = Timestamp.fromDate(parsed);
   }
 
   const db = getFirestore();
@@ -73,6 +82,11 @@ export const generateTestPrizeCode = onCall(async (request) => {
     const prizeName = prizeData.name || "Premio";
     const prizeCategory = prizeData.categoria || "";
     const prizeImageUrl = prizeData.imageUrl || "";
+    const prizeLocalId = prizeData.localId || "";
+    const prizeLocalName = prizeData.localName || "";
+    const prizeExpirationDays = typeof prizeData.codeExpirationDays === "number" && prizeData.codeExpirationDays > 0
+      ? prizeData.codeExpirationDays
+      : 30;
 
     // 4. Lookup season doc
     const seasonDoc = await db.collection("seasons").doc(seasonId).get();
@@ -96,7 +110,7 @@ export const generateTestPrizeCode = onCall(async (request) => {
         
         // Write the code inside the transaction to lock it
         const now = Timestamp.now();
-        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
+        const expiresAt = customExpiresAt ?? new Timestamp(now.seconds + prizeExpirationDays * 24 * 60 * 60, now.nanoseconds);
         transaction.set(docRef, {
           code: candidateCode,
           playerId,
@@ -109,6 +123,8 @@ export const generateTestPrizeCode = onCall(async (request) => {
           prizeName,
           prizeCategory,
           prizeImageUrl,
+          localId: prizeLocalId,
+          localName: prizeLocalName,
           status: "active",
           createdAt: now,
           expiresAt,
@@ -175,6 +191,133 @@ export const getPublicPrizeCode = onCall(async (request) => {
     }
     const message = error instanceof Error ? error.message : "Failed to retrieve public prize details.";
     throw new HttpsError("internal", message);
+  }
+});
+
+// ── VALIDATE PRIZE CODE (provider only) ─────────────────────────────────
+// Only the provider whose localId matches the prize's localId can validate.
+export const validatePrizeCode = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+
+  const role = (request.auth.token.role as string | undefined)?.toLowerCase();
+  const providerLocalId = request.auth.token.localId as string | undefined;
+
+  if (role !== "provider" && role !== "admin") {
+    throw new HttpsError("permission-denied", "Solo un local autorizado puede canjear este código.");
+  }
+
+  const { code } = request.data;
+  if (!code || typeof code !== "string") {
+    throw new HttpsError("invalid-argument", "Code parameter is required.");
+  }
+
+  const db = getFirestore();
+  const docRef = db.collection("prizeCodes").doc(code.trim().toUpperCase());
+
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const docSnap = await transaction.get(docRef);
+
+      if (!docSnap.exists) {
+        throw new HttpsError("not-found", "El código no existe o no es válido.");
+      }
+
+      const data = docSnap.data() || {};
+
+      if (data.status === "claimed") {
+        throw new HttpsError("failed-precondition", "Este código ya fue canjeado.");
+      }
+      if (data.status === "inactive") {
+        throw new HttpsError("failed-precondition", "Este código está desactivado.");
+      }
+      if (data.expiresAt && (data.expiresAt as Timestamp).toMillis() < Date.now()) {
+        throw new HttpsError("failed-precondition", "Este código ha expirado.");
+      }
+
+      // Verify that the provider's localId matches the prize's localId
+      if (role === "provider") {
+        if (!providerLocalId) {
+          throw new HttpsError("permission-denied", "Tu cuenta no tiene un local asignado.");
+        }
+        if (data.localId !== providerLocalId) {
+          throw new HttpsError("permission-denied", "Este código no pertenece a tu local.");
+        }
+      }
+
+      const claimedAt = Timestamp.now();
+      transaction.update(docRef, {
+        status: "claimed",
+        claimedAt,
+        claimedBy: request.auth!.uid,
+      });
+
+      return {
+        claimedAt: claimedAt.toDate().toISOString(),
+        prizeName: data.prizeName || "",
+        playerDisplayName: data.playerDisplayName || "",
+        playerEmail: data.playerEmail || "",
+      };
+    });
+
+    return { success: true, ...result };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    const message = error instanceof Error ? error.message : "Failed to validate code.";
+    throw new HttpsError("internal", message);
+  }
+});
+
+// ── GET PROVIDER CODES ────────────────────────────────────────────────────
+// Returns prize codes that belong to the provider's local.
+export const getProviderCodes = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+
+  const role = (request.auth.token.role as string | undefined)?.toLowerCase();
+  if (role !== "provider" && role !== "admin") {
+    throw new HttpsError("permission-denied", "Access denied.");
+  }
+
+  let localId: string;
+  if (role === "provider") {
+    localId = request.auth.token.localId as string;
+    if (!localId) throw new HttpsError("failed-precondition", "Tu cuenta no tiene un local asignado.");
+  } else {
+    // Admin can query a specific local
+    localId = request.data?.localId;
+    if (!localId) throw new HttpsError("invalid-argument", "localId is required.");
+  }
+
+  const db = getFirestore();
+  try {
+    const snap = await db.collection("prizeCodes")
+      .where("localId", "==", localId)
+      .orderBy("createdAt", "desc")
+      .limit(500)
+      .get();
+
+    const codes = snap.docs.map(doc => {
+      const d = doc.data();
+      return {
+        code: d.code || doc.id,
+        prizeName: d.prizeName || "",
+        prizeCategory: d.prizeCategory || "",
+        prizeImageUrl: d.prizeImageUrl || "",
+        localId: d.localId || "",
+        localName: d.localName || "",
+        playerEmail: d.playerEmail || "",
+        playerDisplayName: d.playerDisplayName || "",
+        seasonName: d.seasonName || "",
+        status: d.status || "active",
+        createdAt: d.createdAt ? d.createdAt.toDate().toISOString() : null,
+        expiresAt: d.expiresAt ? d.expiresAt.toDate().toISOString() : null,
+        claimedAt: d.claimedAt ? d.claimedAt.toDate().toISOString() : null,
+      };
+    });
+
+    return { codes };
+  } catch (error: any) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message || "Failed to retrieve codes.");
   }
 });
 

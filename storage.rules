@@ -35,5 +35,11 @@ service firebase.storage {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // Imágenes de locales — lectores autenticados, escritura solo Admin
+    match /locals/{file} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
   }
 }

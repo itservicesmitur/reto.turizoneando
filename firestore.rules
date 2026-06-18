@@ -7,6 +7,16 @@ service cloud.firestore {
       return request.auth != null && (request.auth.token.role == 'Admin' || request.auth.token.role == 'admin');
     }
 
+    // Helper function to check if the user is a Provider
+    function isProvider() {
+      return request.auth != null && request.auth.token.role == 'provider';
+    }
+
+    // Helper function to check if the provider owns the local
+    function isProviderOf(localId) {
+      return isProvider() && request.auth.token.localId == localId;
+    }
+
     // Collection group rule required for collectionGroup('attempts') queries (live feed, etc.)
     match /{path=**}/attempts/{attemptId} {
       allow read: if isAdmin();
@@ -52,9 +62,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Prize codes — Functions or Admins only.
+    // Prize codes — Admins can read/write all. Providers can read codes for their local only.
+    // Validation (claiming) is done via Cloud Function (validatePrizeCode) using admin SDK.
     match /prizeCodes/{codeId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isProvider() && resource.data.localId == request.auth.token.localId);
+      allow write: if isAdmin();
+    }
+
+    // Locals — authenticated users can read; Admins can write.
+    match /locals/{localId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // Sessions — write-only by Cloud Functions or Admins.

@@ -6,7 +6,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import LandingPage from './pages/LandingPage'
-import { ProtectedRoute, AdminRoute } from './components/RouteGuards'
+import { ProtectedRoute, AdminRoute, ProviderRoute } from './components/RouteGuards'
 
 // Wraps lazy() so that a chunk-not-found error (stale deploy) triggers a page
 // reload instead of crashing the React Router ErrorBoundary.
@@ -45,6 +45,9 @@ const SeasonsPage = lazyLoad(() => import('./pages/admin/SeasonsPage'))
 const SettingsPage = lazyLoad(() => import('./pages/admin/SettingsPage'))
 const CodesPage = lazyLoad(() => import('./pages/admin/CodesPage'))
 const AttemptsLogPage = lazyLoad(() => import('./pages/admin/AttemptsLogPage'))
+const LocalsPage = lazyLoad(() => import('./pages/admin/LocalsPage'))
+const ProvidersPage = lazyLoad(() => import('./pages/admin/ProvidersPage'))
+const ProviderDashboard = lazyLoad(() => import('./pages/provider/ProviderDashboard'))
 const PublicValidationPage = lazyLoad(() => import('./pages/PublicValidationPage'))
 const ResetPasswordPage = lazyLoad(() => import('./pages/ResetPasswordPage'))
 
@@ -62,22 +65,6 @@ const router = createBrowserRouter([
     element: (
       <Suspense fallback={null}>
         <ResetPasswordPage />
-      </Suspense>
-    )
-  },
-  {
-    path: '/validar/:code',
-    element: (
-      <Suspense fallback={null}>
-        <PublicValidationPage />
-      </Suspense>
-    )
-  },
-  {
-    path: '/validar',
-    element: (
-      <Suspense fallback={null}>
-        <PublicValidationPage />
       </Suspense>
     )
   },
@@ -211,6 +198,22 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: 'locals',
+            element: (
+              <Suspense fallback={null}>
+                <LocalsPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'providers',
+            element: (
+              <Suspense fallback={null}>
+                <ProvidersPage />
+              </Suspense>
+            ),
+          },
+          {
             path: 'live',
             element: (
               <Suspense fallback={null}>
@@ -219,6 +222,37 @@ const router = createBrowserRouter([
             ),
           },
         ],
+      },
+    ],
+  },
+
+  // ── Provider routes (/provider/*, /validar/*) ────────────────
+  {
+    element: <ProviderRoute />,
+    children: [
+      {
+        path: '/provider',
+        element: (
+          <Suspense fallback={null}>
+            <ProviderDashboard />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/validar/:code',
+        element: (
+          <Suspense fallback={null}>
+            <PublicValidationPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/validar',
+        element: (
+          <Suspense fallback={null}>
+            <PublicValidationPage />
+          </Suspense>
+        ),
       },
     ],
   },

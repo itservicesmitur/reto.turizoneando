@@ -54,6 +54,7 @@ export default function CodesPage() {
   const [formPrizeId, setFormPrizeId] = useState('')
   const [formSeasonId, setFormSeasonId] = useState('')
   const [formStageId, setFormStageId] = useState('')
+  const [formExpiresAt, setFormExpiresAt] = useState('')
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [generatedSuccessCode, setGeneratedSuccessCode] = useState<string | null>(null)
@@ -194,10 +195,12 @@ export default function CodesPage() {
         email: formEmail.trim(),
         prizeId: formPrizeId,
         seasonId: formSeasonId,
-        stageId: formStageId
+        stageId: formStageId,
+        ...(formExpiresAt ? { expiresAt: new Date(formExpiresAt).toISOString() } : {})
       })
       setGeneratedSuccessCode(result.code)
       setFormEmail('')
+      setFormExpiresAt('')
       // Reload the codes list
       const updatedCodes = await fetchPrizeCodes()
       setCodes(updatedCodes)
@@ -865,6 +868,24 @@ export default function CodesPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Expiration Date */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Fecha de expiración <span style={{ fontWeight: 400, color: 'var(--color-gray-mid)' }}>(opcional — por defecto 30 días)</span>
+                </label>
+                <input
+                  type="date"
+                  value={formExpiresAt}
+                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  onChange={e => setFormExpiresAt(e.target.value)}
+                  style={{
+                    height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+                    padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+                    background: '#fff', cursor: 'pointer'
+                  }}
+                />
               </div>
 
               {/* Submit Buttons */}

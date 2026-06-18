@@ -35,6 +35,8 @@ export const getPrizes = onCall(async (request) => {
         stock: typeof d.stock === "number" ? d.stock : 0,
         stockCurrent: typeof d.stockCurrent === "number" ? d.stockCurrent : (typeof d.stock === "number" ? d.stock : 0),
         requiresAdult: d.requiresAdult === true,
+        localId: d.localId || "",
+        localName: d.localName || "",
         createdAt: d.createdAt || null
       };
     });
@@ -76,6 +78,8 @@ export const getPrizeById = onCall(async (request) => {
         stock: typeof d.stock === "number" ? d.stock : 0,
         stockCurrent: typeof d.stockCurrent === "number" ? d.stockCurrent : (typeof d.stock === "number" ? d.stock : 0),
         requiresAdult: d.requiresAdult === true,
+        localId: d.localId || "",
+        localName: d.localName || "",
         createdAt: d.createdAt || null
       }
     };
@@ -238,7 +242,10 @@ export const claimPrize = onCall(async (request) => {
         const playerData = playerSnap.data() ?? {};
         const seasonName = seasonSnap.exists ? (seasonSnap.data()?.name || "") : "";
         const now = Timestamp.now();
-        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
+        const expirationDays = typeof prizeData.codeExpirationDays === "number" && prizeData.codeExpirationDays > 0
+          ? prizeData.codeExpirationDays
+          : 30;
+        const expiresAt = new Timestamp(now.seconds + expirationDays * 24 * 60 * 60, now.nanoseconds);
 
         // 1. Descontar stockCurrent del catálogo global
         tx.update(prizeRef, { stockCurrent: FieldValue.increment(-1) });
@@ -256,6 +263,8 @@ export const claimPrize = onCall(async (request) => {
           prizeName: prizeData.name || "",
           prizeCategory: prizeData.categoria || "",
           prizeImageUrl: prizeData.imageUrl || "",
+          localId: prizeData.localId || "",
+          localName: prizeData.localName || "",
           status: "active",
           createdAt: now,
           expiresAt,

@@ -18,6 +18,8 @@ const NAV_ITEMS: NavItem[] = [
 
   { to: '/admin/players', icon: 'ri-group-line', labelKey: 'adminNav.players' },
   { to: '/admin/admins', icon: 'ri-shield-user-line', labelKey: 'adminNav.admins' },
+  { to: '/admin/locals', icon: 'ri-store-2-line', labelKey: 'adminNav.locals' },
+  { to: '/admin/providers', icon: 'ri-user-star-line', labelKey: 'adminNav.providers' },
   { to: '/admin/codes', icon: 'ri-ticket-line', labelKey: 'adminNav.codes' },
   { to: '/admin/live', icon: 'ri-pulse-line', labelKey: 'adminNav.live' },
 ]

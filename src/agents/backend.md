@@ -107,7 +107,23 @@
   createdAt: Timestamp
   claimedAt: Timestamp | null
 
+/locals/{localId}
+  id: string
+  name: string
+  description: string
+  address: string
+  lat: number | null
+  lng: number | null
+  phone: string
+  email: string
+  imageUrl: string
+  category: string
+  active: boolean
+  createdAt: Timestamp
+```
+> **Providers:** usuarios de Firebase Auth con Custom Claims `{ role: 'provider', localId, localName }`. Sin documento en Firestore. El campo `localId` del claim determina qué códigos puede ver y canjear.
 
+```
 /sessions/{sessionId}          ← tracking de respuestas individuales
   playerId: string
   seasonId: string
@@ -136,6 +152,10 @@
 | `claimPrize` | HTTPS callable | Reclama el premio de una etapa. Recibe `{ prizeId, seasonId, stageId }`. En una transacción: verifica que el premio esté en la etapa (vía `/seasons/{seasonId}/stages/{stageId}.prizes`), verifica `stockCurrent > 0` en `/prizes/{prizeId}`, descuenta 1 de `stockCurrent`, genera código en `/prizeCodes` y registra en `prizesWon` del jugador. |
 | `sendPlayerPrizeCodes` | HTTPS callable | Recibe `{ email }`. Busca todos los códigos activos del jugador en `/prizeCodes` (donde `playerEmail == email` y `status == "active"`), envía un email con todos sus premios vía SendGrid y retorna `{ success, emailSent, codes[] }`. Solo admin. |
 | `claimPrizeAndNotify` | HTTPS callable | Recibe `{ prizeId, seasonId, stageId }`. En una transacción atómica: verifica la etapa, descuenta `stockCurrent`, crea código en `/prizeCodes` y registra en `prizesWon` del jugador. Luego envía automáticamente el email con el código vía SendGrid. Retorna `{ success, code, wonAt, emailSent }`. Si el email falla, el claim ya ocurrió y `emailSent` será `false`. Requiere solo autenticación de jugador (no admin). |
+| `getLocals`, `createLocal`, `updateLocal`, `deleteLocal` | HTTPS callable | CRUD completo de locales en `/locals`. `getLocals` permite cualquier usuario autenticado. El resto solo admins. `deleteLocal` rechaza si hay premios vinculados. |
+| `getProviders`, `createProvider`, `updateProvider`, `deleteProvider` | HTTPS callable | CRUD de providers (usuarios Firebase Auth con rol `provider`). Solo admins. `createProvider` y `updateProvider` asignan Custom Claims `{ role: 'provider', localId, localName }`. |
+| `validatePrizeCode` | HTTPS callable | Recibe `{ code }`. Solo roles `provider` o `admin`. Si es provider, verifica que `localId` del claim coincida con `localId` del código. Marca el código como `claimed` en una transacción. Retorna `{ success, claimedAt, prizeName, playerDisplayName, playerEmail }`. |
+| `getProviderCodes` | HTTPS callable | Retorna códigos de `/prizeCodes` filtrados por `localId` del provider autenticado. Admins pueden pasar `{ localId }` para consultar cualquier local. |
 
 **Agregar nuevas functions aquí antes de implementarlas.**
 

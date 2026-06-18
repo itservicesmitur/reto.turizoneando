@@ -78,6 +78,12 @@ El agente debe consultar esto antes de proponer cambios estructurales.
 
 ---
 
+## [2026-06-17] Sistema de Locales, Providers y Validación de Códigos Autenticada
+**Decisión:** Se introduce la colección `/locals` para representar establecimientos participantes. Los premios (`/prizes`) se vinculan a un local mediante `localId`/`localName`. Se agrega el rol `provider` (Firebase Custom Claims con `{ role: 'provider', localId, localName }`) para usuarios de tipo establecimiento. La validación/canje de códigos ya no es pública — requiere que un `provider` autenticado cuyo `localId` coincida con el `localId` del código llame a `validatePrizeCode`. Los providers usan el mismo login de `/admin/login` pero son redirigidos a `/provider` (ProviderDashboard). Los admins ven `LocalsPage` y `ProvidersPage` para gestionar todo el catálogo.
+**Alternativa descartada:** Link público de validación sin autenticación (`/validar/:code` + `redeemPublicPrizeCode`). Mantener solo un rol de admin para canjear desde el panel.
+**Por qué:** Seguridad — un establecimiento no debe poder canjear premios de otro local. Experiencia — cada local tiene su propio dashboard enfocado solo en sus códigos pendientes. Trazabilidad — `claimedBy` queda con el UID del provider que realizó el canje.
+**Impacto:** `functions/src/admin/locals.ts` · `functions/src/admin/providers.ts` · `functions/src/admin/prizeCodes.ts` · `functions/src/prizes/prizes.ts` · `functions/src/index.ts` · `src/services/adminService.ts` · `src/pages/admin/LocalsPage.tsx` · `src/pages/admin/ProvidersPage.tsx` · `src/pages/provider/ProviderDashboard.tsx` · `src/pages/admin/PrizesPage.tsx` · `src/layouts/AdminLayout.tsx` · `src/components/RouteGuards.tsx` · `src/App.tsx` · `firestore.rules` · `src/agents/backend.md`
+
 <!-- Agrega nuevas decisiones arriba de esta línea con el mismo formato -->
 
 

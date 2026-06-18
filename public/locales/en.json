@@ -42,6 +42,8 @@
     "prizes":    "Prizes",
     "players":   "Players",
     "admins":    "Admins",
+    "locals":    "Venues",
+    "providers": "Providers",
     "seasons":   "Seasons",
     "settings":  "Settings",
     "codes":     "Codes",

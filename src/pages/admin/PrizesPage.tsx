@@ -5,9 +5,11 @@ import {
   createPrize,
   updatePrize,
   deletePrize,
+  fetchLocals,
   PRIZE_CATEGORIAS,
   type PrizeData,
-  type PrizeCategoria
+  type PrizeCategoria,
+  type LocalData
 } from '../../services/adminService'
 import ImageUpload from '../../components/ImageUpload'
 
@@ -44,12 +46,18 @@ export default function PrizesPage() {
   const [formStock, setFormStock] = useState<number>(0)
   const [formStockCurrent, setFormStockCurrent] = useState<number>(0)
   const [formRequiresAdult, setFormRequiresAdult] = useState(false)
+  const [formLocalId, setFormLocalId] = useState('')
+  const [formCodeExpirationDays, setFormCodeExpirationDays] = useState<number>(30)
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  // Locals catalog (for the local selector in prize form)
+  const [locals, setLocals] = useState<LocalData[]>([])
 
   // Fetch prizes on mount
   useEffect(() => {
     load()
+    fetchLocals().then(setLocals).catch(() => {})
   }, [])
 
   async function load() {
@@ -144,6 +152,8 @@ export default function PrizesPage() {
     setFormStock(0)
     setFormStockCurrent(0)
     setFormRequiresAdult(false)
+    setFormLocalId('')
+    setFormCodeExpirationDays(30)
     setFormError(null)
     setFormLoading(false)
     setShowCreateModal(true)
@@ -161,6 +171,7 @@ export default function PrizesPage() {
 
     try {
       setFormLoading(true)
+      const selectedLocal = locals.find(l => l.id === formLocalId)
       await createPrize({
         name: formName.trim(),
         description: formDescription.trim(),
@@ -169,7 +180,10 @@ export default function PrizesPage() {
         relevance: Number(formRelevance),
         stock: Number(formStock),
         stockCurrent: Number(formStock),
-        requiresAdult: formRequiresAdult
+        requiresAdult: formRequiresAdult,
+        localId: formLocalId,
+        localName: selectedLocal?.name || '',
+        codeExpirationDays: Number(formCodeExpirationDays)
       })
       setShowCreateModal(false)
       load()
@@ -191,6 +205,8 @@ export default function PrizesPage() {
     setFormStock(prize.stock ?? 0)
     setFormStockCurrent(prize.stockCurrent ?? prize.stock ?? 0)
     setFormRequiresAdult(prize.requiresAdult)
+    setFormLocalId(prize.localId || '')
+    setFormCodeExpirationDays(typeof prize.codeExpirationDays === 'number' ? prize.codeExpirationDays : 30)
     setFormError(null)
     setFormLoading(false)
     setShowEditModal(true)
@@ -209,6 +225,7 @@ export default function PrizesPage() {
 
     try {
       setFormLoading(true)
+      const selectedLocal = locals.find(l => l.id === formLocalId)
       await updatePrize(selectedPrize.id, {
         name: formName.trim(),
         description: formDescription.trim(),
@@ -217,7 +234,10 @@ export default function PrizesPage() {
         relevance: Number(formRelevance),
         stock: Number(formStock),
         stockCurrent: Number(formStockCurrent),
-        requiresAdult: formRequiresAdult
+        requiresAdult: formRequiresAdult,
+        localId: formLocalId,
+        localName: selectedLocal?.name || '',
+        codeExpirationDays: Number(formCodeExpirationDays)
       })
       setShowEditModal(false)
       load()
@@ -972,6 +992,41 @@ export default function PrizesPage() {
                 </label>
               </div>
 
+              {/* Local */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Local (establecimiento que canjea el premio)
+                </label>
+                <select
+                  value={formLocalId}
+                  onChange={e => setFormLocalId(e.target.value)}
+                  style={{ height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)', padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="">-- Sin local asignado --</option>
+                  {locals.filter(l => l.active).map(l => (
+                    <option key={l.id} value={l.id}>{l.name}{l.category ? ` (${l.category})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Code Expiration Days */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Días de validez del código de canje
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={formCodeExpirationDays}
+                  onChange={e => setFormCodeExpirationDays(Math.max(1, Number(e.target.value)))}
+                  style={{ height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)', padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none' }}
+                />
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  El código generado expirará a los {formCodeExpirationDays} día{formCodeExpirationDays !== 1 ? 's' : ''} de ser emitido.
+                </span>
+              </div>
+
               {/* Error */}
               {formError && (
                 <div style={{
@@ -1169,6 +1224,41 @@ export default function PrizesPage() {
                 <label htmlFor="edit-requires-adult" style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', cursor: 'pointer' }}>
                   {t('prizeManagement.formRequiresAdult')}
                 </label>
+              </div>
+
+              {/* Local */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Local (establecimiento que canjea el premio)
+                </label>
+                <select
+                  value={formLocalId}
+                  onChange={e => setFormLocalId(e.target.value)}
+                  style={{ height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)', padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                >
+                  <option value="">-- Sin local asignado --</option>
+                  {locals.filter(l => l.active).map(l => (
+                    <option key={l.id} value={l.id}>{l.name}{l.category ? ` (${l.category})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Code Expiration Days */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                  Días de validez del código de canje
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={formCodeExpirationDays}
+                  onChange={e => setFormCodeExpirationDays(Math.max(1, Number(e.target.value)))}
+                  style={{ height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)', padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none' }}
+                />
+                <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  El código generado expirará a los {formCodeExpirationDays} día{formCodeExpirationDays !== 1 ? 's' : ''} de ser emitido.
+                </span>
               </div>
 
               {/* Error */}

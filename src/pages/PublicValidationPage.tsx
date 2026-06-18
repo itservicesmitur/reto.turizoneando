@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { getPublicPrizeCode, redeemPublicPrizeCode, type PrizeCodeData } from '../services/adminService'
+import { getPublicPrizeCode, validatePrizeCode, type PrizeCodeData } from '../services/adminService'
 
 // Helper to get category icons
 function getCategoryIcon(category: string): string {
@@ -96,7 +96,7 @@ export default function PublicValidationPage() {
     if (!code || redeeming) return
     try {
       setRedeeming(true)
-      const result = await redeemPublicPrizeCode(code)
+      const result = await validatePrizeCode(code)
       if (result.success) {
         setSuccessRedeem(true)
         setClaimedAtDate(result.claimedAt)

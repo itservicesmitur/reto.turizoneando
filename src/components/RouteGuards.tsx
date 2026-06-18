@@ -456,7 +456,31 @@ export function AdminRoute() {
       try {
         const { claims } = await user.getIdTokenResult()
         const role = (claims.role as string | undefined)?.toLowerCase()
+        // Providers who land on /admin should be redirected to their dashboard
+        if (role === 'provider') { setStatus('denied'); return }
         setStatus(role === 'admin' ? 'ok' : 'denied')
+      } catch {
+        setStatus('denied')
+      }
+    })
+  }, [])
+
+  if (status === 'pending') return <AuthSpinner />
+  if (status === 'denied')  return <Navigate to="/admin/login" replace />
+  return <Outlet />
+}
+
+// ── Provider guard: authenticated + custom claim role: 'provider' ─────────
+export function ProviderRoute() {
+  const [status, setStatus] = useState<AdminStatus>('pending')
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, async user => {
+      if (!user) { setStatus('denied'); return }
+      try {
+        const { claims } = await user.getIdTokenResult()
+        const role = (claims.role as string | undefined)?.toLowerCase()
+        setStatus(role === 'provider' ? 'ok' : 'denied')
       } catch {
         setStatus('denied')
       }

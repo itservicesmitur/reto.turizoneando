@@ -40,6 +40,19 @@ export {
   updateSelfAdmin
 } from "./admin/admins";
 export {
+  getLocals,
+  createLocal,
+  updateLocal,
+  deleteLocal
+} from "./admin/locals";
+export {
+  getProviders,
+  createProvider,
+  updateProvider,
+  deleteProvider,
+  changeProviderPassword
+} from "./admin/providers";
+export {
   createSeason,
   updateSeason,
   deleteSeason
@@ -47,7 +60,9 @@ export {
 export {
   generateTestPrizeCode,
   getPublicPrizeCode,
-  redeemPublicPrizeCode
+  redeemPublicPrizeCode,
+  validatePrizeCode,
+  getProviderCodes
 } from "./admin/prizeCodes";
 export {
   getElevenLabsVoices,
