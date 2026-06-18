@@ -19,6 +19,9 @@ dist-ssr
 datos-guardados/
 firebase-export*/
 
+# Firebase CLI cache
+.firebase/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

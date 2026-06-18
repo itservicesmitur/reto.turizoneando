@@ -21,19 +21,12 @@ export const db = getFirestore(app)
 export const functions = getFunctions(app)
 export const storage = getStorage(app)
 
-//Connect to emulators in development
-
+// Connect to emulators in local environment only
 if (import.meta.env.VITE_ENV === 'local') {
-
-  const emulatorHost = window.location.hostname;
-  connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true })
-  connectFirestoreEmulator(db, emulatorHost, 8080)
-  connectFunctionsEmulator(functions, emulatorHost, 5001)
-  connectStorageEmulator(storage, emulatorHost, 9199)
-}
-
-if (import.meta.env.DEV) {
-
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, 'localhost', 8080)
+  connectFunctionsEmulator(functions, 'localhost', 5001)
+  connectStorageEmulator(storage, 'localhost', 9199)
 }
 
 export default app
