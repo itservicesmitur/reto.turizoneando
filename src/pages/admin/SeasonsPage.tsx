@@ -264,7 +264,10 @@ export default function SeasonsPage() {
         relevance: quickPrizeRelevance,
         stock: quickPrizeStock,
         stockCurrent: quickPrizeStock,
-        requiresAdult: quickPrizeRequiresAdult
+        requiresAdult: quickPrizeRequiresAdult,
+        localId: '',
+        localName: '',
+        codeExpirationDays: 30
       })
 
       // Fetch fresh list of catalog prizes

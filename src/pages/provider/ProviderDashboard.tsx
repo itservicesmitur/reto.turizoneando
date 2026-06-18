@@ -22,7 +22,6 @@ export default function ProviderDashboard() {
   const [pageSize, setPageSize] = useState(10)
 
   // Validate flow
-  const [showValidateModal, setShowValidateModal] = useState(false)
   const [validateCode, setValidateCodeInput] = useState('')
   const [validateLoading, setValidateLoading] = useState(false)
   const [validateError, setValidateError] = useState<string | null>(null)
