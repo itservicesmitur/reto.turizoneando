@@ -2,10 +2,6 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import AdminLoginPage from './pages/admin/AdminLoginPage'
-import LandingPage from './pages/LandingPage'
 import { ProtectedRoute, AdminRoute, ProviderRoute } from './components/RouteGuards'
 
 // Wraps lazy() so that a chunk-not-found error (stale deploy) triggers a page
@@ -28,6 +24,11 @@ function lazyLoad<T extends React.ComponentType<unknown>>(
     })
   )
 }
+
+const LandingPage    = lazyLoad(() => import('./pages/LandingPage'))
+const LoginPage      = lazyLoad(() => import('./pages/LoginPage'))
+const RegisterPage   = lazyLoad(() => import('./pages/RegisterPage'))
+const AdminLoginPage = lazyLoad(() => import('./pages/admin/AdminLoginPage'))
 
 // Lazy-loaded placeholders — replace with real pages as they are built
 const MapPage = lazyLoad(() => import('./pages/Map'))
@@ -54,12 +55,12 @@ const ResetPasswordPage = lazyLoad(() => import('./pages/ResetPasswordPage'))
 
 const router = createBrowserRouter([
   // ── Public landing ─────────────────────────────────────────────
-  { path: '/', element: <LandingPage /> },
+  { path: '/', element: <Suspense fallback={null}><LandingPage /></Suspense> },
 
   // ── Auth routes (no layout) ────────────────────────────────────
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
-  { path: '/admin/login', element: <AdminLoginPage /> },
+  { path: '/login', element: <Suspense fallback={null}><LoginPage /></Suspense> },
+  { path: '/register', element: <Suspense fallback={null}><RegisterPage /></Suspense> },
+  { path: '/admin/login', element: <Suspense fallback={null}><AdminLoginPage /></Suspense> },
   {
     path: '/reset-password',
     element: (

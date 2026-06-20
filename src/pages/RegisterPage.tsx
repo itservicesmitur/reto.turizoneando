@@ -35,8 +35,8 @@ function Chip({ label, selected, onClick }: {
       style={{
         padding: '9px 12px',
         borderRadius: 12,
-        border: `2px solid ${selected ? 'var(--color-navy)' : 'var(--color-border)'}`,
-        background: selected ? 'var(--color-navy)' : 'var(--color-gray-light)',
+        border: `2px solid ${selected ? 'var(--color-primary-dark)' : 'var(--color-border)'}`,
+        background: selected ? 'var(--color-primary-dark)' : 'var(--color-gray-light)',
         color: selected ? '#fff' : 'var(--color-text-muted)',
         fontSize: 13, fontWeight: 600,
         fontFamily: 'var(--font-body)', cursor: 'pointer',
@@ -82,8 +82,8 @@ function FieldInput({
           transition: 'border-color 150ms ease, box-shadow 150ms ease',
         }}
         onFocus={e => {
-          e.currentTarget.style.borderColor = 'var(--color-navy)'
-          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(27,43,110,0.1)'
+          e.currentTarget.style.borderColor = 'var(--color-primary-dark)'
+          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(9,109,125,0.12)'
         }}
         onBlur={e => {
           e.currentTarget.style.borderColor = 'var(--color-border)'
@@ -299,9 +299,9 @@ export default function RegisterPage() {
 
   // ── Hero data per step ─────────────────────────────────────────────────
   const heroMeta: Record<Step, { subtitle: string; badges: string[]; accent: string }> = {
-    1: { subtitle: t('register.subtitle_1'), badges: ['🗺️', '🎯', '🏆'], accent: 'var(--color-yellow)' },
-    2: { subtitle: t('register.subtitle_2'), badges: ['✏️', '👤', '🌍'], accent: 'var(--color-teal)' },
-    3: { subtitle: t('register.subtitle_3'), badges: ['📋', '✅', '🚀'], accent: 'var(--color-orange)' },
+    1: { subtitle: t('register.subtitle_1'), badges: ['🗺️', '🎯', '🏆'], accent: '#fff' },
+    2: { subtitle: t('register.subtitle_2'), badges: ['✏️', '👤', '🌍'], accent: 'var(--color-primary)' },
+    3: { subtitle: t('register.subtitle_3'), badges: ['📋', '✅', '🚀'], accent: 'var(--color-accent-orange)' },
   }
   const hero = heroMeta[step]
 
@@ -312,7 +312,6 @@ export default function RegisterPage() {
   const genderOpts  = [
     { key: 'M',    label: t('register.g_male') },
     { key: 'F',    label: t('register.g_female') },
-    { key: 'NB',   label: t('register.g_nb') },
     { key: 'PNTS', label: t('register.g_pnts') },
   ]
 
@@ -322,23 +321,23 @@ export default function RegisterPage() {
       style={{
         height: '100dvh',
         display: 'flex', flexDirection: 'column',
-        background: 'var(--color-navy)',
+        background: 'var(--color-primary-dark)',
         fontFamily: 'var(--font-body)',
         overflow: 'hidden',
         position: 'relative',
       }}
     >
       {/* ── Decorative blobs ──────────────────────────────────── */}
-      <div style={{ position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%', background: 'rgba(43,191,184,0.18)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: 100, left: -50, width: 160, height: 160, borderRadius: '50%', background: 'rgba(245,200,0,0.10)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '52dvh', left: '50%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(27,43,110,0.6)', transform: 'translate(-50%, 50%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -80, right: -80, width: 240, height: 240, borderRadius: '50%', background: 'rgba(0,187,180,0.15)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: 100, left: -50, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,148,71,0.10)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '52dvh', left: '50%', width: 400, height: 400, borderRadius: '50%', background: 'rgba(4,45,55,0.55)', transform: 'translate(-50%, 50%)', pointerEvents: 'none' }} />
 
       {/* ── Floating stars ────────────────────────────────────── */}
       {[
-        { top: '8%', left: '8%', size: 14, color: 'rgba(245,200,0,0.7)', delay: '0s' },
-        { top: '18%', right: '22%', size: 10, color: 'rgba(43,191,184,0.6)', delay: '0.4s' },
-        { top: '28%', left: '55%', size: 8, color: 'rgba(255,255,255,0.4)', delay: '0.8s' },
-        { top: '6%', left: '40%', size: 12, color: 'rgba(244,118,43,0.5)', delay: '0.2s' },
+        { top: '8%', left: '8%', size: 14, color: 'rgba(255,148,71,0.7)', delay: '0s' },
+        { top: '18%', right: '22%', size: 10, color: 'rgba(0,187,180,0.6)', delay: '0.4s' },
+        { top: '28%', left: '55%', size: 8, color: 'rgba(255,255,255,0.35)', delay: '0.8s' },
+        { top: '6%', left: '40%', size: 12, color: 'rgba(224,52,75,0.45)', delay: '0.2s' },
       ].map((s, i) => (
         <div key={i} style={{
           position: 'absolute',
@@ -393,7 +392,7 @@ export default function RegisterPage() {
             <div className="rp-logo-badge" style={{
               width: 80, height: 80, borderRadius: '50%',
               background: '#fff', padding: 5,
-              boxShadow: '0 0 0 3px rgba(245,200,0,0.5), 0 0 0 6px rgba(245,200,0,0.2), 0 12px 32px rgba(0,0,0,0.3)',
+              boxShadow: '0 0 0 3px rgba(255,148,71,0.55), 0 0 0 6px rgba(255,148,71,0.18), 0 12px 32px rgba(0,0,0,0.3)',
             }}>
               <img src={logoImg} alt="Turizoneando" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
             </div>
@@ -470,7 +469,7 @@ export default function RegisterPage() {
           {/* Accent strip */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: 4,
-            background: 'linear-gradient(90deg, var(--color-teal), var(--color-yellow), var(--color-orange))',
+            background: 'var(--gradient-primary)',
           }} />
 
           <div style={{
@@ -492,8 +491,8 @@ export default function RegisterPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: '50%',
-                      background: step >= s ? 'var(--color-navy)' : 'transparent',
-                      border: `2.5px solid ${step >= s ? 'var(--color-navy)' : 'var(--color-border)'}`,
+                      background: step >= s ? 'var(--color-primary-dark)' : 'transparent',
+                      border: `2.5px solid ${step >= s ? 'var(--color-primary-dark)' : 'var(--color-border)'}`,
                       color: step >= s ? '#fff' : 'var(--color-gray-mid)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 12, fontWeight: 800,
@@ -505,7 +504,7 @@ export default function RegisterPage() {
                     </div>
                     <span style={{
                       fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-                      color: step >= s ? 'var(--color-navy)' : 'var(--color-gray-mid)',
+                      color: step >= s ? 'var(--color-primary-dark)' : 'var(--color-gray-mid)',
                       transition: 'color 300ms ease',
                     }}>
                       {[t('register.step1'), t('register.step2'), t('register.step3')][i]}
@@ -514,7 +513,7 @@ export default function RegisterPage() {
                   {i < 2 && (
                     <div style={{
                       width: 30, height: 2, marginBottom: 14, flexShrink: 0, alignSelf: 'center',
-                      background: step > s ? 'var(--color-navy)' : 'var(--color-border)',
+                      background: step > s ? 'var(--color-primary-dark)' : 'var(--color-border)',
                       transition: 'background 300ms ease',
                     }} />
                   )}
@@ -532,7 +531,7 @@ export default function RegisterPage() {
               {/* Step title */}
               <h2 style={{
                 fontFamily: 'var(--font-display)',
-                color: 'var(--color-navy)', fontSize: 22,
+                color: 'var(--color-primary-dark)', fontSize: 22,
                 margin: '0 0 14px',
               }}>
                 {[t('register.step1_title'), t('register.step2_title'), t('register.step3_title')][step - 1]}
@@ -651,7 +650,7 @@ export default function RegisterPage() {
                   {/* Login link */}
                   <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', margin: '8px 0 0' }}>
                     {t('register.has_account')}{' '}
-                    <Link to="/login" style={{ color: 'var(--color-navy)', fontWeight: 800, textDecoration: 'none' }}>
+                    <Link to="/login" style={{ color: 'var(--color-primary-dark)', fontWeight: 800, textDecoration: 'none' }}>
                       {t('register.login_link')}
                     </Link>
                   </p>
@@ -714,8 +713,8 @@ export default function RegisterPage() {
                           key={l} type="button" onClick={() => setPrefLang(l)}
                           style={{
                             flex: 1, height: 48, borderRadius: 14,
-                            border: `2px solid ${prefLang === l ? 'var(--color-navy)' : 'var(--color-border)'}`,
-                            background: prefLang === l ? 'var(--color-navy)' : 'var(--color-gray-light)',
+                            border: `2px solid ${prefLang === l ? 'var(--color-primary-dark)' : 'var(--color-border)'}`,
+                            background: prefLang === l ? 'var(--color-primary-dark)' : 'var(--color-gray-light)',
                             color: prefLang === l ? '#fff' : 'var(--color-text-muted)',
                             fontSize: 14, fontWeight: 700,
                             fontFamily: 'var(--font-body)', cursor: 'pointer',
@@ -769,13 +768,13 @@ export default function RegisterPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: '50%',
-                        background: 'var(--color-navy)',
+                        background: 'var(--color-primary-dark)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         flexShrink: 0,
                       }}>
                         <i className="ri-file-list-3-line" style={{ color: '#fff', fontSize: 15 }} />
                       </div>
-                      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-navy)' }}>
+                      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-primary-dark)' }}>
                         {t('register.rules_title')}
                       </span>
                     </div>
@@ -798,15 +797,15 @@ export default function RegisterPage() {
                       display: 'flex', gap: 12, alignItems: 'flex-start',
                       cursor: 'pointer', padding: '12px 14px',
                       borderRadius: 14,
-                      border: `2px solid ${accepted ? 'var(--color-navy)' : 'var(--color-border)'}`,
-                      background: accepted ? 'rgba(27,43,110,0.05)' : 'var(--color-gray-light)',
+                      border: `2px solid ${accepted ? 'var(--color-primary-dark)' : 'var(--color-border)'}`,
+                      background: accepted ? 'rgba(9,109,125,0.07)' : 'var(--color-gray-light)',
                       transition: 'all 150ms ease',
                     }}
                   >
                     <div style={{
                       width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                      border: `2px solid ${accepted ? 'var(--color-navy)' : 'var(--color-border)'}`,
-                      background: accepted ? 'var(--color-navy)' : '#fff',
+                      border: `2px solid ${accepted ? 'var(--color-primary-dark)' : 'var(--color-border)'}`,
+                      background: accepted ? 'var(--color-primary-dark)' : '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 150ms ease',
                     }}>
@@ -880,18 +879,18 @@ export default function RegisterPage() {
           .rp-outer {
             align-items: center; justify-content: center;
             padding: 32px 24px;
-            background: #07101f !important;
+            background: #031f26 !important;
           }
           .rp-card {
             flex: 0 0 auto; max-width: 480px; width: 100%;
             border-radius: 28px; overflow: hidden;
             box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09);
-            background: var(--color-navy);
+            background: var(--color-primary-dark);
           }
           .rp-hero {
             min-height: 210px !important;
             padding-top: 36px !important;
-            background: linear-gradient(145deg, #1e306e 0%, var(--color-navy) 100%) !important;
+            background: linear-gradient(145deg, #054f5c 0%, var(--color-primary-dark) 100%) !important;
           }
           .rp-mascot-wrap { display: flex !important; }
           .rp-logo-badge { width: 80px !important; height: 80px !important; }
@@ -978,13 +977,13 @@ const labelStyle: React.CSSProperties = {
 function ctaStyle(disabled: boolean): React.CSSProperties {
   return {
     width: '100%', height: 50, borderRadius: 16,
-    background: disabled ? 'var(--color-gray-mid)' : 'var(--color-yellow)',
-    color: disabled ? '#fff' : 'var(--color-navy)',
+    background: disabled ? 'var(--color-gray-mid)' : 'var(--gradient-primary)',
+    color: '#fff',
     fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-body)',
     border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
     transition: 'transform 150ms ease, box-shadow 150ms ease',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    boxShadow: disabled ? 'none' : '0 6px 20px rgba(245,200,0,0.45)',
+    boxShadow: disabled ? 'none' : '0 6px 20px rgba(224,52,75,0.4)',
     letterSpacing: 0.3,
   }
 }

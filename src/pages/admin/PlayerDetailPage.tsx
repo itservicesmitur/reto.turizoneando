@@ -514,7 +514,7 @@ export default function PlayerDetailPage() {
             gap: 16
           }}>
             <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: '0 0 8px', borderBottom: '1px solid var(--color-border)', paddingBottom: 10 }}>
-              Progreso en el Rally
+              Progreso en el Desafío Cultural
             </h2>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12 }}>
@@ -604,7 +604,7 @@ export default function PlayerDetailPage() {
                     ?? currentStage?.stops.find(s => !s.visited)
                     ?? currentStage?.stops[currentStage.stops.length - 1]
                   return playerStatus.finished
-                    ? <span style={{ color: 'var(--color-teal)', fontWeight: 700 }}>Rally completado</span>
+                    ? <span style={{ color: 'var(--color-teal)', fontWeight: 700 }}>Desafío completado</span>
                     : currentStop
                       ? <span><strong>{currentStop.name}</strong>{currentStop.nameEn ? ` / ${currentStop.nameEn}` : ''}</span>
                       : <span style={{ color: 'var(--color-text-muted)' }}>Sin iniciar</span>
@@ -659,7 +659,7 @@ export default function PlayerDetailPage() {
                 {playerStatus.finished && (
                   <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(43,191,184,0.08)', border: '1px solid rgba(43,191,184,0.25)', color: 'var(--color-teal)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <i className="ri-trophy-line" style={{ fontSize: 15 }} />
-                    Rally completado — todas las etapas finalizadas
+                    Desafío completado — todas las etapas finalizadas
                   </div>
                 )}
 
@@ -761,7 +761,7 @@ export default function PlayerDetailPage() {
               Estado de Cuenta
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
-              Activa o desactiva la cuenta del jugador para controlar su acceso al rally sin suspenderla permanentemente.
+              Activa o desactiva la cuenta del jugador para controlar su acceso al desafío cultural sin suspenderla permanentemente.
             </p>
 
             <div style={{
@@ -778,7 +778,7 @@ export default function PlayerDetailPage() {
                   {player.active === false ? 'Cuenta Inactiva' : 'Cuenta Activa'}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--color-gray-mid)', marginTop: 2 }}>
-                  {player.active === false ? 'El jugador no puede participar en el rally' : 'El jugador tiene acceso completo al rally'}
+                  {player.active === false ? 'El jugador no puede participar en el rally' : 'El jugador tiene acceso completo al desafío cultural'}
                 </div>
               </div>
 
@@ -836,7 +836,7 @@ export default function PlayerDetailPage() {
               Acciones de Seguridad
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
-              Si suspendes esta cuenta, el jugador será desconectado inmediatamente del rally y no podrá volver a iniciar sesión, escanear paradas, ni reclamar premios.
+              Si suspendes esta cuenta, el jugador será desconectado inmediatamente del desafío cultural y no podrá volver a iniciar sesión, escanear paradas, ni reclamar premios.
             </p>
 
             <div style={{

@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ClaimedPrize } from '../types/quiz.types'
 import Ranking from './Ranking'
-import GameButton from './GameButton'
 
-const CONFETTI_COLORS = ['#fcd34d', '#a87f2a', '#ebdcc3', '#321e0f', '#c7a361']
+const CONFETTI_COLORS = ['#00bbb4', '#ff9447', '#ffffff', '#fbbf24', '#18d5cd', '#ffb06f', '#e0344b']
 
 interface Props {
   prize: ClaimedPrize
@@ -35,97 +34,64 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
         .catch(() => null)
 
     const W = 420
-    const QR_SIZE = 160
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const [bannerImg, qrImg] = await Promise.all([
-      tryLoadViaBlob(bannerImage),
-      tryLoadViaBlob(`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(prize.code)}&color=50-30-15&bgcolor=f5ead6`),
-    ])
+    const bannerImg = await tryLoadViaBlob(bannerImage)
 
     const BANNER_H = bannerImg ? 220 : 0
     const HEADER_H = bannerImg ? 0 : 110
     const CODE_H = 160
-    const QR_H = qrImg ? QR_SIZE + 56 : 0
-    const FOOTER_H = 48
-    const H = BANNER_H + HEADER_H + CODE_H + QR_H + FOOTER_H
+    const FOOTER_H = 56
+    const H = BANNER_H + HEADER_H + CODE_H + FOOTER_H
     canvas.width = W
     canvas.height = H
 
-    // Fondo crema
-    ctx.fillStyle = '#f5ead6'
+    ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, W, H)
 
     if (bannerImg) {
-      // Banner foto
       ctx.save()
       ctx.beginPath(); ctx.rect(0, 0, W, BANNER_H); ctx.clip()
       ctx.drawImage(bannerImg, 0, 0, W, BANNER_H)
       ctx.restore()
-      // Degradado inferior del banner
       const g1 = ctx.createLinearGradient(0, BANNER_H - 90, 0, BANNER_H)
-      g1.addColorStop(0, 'rgba(245,234,214,0)'); g1.addColorStop(1, '#f5ead6')
+      g1.addColorStop(0, 'rgba(255,255,255,0)'); g1.addColorStop(1, '#ffffff')
       ctx.fillStyle = g1; ctx.fillRect(0, BANNER_H - 90, W, 90)
-      // Degradado superior oscuro para texto
       const g2 = ctx.createLinearGradient(0, 0, 0, 72)
       g2.addColorStop(0, 'rgba(0,0,0,0.70)'); g2.addColorStop(1, 'rgba(0,0,0,0)')
       ctx.fillStyle = g2; ctx.fillRect(0, 0, W, 72)
-      // Etiqueta PREMIO
-      ctx.fillStyle = '#fcd34d'; ctx.font = 'bold 10px Georgia,serif'
+      ctx.fillStyle = '#ff9447'; ctx.font = 'bold 10px system-ui,sans-serif'
       ctx.textAlign = 'left'; ctx.fillText('PREMIO', 20, 28)
-      // Nombre del premio
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Georgia,serif'
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px system-ui,sans-serif'
       ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 6
       ctx.fillText(prize.prizeName || 'Premio', 20, 56, W - 40)
       ctx.shadowBlur = 0
     } else {
-      // Header sin imagen: fondo degradado oscuro
       const g = ctx.createLinearGradient(0, 0, 0, HEADER_H)
-      g.addColorStop(0, '#22150c'); g.addColorStop(1, '#f5ead6')
+      g.addColorStop(0, '#075f6e'); g.addColorStop(1, '#ffffff')
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, HEADER_H)
-      ctx.fillStyle = '#fcd34d'; ctx.font = 'bold 11px Georgia,serif'
+      ctx.fillStyle = '#ff9447'; ctx.font = 'bold 11px system-ui,sans-serif'
       ctx.textAlign = 'center'; ctx.fillText('TURIZONEANDO · PREMIO', W / 2, 36)
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Georgia,serif'
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 20px system-ui,sans-serif'
       ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
       ctx.fillText(prize.prizeName || 'Premio', W / 2, 72, W - 40)
       ctx.shadowBlur = 0
     }
 
     const baseY = BANNER_H + HEADER_H
-
-    // Separador punteado
-    ctx.strokeStyle = '#a87f2a66'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
+    ctx.strokeStyle = 'rgba(0,187,180,0.25)'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(24, baseY + 20); ctx.lineTo(W - 24, baseY + 20); ctx.stroke()
     ctx.setLineDash([])
-
-    // Etiqueta código
-    ctx.fillStyle = '#a87f2a'; ctx.font = '700 10px Georgia,serif'; ctx.textAlign = 'center'
-    ctx.fillText('CÓDIGO DE CANJE', W / 2, baseY + 48)
-
-    // Código grande
-    ctx.fillStyle = '#321e0f'; ctx.font = 'bold 62px monospace'; ctx.textAlign = 'center'
+    ctx.fillStyle = '#00bbb4'; ctx.font = '700 10px system-ui,sans-serif'; ctx.textAlign = 'center'
+    ctx.fillText('CANJEA CON ESTE CODIGO', W / 2, baseY + 48)
+    ctx.fillStyle = '#096d7d'; ctx.font = 'bold 62px monospace'; ctx.textAlign = 'center'
     ctx.fillText(prize.code, W / 2, baseY + 120)
-
-    // Separador punteado
-    ctx.strokeStyle = '#a87f2a66'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
+    ctx.strokeStyle = 'rgba(0,187,180,0.25)'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(24, baseY + CODE_H - 10); ctx.lineTo(W - 24, baseY + CODE_H - 10); ctx.stroke()
     ctx.setLineDash([])
-
-    if (qrImg) {
-      const qrX = (W - QR_SIZE) / 2
-      const qrY = baseY + CODE_H + 14
-      // Fondo blanco QR
-      ctx.fillStyle = '#fff'
-      ctx.beginPath(); ctx.roundRect(qrX - 10, qrY - 10, QR_SIZE + 20, QR_SIZE + 20, 10); ctx.fill()
-      ctx.drawImage(qrImg, qrX, qrY, QR_SIZE, QR_SIZE)
-      ctx.fillStyle = '#6b4a20'; ctx.font = '600 10px Georgia,serif'; ctx.textAlign = 'center'
-      ctx.fillText('Escanea para validar tu premio', W / 2, qrY + QR_SIZE + 24)
-    }
-
-    // Footer
-    ctx.fillStyle = '#a87f2a'; ctx.font = 'bold 12px Georgia,serif'; ctx.textAlign = 'center'
+    ctx.fillStyle = '#096d7d'; ctx.font = 'bold 12px system-ui,sans-serif'; ctx.textAlign = 'center'
     ctx.fillText('turizoneando.com', W / 2, H - 16)
 
     const url = canvas.toDataURL('image/png')
@@ -142,22 +108,31 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
   }
 
   const bannerImage = prize.prizeImageUrl || monumentImage
+  const stageNum    = Math.floor(stopIndex / 4) + 1
+
 
   return (
     <div
-      className="fixed inset-0 z-999 flex flex-col items-center justify-between w-full h-full p-4 overflow-hidden"
-      style={{
-        backgroundImage: "url('/assets/img/fonto_textura.jpg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
+      className="fixed inset-0 z-999 flex flex-col items-center justify-center gap-5 overflow-hidden"
+      style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)' }}
     >
-      {/* Confetti pantalla completa */}
+      <style>{`
+        @keyframes confettiFall {
+          0%   { transform: translateY(-20px) rotate(0deg);   opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes prizeSlideIn {
+          from { transform: translateY(28px) scale(0.96); opacity: 0; }
+          to   { transform: translateY(0)    scale(1);    opacity: 1; }
+        }
+      `}</style>
+
+      {/* Confetti */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-        {Array.from({ length: 50 }).map((_, i) => {
-          const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
-          const isRound = i % 2 === 0
-          const size = `${(3 + (i * 2) % 7)}px`
+        {Array.from({ length: 40 }).map((_, i) => {
+          const color   = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
+          const isRound = i % 3 === 0
+          const size    = `${3 + (i * 2) % 6}px`
           return (
             <div
               key={i}
@@ -169,7 +144,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
                 height: isRound ? size : `${parseInt(size) * 1.5}px`,
                 backgroundColor: color,
                 borderRadius: isRound ? '50%' : '1.5px',
-                opacity: 0.85,
+                opacity: 0.8,
                 animation: `confettiFall ${(2.5 + (i * 0.4) % 4).toFixed(2)}s linear infinite`,
                 animationDelay: `${((i * 0.15) % 3.5).toFixed(2)}s`,
               }}
@@ -178,122 +153,193 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
         })}
       </div>
 
-      {/* X para salir */}
-      <button
-        onClick={onContinue}
-        className="absolute top-6 right-6 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-map-wood-dark/80 text-map-cream-light hover:bg-map-wood-dark active:scale-95 transition-all shadow-md"
+      {/* Iconos top-right: Descargar / Copiar / Cerrar */}
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+        {prize.code && (
+          <>
+            <button
+              onClick={handleDownload}
+              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.18)' }}
+            >
+              <i className="ri-download-2-line text-lg text-white" />
+            </button>
+            <button
+              onClick={handleCopy}
+              className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all"
+              style={{ background: copied ? 'rgba(0,187,180,0.6)' : 'rgba(255,255,255,0.18)' }}
+            >
+              <i className={`${copied ? 'ri-check-line' : 'ri-file-copy-line'} text-lg text-white`} />
+            </button>
+          </>
+        )}
+        <button
+          onClick={onContinue}
+          className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-transform"
+          style={{ background: 'rgba(255,255,255,0.18)' }}
+        >
+          <i className="ri-close-line text-xl text-white" />
+        </button>
+      </div>
+
+      {/* Titulo */}
+      <div className="flex flex-col items-center gap-1.5 z-20 px-6 text-center">
+        <div
+          className="px-4 py-1 rounded-full mb-0.5"
+          style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}
+        >
+          <span className="text-[11px] font-black tracking-widest uppercase text-white" style={{ opacity: 0.9 }}>
+            HAS GANADO!
+          </span>
+        </div>
+        <h1
+          className="font-black leading-none"
+          style={{
+            fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+            fontSize: 'clamp(24px, 7vw, 36px)',
+            background: 'linear-gradient(135deg, #ff9447 0%, #fbbf24 55%, #ffffff 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 2px 10px rgba(255,148,71,0.45))',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          {t('map.congrats')}
+        </h1>
+      </div>
+
+      {/* TICKET */}
+      <div
+        className="w-full z-20"
+        style={{ maxWidth: 360, paddingLeft: 16, paddingRight: 16, animation: 'prizeSlideIn 0.45s ease-out' }}
       >
-        <i className="ri-close-line text-lg" />
-      </button>
-
-      <div className="flex-1 flex-col flex items-center justify-center w-full gap-4">
-        <p className="text-2xl text-map-wood-dark font-medium uppercase">{t('map.congrats')}</p>
-
-        {/* Ticket */}
-        <div className="relative w-full max-w-[360px] bg-map-cream-light rounded-md shadow-xl flex flex-col overflow-hidden">
-
-          {/* Banner image */}
-          <div className="w-full h-65 relative">
-            <img src={bannerImage} alt={prize.prizeName} className="w-full h-full object-cover" />
-            <div className="absolute -bottom-1 left-0 right-0 h-50 bg-linear-to-t from-map-cream-light via-map-cream-light/20 to-transparent" />
-            <div className="absolute top-0 left-0 right-0 h-30 bg-linear-to-b from-black/70 via-black/30 to-transparent" />
-            <div className="absolute top-4 left-4 flex flex-col gap-0.5">
-              <p className="text-[12px] text-map-gold-light font-black uppercase tracking-widest" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{t('map.prize_label')}</p>
-              <h2 className="text-lg font-black text-white tracking-wide leading-tight max-w-[220px]" style={{ textShadow: '0 2px 8px rgba(0,0,0,1)' }}>
-                {prize.prizeName || t('map.prize_label')}
-              </h2>
+        <div
+          className="w-full rounded-3xl overflow-hidden flex flex-col"
+          style={{ background: '#ffffff', boxShadow: '0 16px 48px rgba(0,0,0,0.32)' }}
+        >
+          {/* Banner */}
+          <div className="p-2" style={{ height: 190 }}>
+            <div className="relative w-full h-full rounded-3xl overflow-hidden">
+              <img src={bannerImage} alt={prize.prizeName} className="w-full h-full object-cover" />
+              <div
+                className="absolute top-0 left-0 right-0"
+                style={{ height: 90, background: 'linear-gradient(to bottom, rgba(0,0,0,0.65), transparent)' }}
+              />
+              <div className="absolute top-4 left-4 flex flex-col gap-0.5">
+                <span
+                  className="text-[10px] font-black tracking-widest uppercase"
+                  style={{ color: '#ff9447', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
+                >
+                  {t('map.prize_label')}
+                </span>
+                <h2
+                  className="text-lg font-black text-white leading-tight"
+                  style={{ maxWidth: 220, textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}
+                >
+                  {prize.prizeName || t('map.prize_label')}
+                </h2>
+              </div>
             </div>
           </div>
 
-          {/* Notch 1 */}
-          <div className="relative w-full flex items-center justify-between px-5 my-1 shrink-0">
-            <div className="absolute left-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_-3px_0_4px_rgba(0,0,0,0.1)]" style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }} />
-            <div className="absolute right-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_3px_0_4px_rgba(0,0,0,0.1)]" style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }} />
-            {/* <div className="w-full border-t border-dashed border-map-gold/30" /> */}
+          {/* Notch superior */}
+          <div className="relative" style={{ height: 28 }}>
+            <div className="absolute rounded-full" style={{ left: -12, top: 2, width: 24, height: 24, background: '#00a29a' }} />
+            <div className="absolute rounded-full" style={{ right: -12, top: 2, width: 24, height: 24, background: '#00a29a' }} />
+            <div className="absolute left-5 right-5" style={{ top: '50%', borderTop: '1.5px dashed rgba(255,148,71,0.35)' }} />
           </div>
 
-          {/* QR + código */}
-          <div className=" w-full px-6 py-4 flex flex-row items-center justify-center gap-6  shrink-0">
-            <div className="flex w-full items-center justify-center gap-5 p-4 border border-map-gold/30 rounded bg-white shadow-sm">
-              {prize.code ? (
-                <>
-                  <div className="flex w-full flex-col items-center gap-1">
-                    <p className="text-[11px] mb-2 text-map-gold font-semibold block uppercase">{t('map.redeem_code')}</p>
-                    <span className="font-mono text-5xl font-bold text-map-wood-dark">{prize.code}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-2 px-4 w-full">
-                  <i className="ri-error-warning-line text-3xl text-map-gold/60" />
-                  <p className="text-[12px] text-map-wood-dark/60 text-center">
-                    {t('map.prize_no_code_msg1')}
-                    <br />{t('map.prize_no_code_msg2')}
-                  </p>
+          {/* Codigo */}
+          <div className="px-6 py-4 flex flex-col items-center gap-2">
+            {prize.code ? (
+              <>
+                <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: '#ff9447' }}>
+                  {t('map.redeem_code')}
+                </span>
+                <div
+                  className="w-full flex items-center justify-center py-4 rounded-2xl"
+                  style={{ background: 'rgba(255,148,71,0.06)', border: '1.5px solid rgba(255,148,71,0.28)' }}
+                >
+                  <span className="font-mono font-black" style={{ fontSize: 38, color: '#096d7d', letterSpacing: '0.06em' }}>
+                    {prize.code}
+                  </span>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-4 w-full">
+                <i className="ri-error-warning-line text-3xl" style={{ color: 'rgba(0,187,180,0.45)' }} />
+                <p className="text-[12px] text-center" style={{ color: 'rgba(9,109,125,0.6)' }}>
+                  {t('map.prize_no_code_msg1')}<br />{t('map.prize_no_code_msg2')}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Notch 2 */}
-          <div className="relative w-full flex items-center justify-between px-5 my-1 shrink-0">
-            <div className="absolute left-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_-3px_0_4px_rgba(0,0,0,0.1)]" style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }} />
-            <div className="absolute right-[-12px] w-6 h-6 rounded-full bg-cover bg-center z-20 shadow-[inset_3px_0_4px_rgba(0,0,0,0.1)]" style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')" }} />
-            {/* <div className="w-full border-t border-dashed border-map-gold/30" /> */}
+          {/* Notch inferior */}
+          <div className="relative" style={{ height: 28 }}>
+            <div className="absolute rounded-full" style={{ left: -12, top: 2, width: 24, height: 24, background: '#00a29a' }} />
+            <div className="absolute rounded-full" style={{ right: -12, top: 2, width: 24, height: 24, background: '#00a29a' }} />
+            <div className="absolute left-5 right-5" style={{ top: '50%', borderTop: '1.5px dashed rgba(255,148,71,0.35)' }} />
           </div>
 
-          {/* Footer del ticket */}
-          <div className="px-5 py-3 w-full flex items-center justify-between shrink-0 bg-map-cream/15 mt-5">
+          {/* Footer meta */}
+          <div className="px-5 py-3 flex items-center justify-between" style={{ background: 'rgba(255,148,71,0.05)' }}>
             <div className="flex flex-col gap-0.5">
-              <span className="text-[9px] text-map-wood-dark/45 font-semibold uppercase tracking-wider">{t('map.valid_label')}</span>
-              <span className="text-[13px] font-bold text-map-wood-dark">
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,148,71,0.7)' }}>
+                {t('map.valid_label')}
+              </span>
+              <span className="text-[12px] font-bold" style={{ color: '#096d7d' }}>
                 {new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
-            <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, #a87f2a55, transparent)' }} />
+            <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,148,71,0.4), transparent)' }} />
             <div className="flex flex-col gap-0.5 items-center">
-              <span className="text-[9px] text-map-wood-dark/45 font-semibold uppercase tracking-wider">{t('map.stage_badge')}</span>
-              <span className="text-[13px] font-bold text-map-wood-dark">{Math.floor(stopIndex / 4) + 1}</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,148,71,0.7)' }}>
+                {t('map.stage_badge')}
+              </span>
+              <span className="text-[13px] font-bold" style={{ color: '#096d7d' }}>{stageNum}</span>
             </div>
-            <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, #a87f2a55, transparent)' }} />
-            <div className="flex flex-col gap-0.5 items-center">
-              <span className="text-[9px] text-map-wood-dark/45 font-semibold uppercase tracking-wider">{t('map.stop_short')}</span>
-              <span className="text-[13px] font-bold text-map-wood-dark">{(stopIndex % 4) + 1}</span>
-            </div>
-            <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, #a87f2a55, transparent)' }} />
-            <img src="/assets/img/logo1.png" className="w-13 h-13" />
+            <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,148,71,0.4), transparent)' }} />
+            <img src="/assets/img/logoSinFondo.png" className="w-20 h-auto object-contain" />
           </div>
         </div>
+      </div>
 
-        {/* Botones justo bajo la card */}
-        <div className="w-full max-w-[360px] flex flex-row gap-2 mt-5">
-          {prize.code && (
-            <>
-              <GameButton variant="tan" className="flex-1 h-12 text-[10px]" onClick={handleDownload}>
-                <i className="ri-download-2-line text-sm mr-1.5" />
-                {t('map.download')}
-              </GameButton>
-              <GameButton variant="tan" className="flex-1 h-12 text-[10px]" onClick={handleCopy}>
-                <i className={copied ? 'ri-check-line text-sm mr-1.5' : 'ri-file-copy-line text-sm mr-1.5'} />
-                {copied ? t('map.copied') : t('map.copy')}
-              </GameButton>
-            </>
-          )}
-          <GameButton variant="dark" className="flex-1 h-12 text-[10px] rounded-md" onClick={() => setShowRanking(true)}>
-            <i className="ri-trophy-line text-sm mr-1.5" />
-            Ranking
-          </GameButton>
-        </div>
-        <GameButton variant="dark" className="w-full max-w-[360px] h-12 text-[11px]" onClick={() => { onContinue(); navigate('/map') }}>
+      {/* Botones */}
+      <div className="w-full z-20 flex gap-2" style={{ maxWidth: 360, paddingLeft: 16, paddingRight: 16 }}>
+        <button
+          onClick={() => setShowRanking(true)}
+          className="flex-1 h-12 rounded-[18px] text-sm font-black active:translate-y-[4px] transition-all flex items-center justify-center gap-1.5"
+          style={{
+            background: 'linear-gradient(180deg,#f2ead6 0%,#e5dcc6 100%)',
+            color: '#8b6f47',
+            border: '2px solid #c9bc9e',
+            boxShadow: 'inset 0 2px 0 rgba(255,255,255,.7), 0 6px 0 #b8a87e, 0 10px 18px rgba(0,0,0,.10)',
+          }}
+        >
+          <i className="ri-trophy-line text-sm" />
+          Ranking
+        </button>
+        <button
+          onClick={() => { onContinue(); navigate('/map') }}
+          className="flex-1 h-12 rounded-[18px] text-sm font-black text-white active:translate-y-[4px] transition-all flex items-center justify-center gap-1.5"
+          style={{
+            background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
+            border: '2px solid #0c7f89',
+            boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 12px 22px rgba(9,109,125,.25)',
+          }}
+        >
           {isLastStop ? (
-            <><i className="ri-flag-line text-sm mr-1.5" />Finalizar reto</>
+            <><i className="ri-flag-line text-sm" />Finalizar</>
           ) : (
-            <><i className="ri-map-pin-line text-sm mr-1.5" />Ir a siguiente parada</>
+            <><i className="ri-map-pin-line text-sm" />Siguiente</>
           )}
-        </GameButton>
+        </button>
       </div>
 
       {showRanking && (
-        <Ranking onClose={() => setShowRanking(false)} onContinue={onContinue} />
+        <Ranking onClose={() => setShowRanking(false)} onContinue={onContinue} hasMoreStages={!isLastStop} />
       )}
     </div>
   )

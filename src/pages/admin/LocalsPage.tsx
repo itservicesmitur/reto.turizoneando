@@ -448,7 +448,7 @@ export default function LocalsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 28, margin: '0 0 4px' }}>Locales</h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>Gestiona los establecimientos participantes del rally.</p>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>Gestiona los establecimientos participantes del desafío cultural.</p>
         </div>
         <button onClick={openCreate}
           style={{ height: 48, padding: '0 20px', borderRadius: 12, background: 'var(--color-navy)', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 14px rgba(27,43,110,0.3)' }}>

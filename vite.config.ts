@@ -13,5 +13,16 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor-react'
+          if (id.includes('node_modules/firebase')) return 'vendor-firebase'
+          if (id.includes('node_modules/i18next')) return 'vendor-i18n'
+        },
+      },
+    },
+  },
 })
 

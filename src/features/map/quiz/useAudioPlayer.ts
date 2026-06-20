@@ -4,12 +4,14 @@ interface Options {
   audioUrl?: string
   /** Duración simulada en segundos cuando no hay archivo de audio real. */
   duration?: number
+  initialMuted?: boolean
 }
 
 /** Controla la reproducción de narración: audio real o simulación RAF cuando no hay archivo. */
-export function useAudioPlayer({ audioUrl, duration = 22 }: Options) {
+export function useAudioPlayer({ audioUrl, duration = 22, initialMuted = false }: Options) {
   const [playing,  setPlaying]  = useState(false)
   const [progress, setProgress] = useState(0)
+  const [muted,    setMuted]    = useState(initialMuted)
 
   const audioRef   = useRef<HTMLAudioElement | null>(null)
   const rafRef     = useRef<number | null>(null)
@@ -95,5 +97,11 @@ export function useAudioPlayer({ audioUrl, duration = 22 }: Options) {
     }
   }, [stopRaf])
 
-  return { playing, progress, handleToggle }
+  const handleMute = () => {
+    const next = !muted
+    setMuted(next)
+    if (audioRef.current) audioRef.current.muted = next
+  }
+
+  return { playing, progress, muted, handleToggle, handleMute }
 }

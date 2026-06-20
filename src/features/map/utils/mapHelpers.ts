@@ -10,9 +10,9 @@ export function createDotElement(nav = false): HTMLDivElement {
   const size = nav ? 26 : 18
   const inset = nav ? -8 : -6
   const dot = document.createElement('div')
-  dot.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:#e8341a;border:3px solid #fff;box-shadow:0 2px 10px rgba(232,52,26,0.60);position:relative;`
+  dot.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:#ff9447;border:3px solid #fff;box-shadow:0 2px 12px rgba(255,148,71,0.7),0 8px 28px rgba(255,148,71,0.35),0 18px 48px rgba(255,148,71,0.15);position:relative;`
   const ring = document.createElement('div')
-  ring.style.cssText = `position:absolute;inset:${inset}px;border-radius:50%;background:rgba(232,52,26,0.25);animation:pulse-ring 1.6s ease-out infinite;`
+  ring.style.cssText = `position:absolute;inset:${inset}px;border-radius:50%;background:rgba(255,148,71,0.28);animation:pulse-ring 1.6s ease-out infinite;`
   dot.appendChild(ring)
   return dot
 }
@@ -49,54 +49,68 @@ export function buildMarkerHTML(
   }
   const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex
 
-  let medallionStyle: string
-  let nameStyle: string
-  let statusBg: string
-  let statusColor: string
-  let statusText: string
-  let innerBadge: string
-  let outerBadge: string
-
   if (isCompleted) {
-    medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 18px rgba(252,211,77,0.7),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
-    nameStyle = 'border-color:#a87f2a;background-color:#22150c;color:#fcd34d;'
-    statusBg = 'rgba(34,21,12,0.90)'
-    statusColor = '#86efac'
-    statusText = '✓ Completado'
-    innerBadge = `<div class="treasure-check-badge"><svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
-    outerBadge = ''
-  } else if (isAvailable) {
-    medallionStyle = 'border-color:#fcd34d;box-shadow:0 0 14px rgba(252,211,77,0.55),0 8px 16px rgba(34,21,12,0.65),inset 0 2px 4px rgba(255,255,255,0.4);'
-    nameStyle = 'border-color:#fcd34d;background-color:#321e0f;color:#fcd34d;'
-    statusBg = 'rgba(22,101,52,0.92)'
-    statusColor = '#bbf7d0'
-    statusText = '● Disponible'
-    innerBadge = ''
-    outerBadge = '<div class="treasure-pulse-ring"></div>'
-  } else {
-    medallionStyle = 'border-color:#6b4a20;'
-    nameStyle = 'border-color:#6b4a20;background-color:#1a110a;color:#a07840;'
-    statusBg = 'rgba(15,10,5,0.85)'
-    statusColor = '#6b4a20'
-    statusText = `🔒 Parada ${indexWithinStage + 1}`
-    innerBadge = `<div class="treasure-lock-badge"><svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>`
-    outerBadge = ''
+    return `
+      <div class="gmap-pin-wrapper">
+        <div class="gmap-pin-head">
+          <div class="gmap-pin-circle" style="border-color:#16a34a;box-shadow:0 0 0 3px white,0 0 0 5.5px #16a34a,0 4px 14px rgba(22,163,74,0.35);">
+            <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.85);" />
+          </div>
+        </div>
+        <div class="gmap-pin-tip" style="border-top-color:#16a34a;"></div>
+      </div>
+      <div class="gmap-info-card">
+        <div class="gmap-info-left" style="color:#16a34a;">
+          <i class="ri-checkbox-circle-fill"></i>
+          <span class="gmap-info-badge">COMPLETADO</span>
+        </div>
+        <div class="gmap-info-divider"></div>
+        <span class="gmap-info-name">${monumento.nombre}</span>
+      </div>
+    `
   }
 
-  const completedOverlay = isCompleted
-    ? `<div style="position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(252,211,77,0.55) 0%,rgba(168,127,42,0.45) 100%);pointer-events:none;"></div>`
-    : ''
+  if (isAvailable) {
+    return `
+      <div class="gmap-pin-wrapper">
+        <div class="gmap-pin-head">
+          <div class="gmap-pulse-ring"></div>
+          <div class="gmap-pin-circle" style="border-color:#096d7d;box-shadow:0 4px 18px rgba(9,109,125,0.55),0 6px 14px rgba(0,0,0,0.22);">
+            <img src="${monumento.imagen}" alt="${monumento.nombre}" />
+          </div>
+        </div>
+        <div class="gmap-pin-tip" style="border-top-color:#096d7d;"></div>
+      </div>
+      <div class="gmap-info-card">
+        <div class="gmap-info-left" style="color:#096d7d;">
+          <i class="ri-map-pin-2-fill"></i>
+          <span class="gmap-info-badge">DISPONIBLE</span>
+        </div>
+        <div class="gmap-info-divider"></div>
+        <span class="gmap-info-name">${monumento.nombre}</span>
+      </div>
+    `
+  }
 
   return `
-    <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
-      ${outerBadge}
-      <div class="treasure-medallion" style="${medallionStyle}">
-        <img src="${monumento.imagen}" alt="${monumento.nombre}" />
-        ${completedOverlay}
-        ${innerBadge}
+    <div class="gmap-pin-wrapper" style="opacity:0.5;">
+      <div class="gmap-pin-head">
+        <div class="gmap-pin-circle" style="border-color:#9ca3af;box-shadow:0 4px 10px rgba(0,0,0,0.12);">
+          <img src="${monumento.imagen}" alt="${monumento.nombre}" />
+        </div>
+        <div class="gmap-lock-badge">
+          <svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        </div>
       </div>
+      <div class="gmap-pin-tip" style="border-top-color:#9ca3af;"></div>
     </div>
-    <div class="treasure-label" style="${nameStyle};max-width:210px;white-space:normal;word-break:break-word;line-height:1.25;text-align:center;">${monumento.nombre}</div>
-    <div style="margin-top:3px;padding:2px 7px;border-radius:10px;background:${statusBg};color:${statusColor};font-family:Georgia,serif;font-size:8px;font-weight:700;letter-spacing:0.3px;text-align:center;white-space:nowrap;">${statusText}</div>
+    <div class="gmap-info-card">
+      <div class="gmap-info-left" style="color:#9ca3af;">
+        <i class="ri-lock-2-fill"></i>
+        <span class="gmap-info-badge">BLOQUEADA</span>
+      </div>
+      <div class="gmap-info-divider"></div>
+      <span class="gmap-info-name" style="color:#9ca3af;">Parada ${indexWithinStage + 1}</span>
+    </div>
   `
 }

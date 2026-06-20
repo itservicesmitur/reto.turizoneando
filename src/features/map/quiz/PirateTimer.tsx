@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 const TOTAL = 60
-const R = 29
-const CIRC = 2 * Math.PI * R
+const SIZE  = 52
+const R     = 20
+const CIRC  = 2 * Math.PI * R
 
 interface Props {
   questionIdx: number
@@ -113,75 +114,54 @@ export default function PirateTimer({ questionIdx, paused, onTimeUp }: Props) {
   const pct        = seconds / TOTAL
   const isCritical = seconds <= 5
   const isWarning  = seconds > 5 && seconds <= 15
-  const ringColor  = isCritical ? '#dc2626' : isWarning ? '#d97706' : '#a87f2a'
+  const ringColor  = isCritical ? '#e0344b' : isWarning ? '#ff9447' : 'rgba(255,255,255,0.6)'
   const dashOffset = CIRC * (1 - pct)
+  const cx         = SIZE / 2
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
       <div
         style={{
-          position: 'relative',
-          width: 70,
-          height: 70,
+          position: 'relative', width: SIZE, height: SIZE,
           animation: isCritical ? 'timerPulse 0.45s ease-in-out infinite' : undefined,
         }}
       >
-        {/* SVG progress ring */}
-        <svg
-          width={70} height={70}
-          style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}
-        >
-          {/* Rope-style background track */}
-          {/* <circle
-            cx={35} cy={35} r={R}
-            fill="none"
-            stroke="rgba(168,127,42,0.18)"
-            strokeWidth={4.5}
-            strokeDasharray="4.5 3"
-          /> */}
-          {/* Animated progress arc */}
+        <svg width={SIZE} height={SIZE} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+          <circle cx={cx} cy={cx} r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={3} />
           <circle
-            cx={35} cy={35} r={R}
-            fill="none"
-            stroke={ringColor}
-            strokeWidth={4.5}
-            strokeLinecap="round"
-            strokeDasharray={`${CIRC} ${CIRC}`}
-            strokeDashoffset={dashOffset}
+            cx={cx} cy={cx} r={R} fill="none"
+            stroke={ringColor} strokeWidth={3} strokeLinecap="round"
+            strokeDasharray={`${CIRC} ${CIRC}`} strokeDashoffset={dashOffset}
             style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.4s ease' }}
           />
         </svg>
 
-        {/* Inner disc */}
+        {/* Disco blanco translúcido */}
         <div style={{
-          position: 'absolute', inset: 8, borderRadius: '50%',
-          background: 'radial-gradient(circle at 38% 34%, rgba(252,248,238,0.98), rgba(232,218,192,0.92))',
-          boxShadow: `inset 0 2px 8px rgba(0,0,0,0.14), inset 0 -1px 2px rgba(255,255,255,0.45), 0 0 0 1px ${ringColor}28`,
+          position: 'absolute', inset: 6, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.18)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
-            fontFamily: 'var(--font-map-parchment)',
-            fontSize: seconds >= 10 ? 24 : 28,
+            fontFamily: 'var(--font-body)',
+            fontSize: seconds >= 10 ? 15 : 17,
             fontWeight: 900,
-            color: ringColor,
+            color: isCritical ? '#e0344b' : isWarning ? '#ff9447' : '#ffffff',
             lineHeight: 1,
-            transition: 'color 0.4s, font-size 0.15s',
+            transition: 'color 0.4s',
           }}>
             {seconds}
           </span>
         </div>
       </div>
 
-      {/* Urgency label */}
       <p style={{
-        marginTop: 5,
-        fontFamily: 'var(--font-map-parchment)',
-        fontSize: 9,
+        fontFamily: 'var(--font-body)',
+        fontSize: 8,
         fontWeight: 700,
-        letterSpacing: '0.26em',
+        letterSpacing: '0.22em',
         textTransform: 'uppercase',
-        color: `${ringColor}bb`,
-        transition: 'color 0.4s',
+        color: 'rgba(255,255,255,0.5)',
       }}>
         {isCritical ? t('map.timer_hurry') : isWarning ? t('map.timer_warning') : t('map.timer_normal')}
       </p>
@@ -189,7 +169,7 @@ export default function PirateTimer({ questionIdx, paused, onTimeUp }: Props) {
       <style>{`
         @keyframes timerPulse {
           0%, 100% { transform: scale(1); }
-          50%       { transform: scale(1.07); }
+          50%       { transform: scale(1.1); }
         }
       `}</style>
     </div>

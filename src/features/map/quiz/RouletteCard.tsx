@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import GameButton from './GameButton'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '../../../config/firebase'
 import { claimPrizeAndNotify, getPrizesForStage } from '../services/prizeApi'
 import type { PrizeInfo } from '../services/prizeApi'
 import type { ClaimedPrize } from '../types/quiz.types'
@@ -14,27 +15,42 @@ interface Props {
 
 const ROULETTE_EMOJIS = ['🪙', '🗝️', '🧭', '🗺️', '💰', '🛡️', '⚔️', '💎']
 
+const EMPTY_SEG_INDICES = [2, 6]
+const PRIZE_INDICES     = [0, 1, 3, 4, 5, 7]  // slots que no son vacíos
+const EMPTY_PRIZE_ID    = '__empty__'
+
+/* Paleta de segmentos — 100% brand palette */
 const SEG_COLORS = [
-  '#ebdcc3',
-  '#321e0f',
-  '#fcd34d',
-  '#a87f2a',
-  '#ebdcc3',
-  '#321e0f',
-  '#fcd34d',
-  '#a87f2a',
+  '#fbbf24',  // 0 amber/yellow
+  '#00bbb4',  // 1 teal (primary)
+  '#ff9447',  // 2 orange (accent) — VACÍO
+  '#e0344b',  // 3 red (accent)
+  '#18d5cd',  // 4 teal claro
+  '#ffb06f',  // 5 naranja suave
+  '#096d7d',  // 6 teal oscuro (primary-dark) — VACÍO
+  '#f26619',  // 7 naranja profundo
 ]
 
 const SEG_TEXT = [
-  '#321e0f',
-  '#fff3d1',
-  '#321e0f',
-  '#fff3d1',
-  '#321e0f',
-  '#fff3d1',
-  '#321e0f',
-  '#fff3d1',
+  '#7c3a0a',  // 0 amber → oscuro
+  '#ffffff',  // 1 teal → blanco
+  '#7c2d12',  // 2 orange → oscuro
+  '#ffffff',  // 3 red → blanco
+  '#024d47',  // 4 teal claro → oscuro
+  '#7c2d12',  // 5 naranja suave → oscuro
+  '#ffffff',  // 6 teal dark → blanco
+  '#ffffff',  // 7 naranja profundo → blanco
 ]
+
+/* Partículas estáticas para no recrearlas en cada render */
+const PARTICLES = Array.from({ length: 30 }, (_, i) => ({
+  left:     `${5 + (i * 19) % 90}%`,
+  bottom:   `${8 + (i * 13) % 65}%`,
+  size:     1.5 + (i * 2.3) % 4.5,
+  delay:    `${(i * 0.28).toFixed(2)}s`,
+  duration: `${2.4 + (i * 0.48) % 3}s`,
+  color:    i % 4 === 0 ? 'rgba(0,187,180,0.85)' : i % 4 === 1 ? 'rgba(255,148,71,0.85)' : i % 4 === 2 ? 'rgba(255,255,255,0.75)' : 'rgba(255,176,111,0.8)',
+}))
 
 const toRad = (d: number) => d * Math.PI / 180
 
@@ -47,26 +63,37 @@ function segPath(i: number, r: number) {
 export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinComplete }: Props) {
   const { t } = useTranslation()
 
-  const [spinning, setSpinning] = useState(false)
-  const [spinDone, setSpinDone] = useState(false)
-  const [wheelAngle, setWheelAngle] = useState(0)
-  const [animDone, setAnimDone] = useState(false)
+  const [spinning, setSpinning]       = useState(false)
+  const [spinDone, setSpinDone]       = useState(false)
+  const [wheelAngle, setWheelAngle]   = useState(0)
   const [claimResult, setClaimResult] = useState<ClaimedPrize | null>(null)
-  const [prizes, setPrizes] = useState<PrizeInfo[]>([])
-  const [landedSeg, setLandedSeg] = useState(stopIndex % 8)
-  const rafRef = useRef<number | null>(null)
-  const segIdxRef = useRef<number>(stopIndex % 8)
+  const [prizes, setPrizes]           = useState<PrizeInfo[]>([])
+  const [landedSeg, setLandedSeg]     = useState(stopIndex % 8)
+  const [prizeWinCount, setPrizeWinCount] = useState(0)
+  const [playerScore, setPlayerScore]     = useState(0)
+  const rafRef         = useRef<number | null>(null)
+  const segIdxRef      = useRef<number>(stopIndex % 8)
   const claimPrizeIdRef = useRef<string>('')
-  const prizesRef = useRef<PrizeInfo[]>([])
+  const prizesRef      = useRef<PrizeInfo[]>([])
 
   useEffect(() => {
     getPrizesForStage({ seasonId, stageId })
-      .then(data => {
-        console.log('[getPrizesForStage] respuesta:', data)
-        setPrizes(data)
-      })
+      .then(data => { console.log('[getPrizesForStage] respuesta:', data); setPrizes(data) })
       .catch(err => console.error('[getPrizesForStage] error:', err))
   }, [seasonId, stageId])
+
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    Promise.all([
+      getDoc(doc(db, 'players', user.uid)),
+      getDoc(doc(db, 'players', user.uid, 'seasons', seasonId)),
+    ]).then(([playerSnap, seasonSnap]) => {
+      const score = playerSnap.data()?.score
+      setPlayerScore(typeof score === 'number' ? score : 0)
+      setPrizeWinCount((seasonSnap.data()?.prizesWon ?? []).length)
+    }).catch(() => {})
+  }, [seasonId])
 
   useEffect(() => {
     return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
@@ -79,9 +106,10 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
       t('map.roulette_sword'), t('map.roulette_gem'),
     ]
     return ROULETTE_EMOJIS.map((emoji, i) => {
+      if (EMPTY_SEG_INDICES.includes(i)) return { emoji: '😔', label: 'VACÍO', prizeId: EMPTY_PRIZE_ID }
       if (prizes.length === 0) return { emoji, label: fallback[i] ?? '', prizeId: '' }
       const prize = prizes[i % prizes.length]
-      const name = prize.name
+      const name  = prize.name
       const label = name.length > 9 ? name.slice(0, 8) + '…' : name
       return { emoji, label: label.toUpperCase(), prizeId: prize.id }
     })
@@ -91,19 +119,14 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   useEffect(() => { segmentsRef.current = segments }, [segments])
   useEffect(() => { prizesRef.current = prizes }, [prizes])
 
-  // Cuando la animación Y la CF terminan → transicionar
-  useEffect(() => {
-    if (!animDone || !claimResult) return
-    const t = setTimeout(() => onSpinComplete(claimResult), 1500)
-    return () => clearTimeout(t)
-  }, [animDone, claimResult, onSpinComplete])
+  // La navegación al premio ya NO es automática — el usuario debe pulsar "Reclamar Premio"
 
-  const stageNum = parseInt(stageId.replace('stage_', '')) || Math.floor(stopIndex / 4) + 1
-  const stopInStage = (stopIndex % 4) + 1
+  const stageNum      = parseInt(stageId.replace('stage_', '')) || Math.floor(stopIndex / 4) + 1
+  const stopInStage   = (stopIndex % 4) + 1
   const isLastInStage = (stopIndex % 4) === 3
 
   const emptyPrize = (): ClaimedPrize => ({
-    code: '', prizeId: claimPrizeIdRef.current, prizeName: '', prizeImageUrl: '', prizeCategory: '', description: '',
+    code: EMPTY_PRIZE_ID, prizeId: EMPTY_PRIZE_ID, prizeName: '', prizeImageUrl: '', prizeCategory: '', description: '',
   })
 
   const enrichResult = (result: ClaimedPrize): ClaimedPrize => {
@@ -120,38 +143,73 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     }
   }
 
-
   const handleSpin = () => {
     if (spinning || spinDone) return
     setSpinning(true)
-    const p = prizesRef.current
-    claimPrizeIdRef.current = p.length > 0 ? p[Math.floor(Math.random() * p.length)].id : ''
-    console.log('[handleSpin] prizes cargados:', p.length, '| prizeId seleccionado:', claimPrizeIdRef.current)
 
-    claimPrizeAndNotify({ prizeId: claimPrizeIdRef.current, seasonId, stageId })
+    // El resultado se decide antes de girar
+    // Si ya ganó 1 premio → siempre vacío
+    // Si no → probabilidad según score: score 0 = 40%, score 200+ = 85%
+    const limitReached = prizeWinCount >= 1
+    let randomSlot: number
+    if (limitReached) {
+      randomSlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
+    } else {
+      const prob  = 0.40 + (Math.min(playerScore, 200) / 200) * 0.45
+      const wins  = Math.random() < prob
+      randomSlot  = wins
+        ? PRIZE_INDICES[Math.floor(Math.random() * PRIZE_INDICES.length)]
+        : EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
+    }
+    const isEmptySlot = EMPTY_SEG_INDICES.includes(randomSlot)
+
+    if (isEmptySlot) {
+      segIdxRef.current      = randomSlot
+      claimPrizeIdRef.current = EMPTY_PRIZE_ID
+      // setClaimResult aquí no muestra nada hasta que spinDone sea true
+      setClaimResult({ code: EMPTY_PRIZE_ID, prizeId: EMPTY_PRIZE_ID, prizeName: '', prizeImageUrl: '', prizeCategory: '', description: '' })
+      // La animación sigue igual abajo — no hay API que llamar
+    } else {
+      const p = prizesRef.current
+      claimPrizeIdRef.current = p.length > 0 ? p[Math.floor(Math.random() * p.length)].id : ''
+      console.log('[handleSpin] prizes cargados:', p.length, '| prizeId seleccionado:', claimPrizeIdRef.current)
+
+      claimPrizeAndNotify({ prizeId: claimPrizeIdRef.current, seasonId, stageId })
       .then(result => {
         const enriched = enrichResult(result)
         const idx = segmentsRef.current.findIndex(s => s.prizeId === enriched.prizeId)
         if (idx >= 0) segIdxRef.current = idx
         setClaimResult(enriched)
       })
-      .catch(() => { setClaimResult(emptyPrize()) })
+      .catch((err: unknown) => {
+        // 409 = ya existe un reclamo para este usuario+etapa (premio ya asignado antes)
+        const code = (err as { code?: string })?.code
+        const msg  = (err as { message?: string })?.message ?? ''
+        if (code === 'already-exists' || msg.includes('409') || msg.toLowerCase().includes('conflict')) {
+          // El servidor ya tiene el premio — usamos un resultado vacío para que el usuario
+          // pueda igualmente presionar "Reclamar Premio" y ver su pantalla de premio
+          setClaimResult(emptyPrize())
+        } else {
+          setClaimResult(emptyPrize())
+        }
+        console.warn('[claimPrizeAndNotify] error (posiblemente ya reclamado):', err)
+      })
+    } // end else (non-empty slot)
 
     const startAngle = wheelAngle
-    const startTime = performance.now()
-    const PHASE1_MS = 4000
-    const PHASE2_MS = 1400
+    const startTime  = performance.now()
+    const PHASE1_MS  = 4000
+    const PHASE2_MS  = 1400
 
     let phase2Active = false
     let p2Start = 0
-    let p2End = 0
-    let p2Time = 0
+    let p2End   = 0
+    let p2Time  = 0
 
     const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4)
 
     const animate = (now: number) => {
       const elapsed = now - startTime
-
       if (!phase2Active) {
         if (elapsed < PHASE1_MS) {
           setWheelAngle(startAngle + (elapsed / PHASE1_MS) * 2880)
@@ -159,12 +217,12 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
           return
         }
         phase2Active = true
-        p2Time = now
+        p2Time  = now
         p2Start = startAngle + 2880
-        const seg = segIdxRef.current
+        const seg        = segIdxRef.current
         const desiredMod = (360 - (seg * 45 + 22.5) + 360) % 360
         const currentMod = p2Start % 360
-        const delta = (desiredMod - currentMod + 360) % 360
+        const delta      = (desiredMod - currentMod + 360) % 360
         p2End = p2Start + delta + (delta < 135 ? 360 : 0)
       }
 
@@ -175,7 +233,6 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
         setLandedSeg(segIdxRef.current)
         setSpinDone(true)
         setSpinning(false)
-        setAnimDone(true)
         return
       }
       const progress = easeOutQuart(p2Elapsed / PHASE2_MS)
@@ -185,293 +242,529 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     rafRef.current = requestAnimationFrame(animate)
   }
 
-  const diff = ((wheelAngle + 22.5) % 45) - 22.5
+  const diff     = ((wheelAngle + 22.5) % 45) - 22.5
   const pinAngle = (spinning && diff < 0 && diff > -16) ? (diff + 16) * -1.3 : 0
 
+  const wheelSize = 360
+
   return (
-    <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-xs p-0">
+    <div
+      className="fixed inset-0 z-999 flex flex-col items-center justify-center gap-6 overflow-hidden"
+      style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #043d4a 45%, #021e25 100%)' }}
+    >
+      {/* ── Keyframes locales ── */}
+      <style>{`
+        @keyframes rouParticle {
+          0%   { transform: translateY(0) scale(1);   opacity: 0.9; }
+          60%  { opacity: 0.6; }
+          100% { transform: translateY(-120px) scale(0.4); opacity: 0; }
+        }
+        @keyframes wheelShimmer {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes claimPulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 14px 28px rgba(9,109,125,.45);
+          }
+          50% {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 8px 0 #054f5c, 0 18px 36px rgba(0,187,180,.7), 0 0 32px rgba(0,187,180,.4);
+          }
+        }
+        @keyframes topBeamPulse {
+          0%, 100% { opacity: 0.75; }
+          50%      { opacity: 1; }
+        }
+        @keyframes emptyBounce {
+          0%   { transform: scale(0) rotate(-12deg); opacity: 0; }
+          55%  { transform: scale(1.3) rotate(6deg);  opacity: 1; }
+          75%  { transform: scale(0.88) rotate(-3deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes emptySlideUp {
+          from { transform: translateY(18px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes emptyCardIn {
+          from { transform: scale(0.88) translateY(12px); opacity: 0; }
+          to   { transform: scale(1)    translateY(0);    opacity: 1; }
+        }
+        @keyframes emptyRing {
+          0%   { transform: scale(0.4); opacity: 0.55; }
+          100% { transform: scale(3.2); opacity: 0; }
+        }
+        @keyframes emptyFloat {
+          0%, 100% { transform: translateY(0px)   rotate(0deg);  opacity: 0.05; }
+          50%      { transform: translateY(-18px) rotate(6deg);  opacity: 0.10; }
+        }
+      `}</style>
+
+      {/* ── HAZ DE LUZ desde arriba — sin clipPath, todo gradientes suaves ── */}
       <div
-        className="relative w-full h-full flex flex-col overflow-hidden quiz-card-enter rounded-none"
-        style={{
-          backgroundImage: "linear-gradient(rgba(235,220,195,0.58), rgba(235,220,195,0.58)), url('/assets/img/fonto_textura.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          border: '8px solid var(--color-map-wood-dark)',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.6), inset 0 0 0 2px var(--color-map-gold), inset 0 0 20px rgba(0,0,0,0.4)'
-        }}
+        className="absolute top-0 left-0 right-0 pointer-events-none"
+        style={{ zIndex: 1, height: '82%', animation: 'topBeamPulse 3.5s ease-in-out infinite' }}
       >
-        {/* Metal Decorative Corners */}
-        <svg className="absolute -top-px -left-px w-9 h-9 pointer-events-none z-30 text-map-gold-light" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -top-px -right-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-x-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -left-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-y-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -right-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+        {/* Aureola grande */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '100%',
+          background: 'radial-gradient(ellipse 75% 85% at 50% 0%, rgba(255,148,71,0.30) 0%, rgba(255,176,111,0.14) 30%, rgba(0,187,180,0.05) 60%, transparent 80%)',
+          filter: 'blur(64px)',
+        }} />
+        {/* Haz medio */}
+        <div style={{
+          position: 'absolute', top: 0, left: '50%',
+          transform: 'translateX(-50%)',
+          width: 280, height: '100%',
+          background: 'radial-gradient(ellipse 100% 90% at 50% 0%, rgba(255,255,255,0.22) 0%, rgba(255,148,71,0.16) 28%, rgba(0,187,180,0.06) 58%, transparent 80%)',
+          filter: 'blur(40px)',
+        }} />
+        {/* Núcleo fino */}
+        <div style={{
+          position: 'absolute', top: 0, left: '50%',
+          transform: 'translateX(-50%)',
+          width: 60, height: '65%',
+          background: 'radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255,255,255,0.38) 0%, rgba(255,210,140,0.18) 45%, transparent 80%)',
+          filter: 'blur(24px)',
+        }} />
+      </div>
 
-        {/* Center Clasps */}
-        <svg className="absolute -top-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-map-gold-light" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-map-gold-light transform scale-y-[-1]" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-
-        {/* Top stripe */}
-        <div className="h-1.5 shrink-0" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold-light),var(--color-map-gold),var(--color-map-gold-light),transparent)' }} />
-
-        {/* Spotlight */}
+      {/* ── PARTÍCULAS flotantes ── */}
+      {PARTICLES.map((p, i) => (
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-10 mix-blend-screen"
+          key={i}
+          className="absolute pointer-events-none rounded-full"
           style={{
-            width: '100%', height: '460px',
-            background: 'radial-gradient(circle at 50% -20px, rgba(252,211,77,0.7) 0%, rgba(252,211,77,0.22) 50%, transparent 85%)',
-            filter: 'blur(30px)',
-            animation: 'pulseGlow 4s ease-in-out infinite',
+            left: p.left,
+            bottom: p.bottom,
+            width:  p.size,
+            height: p.size,
+            background: p.color,
+            boxShadow: `0 0 ${p.size * 3}px ${p.color}`,
+            animation: `rouParticle ${p.duration} ease-out ${p.delay} infinite`,
+            zIndex: 2,
+          }}
+        />
+      ))}
+
+      {/* ── Glow ambiental principal ── */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          top: '45%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 560, height: 560,
+          borderRadius: '50%',
+          background: spinning
+            ? 'radial-gradient(circle, rgba(255,148,71,0.28) 0%, rgba(0,187,180,0.20) 40%, transparent 70%)'
+            : 'radial-gradient(circle, rgba(0,187,180,0.22) 0%, rgba(255,148,71,0.10) 50%, transparent 72%)',
+          filter: 'blur(36px)',
+          transition: 'background 0.8s ease',
+          animation: spinning ? 'pulseGlow 1s ease-in-out infinite' : 'pulseGlow 3s ease-in-out infinite',
+          zIndex: 1,
+        }}
+      />
+      {/* Glow naranja en la base */}
+      <div
+        className="absolute bottom-0 left-0 right-0 pointer-events-none"
+        style={{
+          height: '40%',
+          background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255,148,71,0.18) 0%, transparent 70%)',
+          zIndex: 1,
+        }}
+      />
+
+      {/* ── TÍTULO + RUEDA — se ocultan cuando el resultado es vacío ── */}
+      {!(spinDone && claimResult?.prizeId === EMPTY_PRIZE_ID) && <>
+
+      {/* ── TÍTULO ── */}
+      <div className="flex flex-col items-center gap-1.5 z-10 px-6 text-center">
+        {/* Chip de etapa */}
+        <div
+          className="px-4 py-1 rounded-full mb-1"
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+        >
+          <span className="text-xs font-black tracking-widest uppercase text-white" style={{ opacity: 0.85 }}>
+            {isLastInStage
+              ? t('map.stage_completed_final', { n: stageNum })
+              : t('map.stage_completed', { n: stopInStage })}
+          </span>
+        </div>
+
+        {/* Título principal — ¡GIRA Y GANA! */}
+        <h1
+          className="font-black leading-none"
+          style={{
+            fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+            fontSize: 'clamp(36px, 10vw, 52px)',
+            background: 'linear-gradient(135deg, #ff9447 0%, #fbbf24 55%, #ffffff 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            filter: 'drop-shadow(0 3px 14px rgba(255,148,71,0.55))',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          ¡GIRA Y GANA!
+        </h1>
+
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          {isLastInStage ? t('map.roulette_msg_final') : t('map.roulette_msg_normal')}
+        </p>
+      </div>
+
+      {/* ── RUEDA ── */}
+      <div className="relative flex items-center justify-center select-none z-10" style={{ width: wheelSize, height: wheelSize }}>
+
+        {/* Glow ring exterior */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none"
+          style={{
+            boxShadow: spinning
+              ? '0 0 60px rgba(0,187,180,0.7), 0 0 100px rgba(0,187,180,0.35)'
+              : spinDone
+                ? `0 0 60px ${SEG_COLORS[landedSeg]}88, 0 0 100px ${SEG_COLORS[landedSeg]}44`
+                : '0 0 32px rgba(0,187,180,0.3), 0 0 64px rgba(0,187,180,0.12)',
+            transition: 'box-shadow 0.5s ease',
           }}
         />
 
-        {/* Particles */}
-        {Array.from({ length: 22 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full pointer-events-none"
-            style={{
-              left: `${5 + (i * 37) % 90}%`,
-              bottom: `${15 + (i * 11) % 40}px`,
-              width: `${3 + (i * 7) % 6}px`,
-              height: `${3 + (i * 7) % 6}px`,
-              background: 'radial-gradient(circle, #fff 0%, var(--color-map-gold-light) 60%, var(--color-map-gold) 100%)',
-              boxShadow: '0 0 6px var(--color-map-gold-light), 0 0 10px var(--color-map-gold)',
-              animation: `floatFromTreasure ${3 + (i * 1.4) % 4.5}s ease-out infinite`,
-              animationDelay: `${(i * 0.22).toFixed(2)}s`,
-              zIndex: 15,
-            }}
-          />
-        ))}
-
-        {/* Bottom Glow */}
+        {/* Rueda giratoria */}
         <div
-          className="absolute bottom-0 left-0 right-0 w-full h-[180px] pointer-events-none z-10 mix-blend-screen"
           style={{
-            background: 'radial-gradient(circle at 50% 100%, rgba(252,211,77,0.5) 0%, rgba(252,211,77,0.15) 55%, transparent 80%)',
-            filter: 'blur(12px)'
+            width: wheelSize, height: wheelSize,
+            transform: `rotate(${wheelAngle}deg)`,
+            willChange: 'transform',
           }}
-        />
+        >
+          <svg
+            width={wheelSize}
+            height={wheelSize}
+            viewBox="-160 -160 320 320"
+            style={{ display: 'block', overflow: 'visible' }}
+          >
+            <defs>
+              {SEG_COLORS.map((c, i) => (
+                <radialGradient key={i} id={`sg${i}`} cx="40%" cy="35%" r="75%">
+                  <stop offset="0%"   stopColor={c} stopOpacity="1" />
+                  <stop offset="100%" stopColor={c} stopOpacity="0.78" />
+                </radialGradient>
+              ))}
+            </defs>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-start gap-6 px-5 pt-8 pb-36 text-center relative z-20" style={{ scrollbarWidth: 'none' }}>
-
-          <div className="logro-badge-pop flex flex-col items-center gap-1.5 shrink-0 mt-2">
-            <h2 className="text-2xl font-black text-map-wood-dark" style={{ fontFamily: 'Georgia, serif' }}>
-              {isLastInStage ? t('map.stage_completed_final', { n: stageNum }) : t('map.stage_completed', { n: stopInStage })}
-            </h2>
-            <p className="text-[12px] text-[#6b4a20] leading-relaxed max-w-[280px]">
-              {isLastInStage ? t('map.roulette_msg_final') : t('map.roulette_msg_normal')}
-            </p>
-          </div>
-
-          {/* Wheel */}
-          <div className="relative flex items-center justify-center select-none shrink-0" style={{ width: '360px', height: '360px' }}>
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="absolute rounded-full pointer-events-none"
-                style={{
-                  width: '10px', height: '10px',
-                  background: spinning ? '#fff' : 'var(--color-map-gold-light)',
-                  boxShadow: spinning
-                    ? '0 0 8px #fff, 0 0 16px var(--color-map-gold-light)'
-                    : '0 0 12px var(--color-map-gold-light), 0 0 20px var(--color-map-gold)',
-                  transform: `rotate(${idx * 45}deg) translate(0, -143px)`,
-                  transformOrigin: 'center center',
-                  transition: 'all 0.3s ease',
-                  opacity: spinning && idx % 2 === 0 ? 0.4 : 1,
-                  zIndex: 15,
-                }}
+            {/* Segmentos */}
+            {segments.map((_, i) => (
+              <path
+                key={i}
+                d={segPath(i, 132)}
+                fill={`url(#sg${i})`}
+                stroke="rgba(255,255,255,0.18)"
+                strokeWidth="1.5"
               />
             ))}
 
-            <div style={{ position: 'relative', width: '360px', height: '360px', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: `rotate(${wheelAngle}deg)`, willChange: 'transform' }}>
-              <svg width="360" height="360" viewBox="-180 -180 360 360" style={{ display: 'block', overflow: 'visible' }}>
-                <defs>
-                  <linearGradient id="woodGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#7a4824" />
-                    <stop offset="50%" stopColor="#503019" />
-                    <stop offset="100%" stopColor="#22150c" />
-                  </linearGradient>
-                  <linearGradient id="woodLightGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#a87f2a" />
-                    <stop offset="50%" stopColor="#7a4824" />
-                    <stop offset="100%" stopColor="#321e0f" />
-                  </linearGradient>
-                  <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#fde68a" />
-                    <stop offset="40%" stopColor="#fcd34d" />
-                    <stop offset="100%" stopColor="#a87f2a" />
-                  </linearGradient>
-                  <radialGradient id="redGem" cx="35%" cy="35%" r="65%">
-                    <stop offset="0%" stopColor="#ff8888" />
-                    <stop offset="40%" stopColor="#dc2626" />
-                    <stop offset="100%" stopColor="#7f1d1d" />
-                  </radialGradient>
-                  <radialGradient id="goldGem" cx="35%" cy="35%" r="65%">
-                    <stop offset="0%" stopColor="#fffbeb" />
-                    <stop offset="40%" stopColor="#fbbf24" />
-                    <stop offset="100%" stopColor="#b45309" />
-                  </radialGradient>
-                </defs>
-
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <g key={i} transform={`rotate(${i * 45})`}>
-                    <rect x="-8" y="-175" width="16" height="60" rx="8" fill="rgba(0,0,0,0.25)" transform="translate(2, 4)" />
-                    <rect x="-4" y="-120" width="8" height="120" fill="url(#woodGrad)" stroke="#1a0d05" strokeWidth="1.5" />
-                    <rect x="-6" y="-136" width="12" height="6" rx="1.5" fill="url(#goldGrad)" stroke="#1a0d05" strokeWidth="1" />
-                    <path d="M -5 -136 C -10 -142, -10 -155, -5 -162 L 5 -162 C 10 -155, 10 -142, 5 -136 Z" fill="url(#woodLightGrad)" stroke="#1a0d05" strokeWidth="1.5" />
-                    <rect x="-3" y="-167" width="6" height="6" fill="url(#woodGrad)" stroke="#1a0d05" strokeWidth="1" />
-                    <circle cx="0" cy="-172" r="7" fill="url(#woodLightGrad)" stroke="#1a0d05" strokeWidth="1.5" />
-                    <circle cx="-2" cy="-174" r="2" fill="rgba(255,255,255,0.3)" />
-                  </g>
-                ))}
-
-                {segments.map((_, i) => (
-                  <path key={i} d={segPath(i, 110)} fill={SEG_COLORS[i]} stroke="#1a0d05" strokeWidth="2.5" />
-                ))}
-
-                {spinDone && (
-                  <path
-                    d={segPath(landedSeg, 110)}
-                    fill="rgba(252, 211, 77, 0.25)"
-                    stroke="#ffffff"
-                    strokeWidth="4"
-                    style={{ filter: 'drop-shadow(0 0 12px var(--color-map-gold-light))', animation: 'pulseGlow 0.6s ease-in-out infinite', pointerEvents: 'none' }}
-                  />
-                )}
-
-                <circle r="110" fill="none" stroke="url(#goldGrad)" strokeWidth="3" />
-                <circle r="108" fill="none" stroke="#1a0d05" strokeWidth="1" />
-                <circle r="121" fill="none" stroke="url(#woodGrad)" strokeWidth="22" strokeLinecap="round" />
-                <circle r="132" fill="none" stroke="#1a0d05" strokeWidth="2" />
-                <circle r="110" fill="none" stroke="#1a0d05" strokeWidth="2" />
-                <circle r="129" fill="none" stroke="url(#goldGrad)" strokeWidth="1" opacity="0.85" />
-                <circle r="113" fill="none" stroke="url(#goldGrad)" strokeWidth="1" opacity="0.85" />
-
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <g key={i} transform={`rotate(${i * 45 + 22.5}) translate(0, -121)`}>
-                    <circle r="6" fill="url(#goldGrad)" stroke="#1a0d05" strokeWidth="1.2" />
-                    <circle r="4" fill="url(#redGem)" />
-                    <circle cx="-1" cy="-1" r="1" fill="#fff" opacity="0.6" />
-                  </g>
-                ))}
-
-                {segments.map((p, i) => {
-                  const bisector = i * 45 + 22.5
-                  const svgRad = toRad(bisector - 90)
-                  const x = (72 * Math.cos(svgRad)).toFixed(1)
-                  const y = (72 * Math.sin(svgRad)).toFixed(1)
-                  const rot = bisector <= 180 ? bisector - 90 : bisector + 90
-                  return (
-                    <g key={i} transform={`translate(${x},${y}) rotate(${rot})`}>
-                      <text textAnchor="middle" dominantBaseline="middle" fontSize="7.5" fontWeight="900" fill={SEG_TEXT[i]} paintOrder="stroke" stroke={SEG_TEXT[i] === '#fff3d1' ? '#321e0f' : '#ebdcc3'} strokeWidth="2.5" style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.04em' }}>
-                        {p.label}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                <circle r="44" fill="url(#goldGrad)" stroke="#1a0d05" strokeWidth="3" />
-                <circle r="38" fill="#321e0f" />
-                <circle r="26" fill="url(#goldGem)" stroke="#1a0d05" strokeWidth="2" />
-                <circle cx="-6" cy="-6" r="6" fill="#fff" opacity="0.45" />
-
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <circle key={i} cx={(41 * Math.cos(toRad(i * 45))).toFixed(1)} cy={(41 * Math.sin(toRad(i * 45))).toFixed(1)} r="1.5" fill="url(#goldGrad)" />
-                ))}
-              </svg>
-            </div>
-
-            <div className="absolute pointer-events-none" style={{ top: '38px', left: '50%', transform: `translateX(-50%) rotate(${pinAngle}deg)`, transformOrigin: '50% 20%', zIndex: 20, transition: spinning ? 'none' : 'transform 0.15s ease-out' }}>
-              <svg width="28" height="34" viewBox="0 0 28 34" style={{ filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.35))' }}>
-                <path d="M14 32 L2 6 Q14 1 26 6 Z" fill="url(#goldGrad)" stroke="#1a0d05" strokeWidth="2.5" />
-                <circle cx="14" cy="9" r="4.5" fill="#321e0f" stroke="#fcd34d" strokeWidth="1.5" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Spin button */}
-          <div className="flex justify-center w-full mt-4 shrink-0">
-            <GameButton
-              variant="dark"
-              className="w-64 h-16 text-base disabled:opacity-50"
-              onClick={handleSpin}
-              disabled={spinning || spinDone || prizes.length === 0}
-            >
-              {spinning ? (
-                <><i className="ri-loader-4-line mr-2 animate-spin text-xl" />{t('map.spinning')}</>
-              ) : spinDone ? (
-                <><i className="ri-check-line mr-2 text-xl" />{t('map.prize_claimed')}</>
-              ) : prizes.length === 0 ? (
-                <><i className="ri-loader-4-line mr-2 animate-spin text-xl" />{t('map.roulette_loading')}</>
-              ) : (
-                <>{t('map.spin')}</>
-              )}
-            </GameButton>
-          </div>
-
-          {/* Status text */}
-          <div className="flex flex-col items-center gap-2 min-h-6 shrink-0">
-            {spinning && (
-              <p className="text-[12px] text-map-gold font-black tracking-wide" style={{ animation: 'stage-blink 0.7s ease-in-out infinite' }}>
-                {t('map.spinning_msg')}
-              </p>
+            {/* Flash en segmento ganador */}
+            {spinDone && (
+              <path
+                d={segPath(landedSeg, 132)}
+                fill="rgba(255,255,255,0.25)"
+                stroke="#ffffff"
+                strokeWidth="3"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.9))', animation: 'pulseGlow 0.55s ease-in-out infinite', pointerEvents: 'none' }}
+              />
             )}
-            {spinDone && !claimResult && (
-              <p className="text-[12px] text-map-gold font-black tracking-wide" style={{ animation: 'stage-blink 0.7s ease-in-out infinite' }}>
-                {t('map.roulette_preparing')}
-              </p>
-            )}
-            {spinDone && claimResult && (
-              <p className="text-[12px] text-map-gold-light font-black">{t('map.prize_revealed')}</p>
-            )}
-          </div>
+
+            {/* Aro exterior blanco */}
+            <circle r="132" fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth="7" />
+            {/* Línea interior sutil */}
+            <circle r="128" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="2" />
+
+            {/* Puntitos en el aro */}
+            {Array.from({ length: 24 }).map((_, i) => {
+              const a = toRad(i * 15)
+              return (
+                <circle
+                  key={i}
+                  cx={(141 * Math.cos(a)).toFixed(1)}
+                  cy={(141 * Math.sin(a)).toFixed(1)}
+                  r="3"
+                  fill="rgba(255,255,255,0.7)"
+                />
+              )
+            })}
+
+            {/* Etiquetas de segmento */}
+            {segments.map((p, i) => {
+              const bisector = i * 45 + 22.5
+              const svgRad   = toRad(bisector - 90)
+              const x        = (86 * Math.cos(svgRad)).toFixed(1)
+              const y        = (86 * Math.sin(svgRad)).toFixed(1)
+              const rot      = bisector <= 180 ? bisector - 90 : bisector + 90
+              return (
+                <g key={i} transform={`translate(${x},${y}) rotate(${rot})`}>
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize="8"
+                    fontWeight="900"
+                    fill={SEG_TEXT[i]}
+                    style={{ fontFamily: 'Outfit, Inter, system-ui, sans-serif', letterSpacing: '0.05em' }}
+                  >
+                    {p.label}
+                  </text>
+                </g>
+              )
+            })}
+
+            {/* Hub central */}
+            <circle r="32" fill="white" />
+            <circle r="28" fill="rgba(0,187,180,0.15)" />
+            <circle r="18" fill="#00bbb4" />
+            <circle r="10" fill="white" />
+            <circle cx="-4" cy="-4" r="3.5" fill="rgba(255,255,255,0.7)" />
+          </svg>
         </div>
 
-        <img
-          src="/assets/img/fondo_tesoro.png"
-          alt="Fondo Tesoro"
-          className="absolute bottom-0 left-0 right-0 w-full opacity-95 pointer-events-none z-10 select-none"
-          style={{ animation: 'treasureGlow 4s ease-in-out infinite' }}
+        {/* Brillo giratorio — un solo arco luminoso */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: 0, left: 0,
+            width: wheelSize, height: wheelSize,
+            borderRadius: '50%',
+            background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.05) 8%, rgba(255,255,255,0.20) 14%, rgba(255,255,255,0.05) 20%, transparent 30%)',
+            animation: 'wheelShimmer 3.5s linear infinite',
+            zIndex: 18,
+          }}
         />
 
-        {[
-          { left: '23%', bottom: '50px', size: '24px', delay: '0.5s', duration: '5s' },
-          { left: '32%', bottom: '80px', size: '18px', delay: '2.2s', duration: '6s' },
-          { left: '14%', bottom: '40px', size: '20px', delay: '4.1s', duration: '5.5s' },
-          { left: '55%', bottom: '45px', size: '20px', delay: '1.2s', duration: '4.8s' },
-          { left: '68%', bottom: '70px', size: '26px', delay: '3.5s', duration: '6.2s' },
-          { left: '76%', bottom: '50px', size: '18px', delay: '0.1s', duration: '5.2s' }
-        ].map((s, idx) => (
-          <div key={idx} className="lens-flare" style={{ left: s.left, bottom: s.bottom, width: s.size, height: s.size, animation: `occasionalSparkle ${s.duration} ease-in-out infinite`, animationDelay: s.delay }}>
-            <div className="lens-flare-core" />
-          </div>
-        ))}
+        {/* Puntero fijo — no gira */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: 4,
+            left: '50%',
+            transform: `translateX(-50%) rotate(${pinAngle}deg)`,
+            transformOrigin: '50% 15%',
+            zIndex: 20,
+            transition: spinning ? 'none' : 'transform 0.15s ease-out',
+          }}
+        >
+          <svg width="26" height="36" viewBox="0 0 26 36" style={{ filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}>
+            <path d="M13 34 L1 7 Q13 1 25 7 Z" fill="#00bbb4" stroke="white" strokeWidth="2.5" strokeLinejoin="round" />
+            <circle cx="13" cy="10" r="5" fill="white" />
+            <circle cx="11" cy="8"  r="2" fill="rgba(0,187,180,0.5)" />
+          </svg>
+        </div>
+      </div>
 
-        <div className="h-1.5 shrink-0" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold),var(--color-map-gold-light),var(--color-map-gold),transparent)' }} />
+      </>} {/* fin título + rueda */}
+
+      {/* ── Decoración fondo estado vacío ── */}
+      {spinDone && claimResult?.prizeId === EMPTY_PRIZE_ID && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
+          {/* Emoji gigante de fondo */}
+          <div style={{ fontSize: 260, lineHeight: 1, animation: 'emptyFloat 4.5s ease-in-out infinite', userSelect: 'none' }}>
+            😔
+          </div>
+          {/* Anillos pulsantes */}
+          {[0, 0.85, 1.7].map((delay, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                width: 180, height: 180,
+                border: '2px solid rgba(224,52,75,0.45)',
+                animation: `emptyRing 2.6s ease-out ${delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── ESTADO / BOTÓN ── */}
+      <div className="flex flex-col items-center gap-3 z-10">
+
+        {/* Mensaje de estado mientras gira o prepara */}
+        {spinning && (
+          <p className="text-sm font-black tracking-widest uppercase" style={{ color: '#00bbb4', animation: 'stage-blink 0.7s ease-in-out infinite' }}>
+            {t('map.spinning_msg')}
+          </p>
+        )}
+        {spinDone && !claimResult && (
+          <p className="text-sm font-black tracking-wide" style={{ color: '#ff9447', animation: 'stage-blink 0.7s ease-in-out infinite' }}>
+            {t('map.roulette_preparing')}
+          </p>
+        )}
+
+        {/* Botón GIRAR — visible solo antes de girar */}
+        {!spinDone && (
+          <button
+            onClick={handleSpin}
+            disabled={spinning || prizes.length === 0}
+            className="active:translate-y-[4px] transition-all"
+            style={{
+              width: 240, height: 62,
+              borderRadius: 31,
+              background: (spinning || prizes.length === 0)
+                ? 'linear-gradient(180deg,#4b5563 0%,#374151 100%)'
+                : 'linear-gradient(180deg,#ffb06f 0%,#ff9447 45%,#e07830 100%)',
+              border: '2px solid',
+              borderColor: spinning ? '#374151' : '#d46f2b',
+              boxShadow: (spinning || prizes.length === 0)
+                ? '0 6px 0 #1f2937'
+                : 'inset 0 2px 0 rgba(255,255,255,.4), 0 6px 0 #b85e1c, 0 14px 28px rgba(255,148,71,.55)',
+              color: '#ffffff',
+              fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+              fontWeight: 900,
+              fontSize: 20,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              cursor: spinning ? 'not-allowed' : 'pointer',
+              opacity: prizes.length === 0 ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            {spinning ? (
+              <><i className="ri-loader-4-line animate-spin text-xl" />{t('map.spinning')}</>
+            ) : prizes.length === 0 ? (
+              <><i className="ri-loader-4-line animate-spin text-xl" />{t('map.roulette_loading')}</>
+            ) : (
+              t('map.spin')
+            )}
+          </button>
+        )}
+
+        {/* Sin premio */}
+        {spinDone && claimResult?.prizeId === EMPTY_PRIZE_ID && (
+          <div className="flex flex-col items-center gap-4 z-10">
+
+            {/* Chip de etapa */}
+            <div
+              className="px-4 py-1 rounded-full"
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                animation: 'emptySlideUp 0.4s ease 0.05s both',
+              }}
+            >
+              <span className="text-xs font-black tracking-widest uppercase text-white" style={{ opacity: 0.85 }}>
+                {isLastInStage
+                  ? t('map.stage_completed_final', { n: stageNum })
+                  : t('map.stage_completed', { n: stopInStage })}
+              </span>
+            </div>
+
+          <div
+            className="flex flex-col items-center gap-3"
+            style={{
+              background: 'rgba(2,30,37,0.72)',
+              backdropFilter: 'blur(14px)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              borderRadius: 28,
+              padding: '28px 44px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.45)',
+              animation: 'emptyCardIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}
+          >
+            {/* Emoji con bounce */}
+            <div style={{ fontSize: 58, lineHeight: 1, animation: 'emptyBounce 0.65s cubic-bezier(0.36,0.07,0.19,0.97) 0.1s both' }}>
+              😔
+            </div>
+
+            {/* Título */}
+            <p
+              className="font-black text-center"
+              style={{
+                fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+                fontSize: 26,
+                color: '#e0344b',
+                textShadow: '0 2px 12px rgba(0,0,0,0.7), 0 0 28px rgba(224,52,75,0.35)',
+                letterSpacing: '-0.01em',
+                animation: 'emptySlideUp 0.45s ease 0.28s both',
+              }}
+            >
+              ¡Sin premio!
+            </p>
+
+            {/* Subtítulo */}
+            <p
+              className="text-center"
+              style={{
+                fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+                fontSize: 13,
+                color: 'rgba(255,255,255,0.58)',
+                letterSpacing: '0.02em',
+                animation: 'emptySlideUp 0.45s ease 0.42s both',
+              }}
+            >
+              Mejor suerte la próxima vez
+            </p>
+
+            {/* Botón */}
+            <button
+              onClick={() => onSpinComplete(claimResult)}
+              className="active:translate-y-[3px] transition-transform"
+              style={{
+                marginTop: 10,
+                width: 220, height: 56,
+                borderRadius: 28,
+                background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
+                border: '2px solid #0c7f89',
+                boxShadow: 'inset 0 2px 0 rgba(255,255,255,.22), 0 5px 0 #054f5c, 0 12px 24px rgba(0,187,180,0.32)',
+                color: '#ffffff',
+                fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: 16,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                animation: 'emptySlideUp 0.45s ease 0.56s both',
+              }}
+            >
+              <i className="ri-arrow-right-circle-fill text-xl" />
+              Continuar
+            </button>
+          </div>
+          </div>
+        )}
+
+        {/* Botón RECLAMAR PREMIO — aparece cuando el giro terminó y el resultado ya llegó */}
+        {spinDone && claimResult && claimResult.prizeId !== EMPTY_PRIZE_ID && (
+          <button
+            onClick={() => onSpinComplete(claimResult)}
+            className="animate-fade-in"
+            style={{
+              width: 260, height: 62,
+              borderRadius: 31,
+              background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
+              border: '2px solid #0c7f89',
+              animation: 'claimPulse 1.6s ease-in-out infinite',
+              color: '#ffffff',
+              fontFamily: 'Outfit, Inter, system-ui, sans-serif',
+              fontWeight: 900,
+              fontSize: 18,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <i className="ri-gift-fill text-xl" />
+            {t('map.claim_prize')}
+          </button>
+        )}
       </div>
     </div>
   )
