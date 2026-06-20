@@ -1,3 +1,14 @@
+/* ── Palo font-face ────────────────────────────────────────── */
+@font-face { font-family: 'Palo'; font-weight: 100; src: url('/assets/palo-font 2/palo-thin.ttf')       format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 200; src: url('/assets/palo-font 2/palo-extralight.ttf') format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 300; src: url('/assets/palo-font 2/palo-light.ttf')      format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 400; src: url('/assets/palo-font 2/palo-regular.ttf')    format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 500; src: url('/assets/palo-font 2/palo-medium.ttf')     format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 600; src: url('/assets/palo-font 2/palo-semibold.ttf')   format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 700; src: url('/assets/palo-font 2/palo-bold.ttf')       format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 800; src: url('/assets/palo-font 2/palo-extrabold.ttf')  format('truetype'); }
+@font-face { font-family: 'Palo'; font-weight: 900; src: url('/assets/palo-font 2/palo-black.ttf')      format('truetype'); }
+
 /* ── Map / Quiz module tokens ──────────────────────────────── */
 @theme {
   /* Madera */
@@ -20,6 +31,26 @@
   --font-map-parchment: Georgia, "Times New Roman", serif;
   --font-map-ui: system-ui, -apple-system, sans-serif;
   --font-map-score: Outfit, Inter, system-ui, sans-serif;
+  --font-palo: 'Palo', system-ui, sans-serif;
+
+
+   /* PALETA TURIZONERO NUEVA  */
+
+   /* Colores principales */
+  --color-primary: #00bbb4;
+  --color-primary-dark: #096d7d;
+  --color-cream: #e5dcc6;
+
+  /* Colores de acento */
+  --color-accent-red: #e0344b;
+  --color-accent-orange: #ff9447;
+
+  /* Gradiente principal */
+  --gradient-primary: linear-gradient(
+    135deg,
+    #e0344b 0%,
+    #ff9447 100%
+  );
 }
 
 /* VISUALIZACION DE LOS COLORES (LOS QUE USARAS) */
@@ -39,6 +70,29 @@
 
   /* Acentos */
   --map-tan: #c7a361;
+
+  /* Fuente Palo */
+  --font-palo: 'Palo', system-ui, sans-serif;
+
+
+   /* PALETA TURIZONERO NUEVA  */
+
+   /* Colores principales */
+  --color-primary: #00bbb4;
+  --color-primary-dark: #096d7d;
+  --color-cream: #e5dcc6;
+  
+
+  /* Colores de acento */
+  --color-accent-red: #e0344b;
+  --color-accent-orange: #ff9447;
+
+  /* Gradiente principal */
+  --gradient-primary: linear-gradient(
+    135deg,
+    #e0344b 0%,
+    #ff9447 100%
+  );
 }
 
 
@@ -211,6 +265,39 @@
     background: #fff;
     border-radius: 50%;
     box-shadow: 0 0 10px 4px var(--color-map-gold-light), 0 0 20px 8px #fff;
+  }
+
+  /* ── Palo typography ─────────────────────────────────────── */
+  .quiz-title {
+    font-family: var(--font-palo);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .quiz-heading {
+    font-family: var(--font-palo);
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .quiz-subtitle {
+    font-family: var(--font-palo);
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .quiz-label {
+    font-family: var(--font-palo);
+    font-weight: 600;
+    line-height: 1;
+  }
+  .quiz-body {
+    font-family: var(--font-palo);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .quiz-caption {
+    font-family: var(--font-palo);
+    font-weight: 300;
+    line-height: 1.5;
   }
 
   /* ── Parchment scroll (QuizCard) ─────────────────────────── */

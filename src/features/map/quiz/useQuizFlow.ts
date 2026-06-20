@@ -29,7 +29,10 @@ interface Options {
 export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options) {
   const totalQuestions = questions.length
 
-  const [questionIdx,    setQuestionIdx]    = useState(() => loadProgress(stopId)?.questionIdx ?? 0)
+  const [questionIdx,    setQuestionIdx]    = useState(() => {
+    const saved = loadProgress(stopId)?.questionIdx ?? 0
+    return Math.min(saved, Math.max(0, questions.length - 1))
+  })
   const [selectedOption, setSelectedOption] = useState<number | null>(() => loadProgress(stopId)?.wrongAnswer ?? null)
   const [isWrong,             setIsWrong]             = useState(() => (loadProgress(stopId)?.wrongAnswer ?? null) !== null)
   const [correctAnswerIndex,  setCorrectAnswerIndex]  = useState<number | null>(null)

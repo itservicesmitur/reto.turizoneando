@@ -63,10 +63,11 @@ interface CountrySelectProps {
   onChange: (val: string) => void;
   id?: string;
   isMapTheme?: boolean;
+  isBrandTheme?: boolean;
   error?: boolean;
 }
 
-export default function CountrySelect({ value, onChange, id, isMapTheme, error }: CountrySelectProps) {
+export default function CountrySelect({ value, onChange, id, isMapTheme, isBrandTheme, error }: CountrySelectProps) {
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -108,7 +109,27 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
   };
 
   // ── Styles based on theme ───────────────────────────────────────────
-  const triggerStyle: React.CSSProperties = isMapTheme
+  const triggerStyle: React.CSSProperties = isBrandTheme
+    ? {
+        width: '100%',
+        height: '46px',
+        borderRadius: '8px',
+        border: `1.5px solid ${error ? 'var(--color-error)' : 'rgba(0,187,180,0.3)'}`,
+        padding: '0 16px',
+        fontSize: '14px',
+        fontFamily: 'var(--font-body)',
+        color: '#096d7d',
+        background: '#ffffff',
+        outline: 'none',
+        textAlign: 'left',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxSizing: 'border-box',
+        transition: 'all 150ms ease'
+      }
+    : isMapTheme
     ? {
         width: '100%',
         height: '46px',
@@ -155,9 +176,9 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
     left: 0,
     right: 0,
     marginTop: '6px',
-    background: isMapTheme ? 'var(--color-map-cream-light)' : '#fff',
-    border: isMapTheme ? '1.5px solid var(--color-map-gold)' : '2px solid var(--color-border)',
-    borderRadius: '14px',
+    background: '#fff',
+    border: isBrandTheme ? '1.5px solid rgba(0,187,180,0.3)' : isMapTheme ? '1.5px solid var(--color-map-gold)' : '2px solid var(--color-border)',
+    borderRadius: '12px',
     boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
     zIndex: 100,
     boxSizing: 'border-box',
@@ -170,19 +191,19 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
     width: '100%',
     height: '42px',
     border: 'none',
-    borderBottom: isMapTheme ? '1px solid rgba(168,127,42,0.2)' : '1px solid var(--color-border)',
+    borderBottom: isBrandTheme ? '1px solid rgba(0,187,180,0.2)' : isMapTheme ? '1px solid rgba(168,127,42,0.2)' : '1px solid var(--color-border)',
     padding: '0 12px',
     fontSize: '14px',
     outline: 'none',
     background: 'transparent',
-    color: isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)',
+    color: isBrandTheme ? '#096d7d' : isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)',
     boxSizing: 'border-box'
   };
 
   return (
     <div id={id} ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       {/* Icon (only for Main Theme) */}
-      {!isMapTheme && (
+      {!isMapTheme && !isBrandTheme && (
         <i className="ri-earth-line" style={{
           position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
           color: 'var(--color-gray-mid)', fontSize: 16, pointerEvents: 'none', zIndex: 2
@@ -195,13 +216,13 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
         onClick={() => setIsOpen(!isOpen)}
         style={triggerStyle}
         onFocus={e => {
-          if (!isMapTheme && !error) {
+          if (!isMapTheme && !isBrandTheme && !error) {
             e.currentTarget.style.borderColor = 'var(--color-navy)';
             e.currentTarget.style.boxShadow = '0 0 0 3px rgba(27,43,110,0.1)';
           }
         }}
         onBlur={e => {
-          if (!isMapTheme && !error) {
+          if (!isMapTheme && !isBrandTheme && !error) {
             e.currentTarget.style.borderColor = 'var(--color-border)';
             e.currentTarget.style.boxShadow = 'none';
           }
@@ -209,12 +230,14 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
       >
         <span style={{
           textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
-          color: value ? (isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)') : 'var(--color-gray-mid)'
+          color: value
+            ? (isBrandTheme ? '#096d7d' : isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)')
+            : (isBrandTheme ? 'rgba(9,109,125,0.4)' : 'var(--color-gray-mid)')
         }}>
           {getCountryName(value) || (lang === 'en' ? 'Select nationality...' : 'Selecciona nacionalidad...')}
         </span>
         <i className={isOpen ? "ri-arrow-up-s-line" : "ri-arrow-down-s-line"} style={{
-          color: isMapTheme ? 'var(--color-map-gold)' : 'var(--color-gray-mid)', fontSize: 18
+          color: isBrandTheme ? '#00bbb4' : isMapTheme ? 'var(--color-map-gold)' : 'var(--color-gray-mid)', fontSize: 18
         }} />
       </button>
 
@@ -248,12 +271,12 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
                       padding: '10px 14px',
                       textAlign: 'left',
                       border: 'none',
-                      background: isSelected 
-                        ? (isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-navy)') 
+                      background: isSelected
+                        ? (isBrandTheme ? '#00bbb4' : isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-navy)')
                         : 'transparent',
-                      color: isSelected 
-                        ? (isMapTheme ? 'var(--color-map-gold-light)' : '#fff') 
-                        : (isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)'),
+                      color: isSelected
+                        ? '#fff'
+                        : (isBrandTheme ? '#096d7d' : isMapTheme ? 'var(--color-map-wood-dark)' : 'var(--color-text)'),
                       fontSize: '13px',
                       fontWeight: isSelected ? 700 : 500,
                       cursor: 'pointer',
@@ -264,7 +287,7 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, error }
                     }}
                     onMouseEnter={e => {
                       if (!isSelected) {
-                        e.currentTarget.style.background = isMapTheme ? 'rgba(168,127,42,0.1)' : 'var(--color-gray-light)';
+                        e.currentTarget.style.background = isBrandTheme ? 'rgba(0,187,180,0.08)' : isMapTheme ? 'rgba(168,127,42,0.1)' : 'var(--color-gray-light)';
                       }
                     }}
                     onMouseLeave={e => {

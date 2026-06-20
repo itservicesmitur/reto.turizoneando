@@ -151,7 +151,7 @@ export default function ResetPasswordPage() {
             color: '#a0aec0',
             margin: 0
           }}>
-            Rally Cultural de la Zona Colonial
+            Desafío Cultural de la Zona Colonial
           </p>
         </div>
 

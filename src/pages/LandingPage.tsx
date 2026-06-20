@@ -65,27 +65,27 @@ const STOPS = {
 // ── Stages ─────────────────────────────────────────────────────────
 const STAGES = {
   es: [
-    { n: 1, color: 'var(--color-teal)',   textDark: false, label: 'Etapa 1', sub: 'Primeras 6 preguntas',   q: 6, stops: 6, prize: 'Ruleta de premios básicos' },
-    { n: 2, color: 'var(--color-yellow)', textDark: true,  label: 'Etapa 2', sub: 'Siguientes 6 preguntas', q: 6, stops: 6, prize: 'Ruleta de premios intermedios' },
-    { n: 3, color: 'var(--color-orange)', textDark: false, label: 'Etapa 3', sub: 'Últimas 7 preguntas',    q: 7, stops: 7, prize: 'Ruleta de premios finales' },
+    { n: 1, color: 'var(--color-primary)',       textDark: false, label: 'Etapa 1', sub: 'Primeras 6 preguntas',   q: 6, stops: 6, prize: 'Ruleta de premios básicos' },
+    { n: 2, color: 'var(--color-accent-orange)', textDark: false, label: 'Etapa 2', sub: 'Siguientes 6 preguntas', q: 6, stops: 6, prize: 'Ruleta de premios intermedios' },
+    { n: 3, color: 'var(--color-accent-red)',    textDark: false, label: 'Etapa 3', sub: 'Últimas 7 preguntas',    q: 7, stops: 7, prize: 'Ruleta de premios finales' },
   ],
   en: [
-    { n: 1, color: 'var(--color-teal)',   textDark: false, label: 'Stage 1', sub: 'First 6 questions',  q: 6, stops: 6, prize: 'Basic prize wheel' },
-    { n: 2, color: 'var(--color-yellow)', textDark: true,  label: 'Stage 2', sub: 'Next 6 questions',   q: 6, stops: 6, prize: 'Intermediate prize wheel' },
-    { n: 3, color: 'var(--color-orange)', textDark: false, label: 'Stage 3', sub: 'Final 7 questions',  q: 7, stops: 7, prize: 'Final prize wheel' },
+    { n: 1, color: 'var(--color-primary)',       textDark: false, label: 'Stage 1', sub: 'First 6 questions',  q: 6, stops: 6, prize: 'Basic prize wheel' },
+    { n: 2, color: 'var(--color-accent-orange)', textDark: false, label: 'Stage 2', sub: 'Next 6 questions',   q: 6, stops: 6, prize: 'Intermediate prize wheel' },
+    { n: 3, color: 'var(--color-accent-red)',    textDark: false, label: 'Stage 3', sub: 'Final 7 questions',  q: 7, stops: 7, prize: 'Final prize wheel' },
   ],
 }
 
 // ── Floating particles config ──────────────────────────────────────
 const PARTICLES = [
-  { top: '12%', left:  '7%',  w: 10, c: 'rgba(245,200,0,0.7)',  d: '0s',   dur: '2.4s' },
-  { top: '22%', right: '16%', w:  7, c: 'rgba(43,191,184,0.6)', d: '0.5s', dur: '2.9s' },
-  { top: '38%', left:  '5%',  w:  5, c: 'rgba(255,255,255,0.3)',d: '0.9s', dur: '3.2s' },
-  { top:  '8%', left: '54%',  w:  9, c: 'rgba(244,118,43,0.5)', d: '0.3s', dur: '2.6s' },
-  { top: '62%', right: '11%', w:  6, c: 'rgba(245,200,0,0.4)',  d: '1.1s', dur: '2.2s' },
-  { top: '75%', left: '14%',  w:  8, c: 'rgba(43,191,184,0.35)',d: '0.7s', dur: '3.5s' },
-  { top: '48%', right:  '6%', w:  5, c: 'rgba(244,118,43,0.4)', d: '1.4s', dur: '2.8s' },
-  { top: '18%', left: '35%',  w:  4, c: 'rgba(255,255,255,0.2)',d: '1.8s', dur: '3.0s' },
+  { top: '12%', left:  '7%',  w: 10, c: 'rgba(255,148,71,0.7)',  d: '0s',   dur: '2.4s' },
+  { top: '22%', right: '16%', w:  7, c: 'rgba(0,187,180,0.6)',   d: '0.5s', dur: '2.9s' },
+  { top: '38%', left:  '5%',  w:  5, c: 'rgba(255,255,255,0.3)', d: '0.9s', dur: '3.2s' },
+  { top:  '8%', left: '54%',  w:  9, c: 'rgba(224,52,75,0.5)',   d: '0.3s', dur: '2.6s' },
+  { top: '62%', right: '11%', w:  6, c: 'rgba(255,148,71,0.4)',  d: '1.1s', dur: '2.2s' },
+  { top: '75%', left: '14%',  w:  8, c: 'rgba(0,187,180,0.35)',  d: '0.7s', dur: '3.5s' },
+  { top: '48%', right:  '6%', w:  5, c: 'rgba(224,52,75,0.4)',   d: '1.4s', dur: '2.8s' },
+  { top: '18%', left: '35%',  w:  4, c: 'rgba(255,255,255,0.2)', d: '1.8s', dur: '3.0s' },
 ]
 
 // ──────────────────────────────────────────────────────────────────
@@ -128,25 +128,28 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div style={{ fontFamily: 'var(--font-body)', overflowX: 'hidden', background: 'var(--color-navy)' }}>
+    <div style={{ fontFamily: 'var(--font-body)', overflowX: 'hidden', background: 'var(--color-primary-dark)' }}>
 
       {/* ══ FIXED NAV ═══════════════════════════════════════════════════ */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: `calc(var(--safe-top) + 10px) 24px 10px`,
-        background: navScrolled ? 'rgba(20,33,90,0.95)' : 'transparent',
+        background: navScrolled ? 'rgba(9,109,125,0.96)' : 'transparent',
         backdropFilter: navScrolled ? 'blur(20px)' : 'none',
         borderBottom: navScrolled ? '1px solid rgba(255,255,255,0.07)' : 'none',
         transition: 'background 0.35s, backdrop-filter 0.35s',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#fff', overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 0 2px rgba(245,200,0,0.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fff', overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 0 2px rgba(255,148,71,0.5)' }}>
             <img src={logoImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
-          <span style={{ fontFamily: 'var(--font-display)', color: 'var(--color-yellow)', fontSize: 18, letterSpacing: 0.3 }}>
-            Turizoneando
-          </span>
+          <img
+            src="/assets/img/logoSoloLetras.png"
+            alt="Turizoneando"
+            className="lp-nav-wordmark"
+            style={{ height: 90, width: 'auto', marginTop: -30, marginBottom: -30, filter: 'brightness(0) invert(1)' }}
+          />
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
@@ -175,13 +178,13 @@ export default function LandingPage() {
       </nav>
 
       {/* ══ HERO ════════════════════════════════════════════════════════ */}
-      <section style={{ minHeight: '100dvh', position: 'relative', overflow: 'hidden', background: 'var(--color-navy)' }}>
+      <section style={{ minHeight: '100dvh', position: 'relative', overflow: 'hidden', background: 'var(--color-primary-dark)' }}>
 
         {/* Background blobs */}
         <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -140, right: -100, width: 440, height: 440, borderRadius: '50%', background: 'rgba(43,191,184,0.11)', animation: 'blobDrift 12s ease-in-out infinite alternate' }} />
-          <div style={{ position: 'absolute', bottom: '15%', left: -80, width: 300, height: 300, borderRadius: '50%', background: 'rgba(245,200,0,0.06)', animation: 'blobDrift 16s ease-in-out infinite alternate-reverse' }} />
-          <div style={{ position: 'absolute', top: '50%', right: '8%', width: 200, height: 200, borderRadius: '50%', background: 'rgba(244,118,43,0.07)', animation: 'blobDrift 10s ease-in-out infinite alternate' }} />
+          <div style={{ position: 'absolute', top: -140, right: -100, width: 440, height: 440, borderRadius: '50%', background: 'rgba(0,187,180,0.13)', animation: 'blobDrift 12s ease-in-out infinite alternate' }} />
+          <div style={{ position: 'absolute', bottom: '15%', left: -80, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,148,71,0.07)', animation: 'blobDrift 16s ease-in-out infinite alternate-reverse' }} />
+          <div style={{ position: 'absolute', top: '50%', right: '8%', width: 200, height: 200, borderRadius: '50%', background: 'rgba(224,52,75,0.08)', animation: 'blobDrift 10s ease-in-out infinite alternate' }} />
           {/* Grid overlay */}
           <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
           {/* Particles */}
@@ -205,24 +208,27 @@ export default function LandingPage() {
           <div className="lp-hero-content">
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: 'rgba(43,191,184,0.14)', border: '1px solid rgba(43,191,184,0.3)',
+              background: 'rgba(0,187,180,0.14)', border: '1px solid rgba(0,187,180,0.32)',
               borderRadius: 20, padding: '6px 14px', marginBottom: 22,
             }}>
-              <i className="ri-map-pin-line" style={{ color: 'var(--color-teal)', fontSize: 13 }} />
-              <span style={{ color: 'var(--color-teal)', fontSize: 11, fontWeight: 800, letterSpacing: 1.8, textTransform: 'uppercase' }}>
+              <i className="ri-map-pin-line" style={{ color: 'var(--color-primary)', fontSize: 13 }} />
+              <span style={{ color: 'var(--color-primary)', fontSize: 11, fontWeight: 800, letterSpacing: 1.8, textTransform: 'uppercase' }}>
                 Zona Colonial · Verano 2026
               </span>
             </div>
 
-            <h1 className="lp-r lp-title-hero" style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(50px, 8vw, 74px)',
-              margin: '0 0 16px', lineHeight: 1,
-              paddingRight: '0.06em',
-              transitionDelay: '0.08s',
-            }}>
-              Turizoneando
-            </h1>
+            <img
+              src="/assets/img/logoSoloLetras.png"
+              alt="Turizoneando"
+              className="lp-hero-logo"
+              style={{
+                display: 'block',
+                height: 'auto',
+                objectFit: 'contain',
+                transitionDelay: '0.08s',
+                filter: 'brightness(0) invert(1)',
+              }}
+            />
 
             <p className="lp-r" style={{
               color: 'rgba(255,255,255,0.72)', fontSize: 'clamp(15px, 4vw, 19px)',
@@ -236,10 +242,10 @@ export default function LandingPage() {
               <Link to="/register"
                 className="lp-cta-btn"
                 style={{
-                  background: 'var(--color-yellow)', color: 'var(--color-navy)',
+                  background: 'var(--gradient-primary)', color: '#fff',
                   padding: '14px 30px', borderRadius: 16, fontWeight: 800, fontSize: 16,
                   textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                  boxShadow: '0 8px 28px rgba(245,200,0,0.4)',
+                  boxShadow: '0 8px 28px rgba(224,52,75,0.45)',
                 }}
               >
                 <i className="ri-rocket-line" style={{ fontSize: 18 }} />
@@ -269,7 +275,7 @@ export default function LandingPage() {
                   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 20, padding: '5px 12px',
                 }}>
-                  <i className={p.icon} style={{ color: 'var(--color-teal)', fontSize: 12 }} />
+                  <i className={p.icon} style={{ color: 'var(--color-primary)', fontSize: 12 }} />
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>{p.label}</span>
                 </span>
               ))}
@@ -282,10 +288,10 @@ export default function LandingPage() {
             <div className="lp-mascot-glow-ring" />
             {/* Orbit dot */}
             <div className="lp-orbit-wrap">
-              <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--color-yellow)', boxShadow: '0 0 12px rgba(245,200,0,0.8)' }} />
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--color-accent-orange)', boxShadow: '0 0 12px rgba(255,148,71,0.8)' }} />
             </div>
             <div className="lp-orbit-wrap lp-orbit-2">
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-teal)', boxShadow: '0 0 10px rgba(43,191,184,0.8)' }} />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 10px rgba(0,187,180,0.8)' }} />
             </div>
             <img src={mascotaImg} alt="" className="lp-mascot-float" />
           </div>
@@ -308,9 +314,9 @@ export default function LandingPage() {
       </section>
 
       {/* ══ STATS BAND ══════════════════════════════════════════════════ */}
-      <div ref={statsRef} style={{ background: 'var(--color-yellow)', padding: '40px 20px', position: 'relative', overflow: 'hidden' }}>
+      <div ref={statsRef} style={{ background: 'var(--gradient-primary)', padding: '40px 20px', position: 'relative', overflow: 'hidden' }}>
         {/* Decorative pattern */}
-        <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: 0.06, backgroundImage: 'radial-gradient(circle at 2px 2px, var(--color-navy) 2px, transparent 0)', backgroundSize: '24px 24px' }} />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.8) 2px, transparent 0)', backgroundSize: '24px 24px' }} />
         <div style={{
           display: 'flex', justifyContent: 'space-around',
           flexWrap: 'wrap', gap: 24, maxWidth: 860, margin: '0 auto', position: 'relative',
@@ -324,12 +330,12 @@ export default function LandingPage() {
           ] as const).map((stat) => (
             <div key={stat.k} className="lp-stat-item" style={{ textAlign: 'center', minWidth: 80 }}>
               <div style={{ marginBottom: 6 }}>
-                <i className={stat.icon} style={{ fontSize: 20, color: 'rgba(27,43,110,0.35)' }} />
+                <i className={stat.icon} style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)' }} />
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 50, color: 'var(--color-navy)', lineHeight: 1 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 50, color: '#fff', lineHeight: 1 }}>
                 <Counter to={stat.n} suffix={stat.s} run={statsRun} />
               </div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(27,43,110,0.5)', letterSpacing: 1.2, marginTop: 6, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2, marginTop: 6, textTransform: 'uppercase' }}>
                 {t(`landing.${stat.k}`)}
               </div>
             </div>
@@ -338,20 +344,20 @@ export default function LandingPage() {
       </div>
 
       {/* ══ WHAT IS IT ══════════════════════════════════════════════════ */}
-      <section style={{ background: '#0c1424', padding: '96px 28px', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ background: '#063f4a', padding: '96px 28px', position: 'relative', overflow: 'hidden' }}>
         {/* Decorative corner glow */}
-        <div aria-hidden style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(43,191,184,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div aria-hidden style={{ position: 'absolute', bottom: -60, left: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,200,0,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,187,180,0.14) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', bottom: -60, left: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,148,71,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div className="lp-what-grid">
             <div>
               <div className="lp-r" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
-                background: 'rgba(43,191,184,0.1)', border: '1px solid rgba(43,191,184,0.22)',
+                background: 'rgba(0,187,180,0.12)', border: '1px solid rgba(0,187,180,0.25)',
                 borderRadius: 20, padding: '5px 14px', marginBottom: 18,
               }}>
-                <span style={{ color: 'var(--color-teal)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
+                <span style={{ color: 'var(--color-primary)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
                   01 · ¿De qué se trata?
                 </span>
               </div>
@@ -371,9 +377,9 @@ export default function LandingPage() {
               </p>
               <div className="lp-r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', transitionDelay: '0.26s' }}>
                 {[
-                  { icon: 'ri-smartphone-line', label: lang === 'es' ? 'Cualquier navegador' : 'Any browser',    color: 'var(--color-teal)'   },
-                  { icon: 'ri-qr-code-line',    label: lang === 'es' ? 'QR en cada parada'  : 'QR at each stop', color: 'var(--color-yellow)' },
-                  { icon: 'ri-gift-2-line',     label: lang === 'es' ? 'Premios por etapa'  : 'Prizes per stage',color: 'var(--color-orange)' },
+                  { icon: 'ri-smartphone-line', label: lang === 'es' ? 'Cualquier navegador' : 'Any browser',    color: 'var(--color-primary)'       },
+                  { icon: 'ri-gift-2-line',     label: lang === 'es' ? 'Premios por etapa'  : 'Prizes per stage', color: 'var(--color-accent-orange)' },
+                  { icon: 'ri-map-pin-2-line',  label: lang === 'es' ? 'Paradas históricas' : 'Historic stops',  color: 'var(--color-accent-red)'    },
                 ].map((p, i) => (
                   <span key={i} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -388,7 +394,7 @@ export default function LandingPage() {
             </div>
             <div className="lp-rr lp-mascot-col" style={{ transitionDelay: '0.1s' }}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
-                <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(43,191,184,0.18) 0%, transparent 70%)', animation: 'pulseGlow 3s ease-in-out infinite' }} />
+                <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,187,180,0.2) 0%, transparent 70%)', animation: 'pulseGlow 3s ease-in-out infinite' }} />
                 <img src={mascot3} alt="" style={{
                   width: 'min(200px, 55vw)', height: 'auto',
                   filter: 'drop-shadow(0 12px 36px rgba(0,0,0,0.45))',
@@ -399,7 +405,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--color-teal), var(--color-yellow), var(--color-orange), transparent)' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--color-primary), var(--color-accent-orange), var(--color-accent-red), transparent)' }} />
       </section>
 
       {/* ══ HOW TO PARTICIPATE — 8 STEPS ════════════════════════════════ */}
@@ -408,16 +414,16 @@ export default function LandingPage() {
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(27,43,110,0.07)', border: '1px solid rgba(27,43,110,0.13)',
+              background: 'rgba(9,109,125,0.08)', border: '1px solid rgba(9,109,125,0.16)',
               borderRadius: 20, padding: '5px 14px', marginBottom: 14,
             }}>
-              <span style={{ color: 'var(--color-navy)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
+              <span style={{ color: 'var(--color-primary-dark)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
                 02 · Paso a paso
               </span>
             </div>
             <h2 className="lp-r" style={{
               fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 6vw, 42px)',
-              color: 'var(--color-navy)', margin: '0 0 8px', transitionDelay: '0.1s',
+              color: 'var(--color-primary-dark)', margin: '0 0 8px', transitionDelay: '0.1s',
             }}>
               {t('landing.how_title')}
             </h2>
@@ -427,23 +433,23 @@ export default function LandingPage() {
             {steps.map((step, i) => (
               <div key={i} className="lp-r lp-step-card" style={{
                 background: '#fff', borderRadius: 18, padding: '18px 18px',
-                boxShadow: '0 2px 16px rgba(27,43,110,0.08)',
+                boxShadow: '0 2px 16px rgba(9,109,125,0.1)',
                 display: 'flex', gap: 14, alignItems: 'flex-start',
                 transitionDelay: `${(i % 4) * 0.07}s`,
               }}>
                 <div style={{
                   flexShrink: 0, width: 44, height: 44, borderRadius: 13,
-                  background: 'var(--color-navy)', position: 'relative',
+                  background: 'var(--color-primary-dark)', position: 'relative',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <span style={{ fontFamily: 'var(--font-display)', color: 'var(--color-yellow)', fontSize: 21, lineHeight: 1 }}>
+                  <span style={{ fontFamily: 'var(--font-display)', color: 'var(--color-accent-orange)', fontSize: 21, lineHeight: 1 }}>
                     {i + 1}
                   </span>
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                    <i className={step.icon} style={{ color: 'var(--color-teal)', fontSize: 14 }} />
-                    <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-navy)' }}>{step.title}</span>
+                    <i className={step.icon} style={{ color: 'var(--color-primary)', fontSize: 14 }} />
+                    <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-primary-dark)' }}>{step.title}</span>
                   </div>
                   <p style={{ margin: 0, fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.55 }}>{step.desc}</p>
                 </div>
@@ -454,7 +460,7 @@ export default function LandingPage() {
           <div className="lp-r" style={{ textAlign: 'center', marginTop: 44, transitionDelay: '0.2s' }}>
             <img src={mascot7} alt="" style={{
               width: 'min(150px, 38vw)', height: 'auto',
-              filter: 'drop-shadow(0 8px 20px rgba(27,43,110,0.18))',
+              filter: 'drop-shadow(0 8px 20px rgba(9,109,125,0.2))',
               animation: 'float 4s ease-in-out infinite',
             }} />
           </div>
@@ -462,17 +468,18 @@ export default function LandingPage() {
       </section>
 
       {/* ══ THE 3 STAGES ════════════════════════════════════════════════ */}
-      <section style={{ background: 'var(--color-navy)', padding: '96px 24px', position: 'relative', overflow: 'hidden' }}>
-        <div aria-hidden style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(43,191,184,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <section style={{ background: '#054f5c', padding: '96px 24px', position: 'relative', overflow: 'hidden' }}>
+        <div aria-hidden style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,187,180,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
-        <div style={{ maxWidth: 720, margin: '0 auto', position: 'relative' }}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <div style={{ maxWidth: 680, margin: '0 auto', position: 'relative' }}>
+          <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(245,200,0,0.1)', border: '1px solid rgba(245,200,0,0.22)',
-              borderRadius: 20, padding: '5px 14px', marginBottom: 14,
+              background: 'rgba(255,148,71,0.15)', border: '1px solid rgba(255,148,71,0.35)',
+              borderRadius: 20, padding: '5px 16px', marginBottom: 14,
             }}>
-              <span style={{ color: 'var(--color-yellow)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
+              <i className="ri-map-2-line" style={{ color: 'var(--color-accent-orange)', fontSize: 12 }} />
+              <span style={{ color: 'var(--color-accent-orange)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
                 03 · Recorrido
               </span>
             </div>
@@ -484,41 +491,49 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {stages.map((stage, i) => (
               <div key={i} className="lp-r lp-stage-card" style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: `2px solid ${stage.color}`,
-                borderRadius: 22, padding: '24px 22px',
-                display: 'flex', alignItems: 'flex-start', gap: 18,
+                background: 'rgba(255,255,255,0.07)',
+                border: '2px solid rgba(255,255,255,0.55)',
+                borderLeft: `5px solid ${stage.color}`,
+                borderRadius: 20, padding: '22px 24px',
+                display: 'flex', alignItems: 'center', gap: 20,
+                backdropFilter: 'blur(8px)',
+                boxShadow: `0 4px 28px rgba(0,0,0,0.18), 0 0 0 1px ${stage.color}22`,
                 transitionDelay: `${i * 0.1}s`,
               }}>
+                {/* Número */}
                 <div style={{
-                  flexShrink: 0, width: 56, height: 56, borderRadius: 16,
-                  background: stage.color, display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center',
-                  boxShadow: `0 6px 24px ${stage.color}50`,
+                  flexShrink: 0, width: 60, height: 60, borderRadius: 18,
+                  background: `linear-gradient(135deg, ${stage.color} 0%, ${stage.color}bb 100%)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: `0 6px 20px ${stage.color}55`,
                 }}>
-                  <span style={{ fontFamily: 'var(--font-display)', color: stage.textDark ? 'var(--color-navy)' : '#fff', fontSize: 26, lineHeight: 1 }}>{stage.n}</span>
+                  <span style={{ fontFamily: 'var(--font-display)', color: '#fff', fontSize: 28, lineHeight: 1 }}>{stage.n}</span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-display)', color: stage.color, fontSize: 21 }}>{stage.label}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginLeft: 8 }}>· {stage.sub}</span>
+
+                {/* Contenido */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', color: stage.color, fontSize: 22 }}>{stage.label}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>· {stage.sub}</span>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                     {[
                       { icon: 'ri-question-line', text: `${stage.q} ${t('landing.stage_q')}` },
                       { icon: 'ri-map-pin-line',  text: `${stage.stops} ${t('landing.stage_stops')}` },
-                      { icon: 'ri-gift-2-line',    text: stage.prize },
-                      { icon: 'ri-user-3-line',    text: t('landing.stage_age') },
+                      { icon: 'ri-gift-2-line',   text: stage.prize },
+                      { icon: 'ri-user-3-line',   text: t('landing.stage_age') },
                     ].map((feat, j) => (
                       <span key={j} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5,
-                        background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '5px 12px',
+                        background: `${stage.color}18`,
+                        border: `1px solid ${stage.color}30`,
+                        borderRadius: 20, padding: '4px 11px',
                       }}>
-                        <i className={feat.icon} style={{ color: stage.color, fontSize: 12 }} />
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>{feat.text}</span>
+                        <i className={feat.icon} style={{ color: stage.color, fontSize: 11 }} />
+                        <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{feat.text}</span>
                       </span>
                     ))}
                   </div>
@@ -535,23 +550,23 @@ export default function LandingPage() {
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(27,43,110,0.07)', border: '1px solid rgba(27,43,110,0.12)',
+              background: 'rgba(9,109,125,0.07)', border: '1px solid rgba(9,109,125,0.14)',
               borderRadius: 20, padding: '5px 14px', marginBottom: 14,
             }}>
-              <span style={{ color: 'var(--color-navy)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
+              <span style={{ color: 'var(--color-primary-dark)', fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase' }}>
                 04 · Mapa del recorrido
               </span>
             </div>
             <h2 className="lp-r" style={{
               fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 6vw, 42px)',
-              color: 'var(--color-navy)', margin: 0, transitionDelay: '0.1s',
+              color: 'var(--color-primary-dark)', margin: 0, transitionDelay: '0.1s',
             }}>
               {t('landing.stops_title')}
             </h2>
           </div>
 
           <div className="lp-r" style={{
-            background: 'var(--color-navy)', borderRadius: 24, overflow: 'hidden',
+            background: 'var(--color-primary-dark)', borderRadius: 24, overflow: 'hidden',
             marginBottom: 24, padding: '28px 24px', position: 'relative',
             transitionDelay: '0.1s',
           }}>
@@ -564,7 +579,7 @@ export default function LandingPage() {
                   borderRadius: 20, padding: '7px 14px',
                   animationDelay: `${i * 0.15}s`,
                 }}>
-                  <i className="ri-map-pin-fill" style={{ color: 'var(--color-yellow)', fontSize: 12 }} />
+                  <i className="ri-map-pin-fill" style={{ color: 'var(--color-accent-orange)', fontSize: 12 }} />
                   <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{place}</span>
                 </div>
               ))}
@@ -577,19 +592,19 @@ export default function LandingPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {stops.map((s, i) => (
               <div key={i} className="lp-r lp-stop-card" style={{
-                background: '#f7f8fc',
+                background: '#f9f7f4',
                 borderRadius: 18, padding: '20px',
                 display: 'flex', gap: 16, alignItems: 'flex-start',
-                border: '1px solid rgba(27,43,110,0.08)',
+                border: '1px solid rgba(9,109,125,0.1)',
                 transitionDelay: `${i * 0.08}s`,
               }}>
                 <div style={{ fontSize: 30, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>{s.icon}</div>
                 <div>
-                  <div style={{ fontWeight: 800, color: 'var(--color-navy)', marginBottom: 6, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--color-primary-dark)', marginBottom: 6, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {s.cat}
                     <span style={{
-                      fontSize: 11, background: 'rgba(60,173,66,0.1)', color: 'var(--color-green)',
-                      border: '1px solid rgba(60,173,66,0.2)', borderRadius: 20,
+                      fontSize: 11, background: 'rgba(0,187,180,0.1)', color: 'var(--color-primary)',
+                      border: '1px solid rgba(0,187,180,0.22)', borderRadius: 20,
                       padding: '2px 8px', fontWeight: 700,
                     }}>
                       {t('landing.stops_scalable')} ✓
@@ -605,12 +620,12 @@ export default function LandingPage() {
 
       {/* ══ CTA ═════════════════════════════════════════════════════════ */}
       <section style={{
-        background: 'var(--color-navy)', padding: '100px 24px',
+        background: 'var(--color-primary-dark)', padding: '100px 24px',
         position: 'relative', overflow: 'hidden', textAlign: 'center',
       }}>
-        <div aria-hidden style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,200,0,0.08) 0%, transparent 65%)', pointerEvents: 'none', animation: 'pulseGlow 5s ease-in-out infinite' }} />
-        <div aria-hidden style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(43,191,184,0.07)', pointerEvents: 'none' }} />
-        <div aria-hidden style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(244,118,43,0.06)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,148,71,0.09) 0%, transparent 65%)', pointerEvents: 'none', animation: 'pulseGlow 5s ease-in-out infinite' }} />
+        <div aria-hidden style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(0,187,180,0.08)', pointerEvents: 'none' }} />
+        <div aria-hidden style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(224,52,75,0.07)', pointerEvents: 'none' }} />
 
         <div className="lp-r" style={{ position: 'relative', zIndex: 1, marginBottom: 16 }}>
           <img src={mascot5} alt="" style={{
@@ -644,10 +659,10 @@ export default function LandingPage() {
           <Link to="/register"
             className="lp-cta-btn"
             style={{
-              background: 'var(--color-yellow)', color: 'var(--color-navy)',
+              background: 'var(--gradient-primary)', color: '#fff',
               padding: '16px 38px', borderRadius: 18, fontWeight: 800, fontSize: 18,
               textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-              boxShadow: '0 10px 40px rgba(245,200,0,0.45)',
+              boxShadow: '0 10px 40px rgba(224,52,75,0.45)',
             }}
           >
             <i className="ri-rocket-line" style={{ fontSize: 20 }} />
@@ -734,6 +749,17 @@ export default function LandingPage() {
         }
         .lp-rr.lp-on { opacity: 1; transform: none; }
 
+        /* ── Nav wordmark (hidden on mobile) ───── */
+        .lp-nav-wordmark {
+          display: none;
+        }
+
+        /* ── Hero logo ───────────────────────── */
+        .lp-hero-logo {
+          width: min(480px, 100vw);
+          margin: -80px 0 -90px -44px;
+        }
+
         /* ── Hero layout ────────────────────────── */
         .lp-hero-wrap {
           display: flex;
@@ -775,7 +801,7 @@ export default function LandingPage() {
           width: clamp(140px, 38vw, 260px);
           height: clamp(140px, 38vw, 260px);
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(245,200,0,0.15) 0%, rgba(43,191,184,0.08) 50%, transparent 70%);
+          background: radial-gradient(circle, rgba(255,148,71,0.16) 0%, rgba(0,187,180,0.08) 50%, transparent 70%);
           animation: pulseGlow 3.5s ease-in-out infinite;
         }
         .lp-mascot-float {
@@ -802,7 +828,7 @@ export default function LandingPage() {
 
         /* ── Hero title gradient ────────────────── */
         .lp-title-hero {
-          background: linear-gradient(135deg, #F5C800 0%, #ffffff 55%, #F5C800 100%);
+          background: linear-gradient(135deg, #ff9447 0%, #ffffff 55%, #e0344b 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -814,7 +840,7 @@ export default function LandingPage() {
         }
         .lp-cta-btn:hover {
           transform: translateY(-3px) scale(1.02);
-          box-shadow: 0 14px 40px rgba(245,200,0,0.55) !important;
+          box-shadow: 0 14px 40px rgba(224,52,75,0.5) !important;
         }
 
         /* ── Card hovers ────────────────────────── */
@@ -823,7 +849,7 @@ export default function LandingPage() {
         }
         .lp-step-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 10px 30px rgba(27,43,110,0.14) !important;
+          box-shadow: 0 10px 30px rgba(9,109,125,0.15) !important;
         }
         .lp-stage-card {
           transition: transform 0.22s ease, background 0.22s ease;
@@ -837,7 +863,7 @@ export default function LandingPage() {
         }
         .lp-stop-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(27,43,110,0.1);
+          box-shadow: 0 6px 20px rgba(9,109,125,0.12);
         }
 
         /* ── Stop pin pop animation ─────────────── */
@@ -864,6 +890,13 @@ export default function LandingPage() {
 
         /* ── Desktop breakpoints ────────────────── */
         @media (min-width: 760px) {
+          .lp-nav-wordmark {
+            display: block;
+          }
+          .lp-hero-logo {
+            width: min(520px, 90%);
+            margin: -120px 0 -128px -72px;
+          }
           .lp-hero-wrap {
             flex-direction: row;
             align-items: center;

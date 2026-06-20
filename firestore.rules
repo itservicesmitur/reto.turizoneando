@@ -63,9 +63,11 @@ service cloud.firestore {
     }
 
     // Prize codes — Admins can read/write all. Providers can read codes for their local only.
-    // Validation (claiming) is done via Cloud Function (validatePrizeCode) using admin SDK.
+    // Players can read their own codes. Validation (claiming) is done via Cloud Function.
     match /prizeCodes/{codeId} {
-      allow read: if isAdmin() || (isProvider() && resource.data.localId == request.auth.token.localId);
+      allow read: if isAdmin()
+                  || (isProvider() && resource.data.localId == request.auth.token.localId)
+                  || (request.auth != null && resource.data.playerId == request.auth.uid);
       allow write: if isAdmin();
     }
 

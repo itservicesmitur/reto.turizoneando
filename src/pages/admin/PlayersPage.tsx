@@ -176,7 +176,7 @@ export default function PlayersPage() {
             Panel de Jugadores
           </h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>
-            Visualiza, filtra y analiza la participación de los jugadores registrados en el rally cultural.
+            Visualiza, filtra y analiza la participación de los jugadores registrados en el desafío cultural.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -863,7 +863,7 @@ export default function PlayersPage() {
                   <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 20 }}>
                     Clasificación Top 10
                   </h3>
-                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600 }}>Rally Cultural Turizoneando</span>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 600 }}>Desafío Cultural Turizoneando</span>
                 </div>
               </div>
               <button

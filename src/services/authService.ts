@@ -5,9 +5,13 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   OAuthProvider,
+  updateProfile,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   type User,
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 
 export interface PlayerProfile {
@@ -96,6 +100,53 @@ export async function syncPlayerSocialProfile(user: User, preferredLang: 'es' | 
   await setDoc(docRef, dataToSave, { merge: true })
 }
 
+export async function getPlayerProfile(uid: string): Promise<Partial<PlayerProfile> | null> {
+  const snap = await getDoc(doc(db, 'players', uid))
+  if (!snap.exists()) return null
+  const d = snap.data()
+  return {
+    firstName:     d.firstName     || '',
+    lastName:      d.lastName      || '',
+    gender:        d.gender        || '',
+    nationality:   d.nationality   || '',
+    ageRange:      d.ageRange      || '',
+    email:         d.email         || '',
+    photoURL:      d.photoURL      || '',
+    preferredLang: d.preferredLang || 'es',
+  }
+}
+
+export async function updatePlayerProfile(
+  uid: string,
+  fields: Partial<Pick<PlayerProfile, 'firstName' | 'lastName' | 'gender' | 'nationality' | 'ageRange' | 'photoURL'>>
+): Promise<void> {
+  const displayName = (fields.firstName || fields.lastName)
+    ? `${fields.firstName ?? ''} ${fields.lastName ?? ''}`.trim()
+    : undefined
+
+  const data: Record<string, unknown> = { ...fields, updatedAt: serverTimestamp() }
+  if (displayName) data.displayName = displayName
+
+  await updateDoc(doc(db, 'players', uid), data)
+
+  if (auth.currentUser) {
+    const authUpdate: { displayName?: string; photoURL?: string } = {}
+    if (displayName) authUpdate.displayName = displayName
+    if (fields.photoURL !== undefined) authUpdate.photoURL = fields.photoURL
+    if (Object.keys(authUpdate).length > 0) {
+      await updateProfile(auth.currentUser, authUpdate)
+    }
+  }
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const user = auth.currentUser
+  if (!user || !user.email) throw new Error('no-email')
+  const credential = EmailAuthProvider.credential(user.email, currentPassword)
+  await reauthenticateWithCredential(user, credential)
+  await updatePassword(user, newPassword)
+}
+
 // Requires Firestore rule: allow create: if request.auth.uid == playerId
 export async function savePlayerProfile(uid: string, profile: PlayerProfile): Promise<void> {
   const dataToSave: any = {
@@ -118,4 +169,41 @@ export async function savePlayerProfile(uid: string, profile: PlayerProfile): Pr
     dataToSave.photoURL = profile.photoURL
   }
   await setDoc(doc(db, 'players', uid), dataToSave, { merge: true })
+}
+
+export interface PlayerPrizeCode {
+  code: string
+  prizeName: string
+  prizeImageUrl: string
+  prizeCategory: string
+  localName: string
+  seasonName: string
+  status: 'active' | 'claimed' | 'inactive'
+  claimedAt: string | null
+  expiresAt: string | null
+}
+
+export async function getPlayerPrizeCodes(uid: string): Promise<PlayerPrizeCode[]> {
+  const q = query(collection(db, 'prizeCodes'), where('playerId', '==', uid))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => {
+    const data = d.data()
+    const toStr = (ts: any): string | null => {
+      if (!ts) return null
+      if (typeof ts.toDate === 'function') return ts.toDate().toISOString()
+      if (typeof ts.seconds === 'number') return new Date(ts.seconds * 1000).toISOString()
+      return null
+    }
+    return {
+      code:          d.id,
+      prizeName:     data.prizeName     || '',
+      prizeImageUrl: data.prizeImageUrl || '',
+      prizeCategory: data.prizeCategory || '',
+      localName:     data.localName     || '',
+      seasonName:    data.seasonName    || '',
+      status:        data.status        || 'active',
+      claimedAt:     toStr(data.claimedAt),
+      expiresAt:     toStr(data.expiresAt),
+    }
+  })
 }

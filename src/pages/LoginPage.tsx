@@ -127,7 +127,7 @@ export default function LoginPage() {
       height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
-      background: 'var(--color-navy)',
+      background: 'var(--color-primary-dark)',
       fontFamily: 'var(--font-body)',
       overflow: 'hidden',
       position: 'relative',
@@ -137,26 +137,26 @@ export default function LoginPage() {
       <div style={{
         position: 'absolute', top: -80, right: -80,
         width: 240, height: 240, borderRadius: '50%',
-        background: 'rgba(43,191,184,0.18)', pointerEvents: 'none',
+        background: 'rgba(0,187,180,0.15)', pointerEvents: 'none',
       }} />
       <div style={{
         position: 'absolute', top: 100, left: -50,
         width: 160, height: 160, borderRadius: '50%',
-        background: 'rgba(245,200,0,0.10)', pointerEvents: 'none',
+        background: 'rgba(255,148,71,0.10)', pointerEvents: 'none',
       }} />
       <div style={{
         position: 'absolute', bottom: '52dvh', left: '50%',
         width: 400, height: 400, borderRadius: '50%',
-        background: 'rgba(27,43,110,0.6)', transform: 'translate(-50%, 50%)',
+        background: 'rgba(4,45,55,0.55)', transform: 'translate(-50%, 50%)',
         pointerEvents: 'none',
       }} />
 
       {/* ── Floating stars ────────────────────────────────────── */}
       {[
-        { top: '8%', left: '8%', size: 14, color: 'rgba(245,200,0,0.7)', delay: '0s' },
-        { top: '18%', right: '22%', size: 10, color: 'rgba(43,191,184,0.6)', delay: '0.4s' },
-        { top: '28%', left: '55%', size: 8, color: 'rgba(255,255,255,0.4)', delay: '0.8s' },
-        { top: '6%', left: '40%', size: 12, color: 'rgba(244,118,43,0.5)', delay: '0.2s' },
+        { top: '8%', left: '8%', size: 14, color: 'rgba(255,148,71,0.7)', delay: '0s' },
+        { top: '18%', right: '22%', size: 10, color: 'rgba(0,187,180,0.6)', delay: '0.4s' },
+        { top: '28%', left: '55%', size: 8, color: 'rgba(255,255,255,0.35)', delay: '0.8s' },
+        { top: '6%', left: '40%', size: 12, color: 'rgba(224,52,75,0.45)', delay: '0.2s' },
       ].map((s, i) => (
         <div
           key={i}
@@ -223,7 +223,7 @@ export default function LoginPage() {
               background: '#fff',
               padding: 5,
               boxShadow:
-                '0 0 0 3px rgba(245,200,0,0.5), 0 0 0 6px rgba(245,200,0,0.2), 0 12px 32px rgba(0,0,0,0.3)',
+                '0 0 0 3px rgba(255,148,71,0.55), 0 0 0 6px rgba(255,148,71,0.18), 0 12px 32px rgba(0,0,0,0.3)',
             }}>
               <img
                 src={logoImg}
@@ -236,12 +236,12 @@ export default function LoginPage() {
             <div>
               <h1 style={{
                 fontFamily: 'var(--font-display)',
-                color: 'var(--color-yellow)',
+                color: '#fff',
                 fontSize: 32,
                 margin: 0,
                 lineHeight: 1.1,
                 letterSpacing: 0.5,
-                textShadow: '0 2px 16px rgba(245,200,0,0.35)',
+                textShadow: '0 2px 20px rgba(255,148,71,0.4)',
               }}>
                 {t('login.title')}
               </h1>
@@ -313,7 +313,7 @@ export default function LoginPage() {
           {/* Teal accent strip at top */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: 4,
-            background: 'linear-gradient(90deg, var(--color-teal), var(--color-yellow), var(--color-orange))',
+            background: 'var(--gradient-primary)',
             flexShrink: 0,
           }} />
 
@@ -338,7 +338,7 @@ export default function LoginPage() {
             <div style={{ marginBottom: 14 }}>
               <h2 style={{
                 fontFamily: 'var(--font-display)',
-                color: 'var(--color-navy)', fontSize: 26,
+                color: 'var(--color-primary-dark)', fontSize: 26,
                 margin: '0 0 4px',
               }}>
                 {t('login.welcome')}
@@ -373,8 +373,8 @@ export default function LoginPage() {
                       transition: 'border-color 150ms ease, box-shadow 150ms ease',
                     }}
                     onFocus={e => {
-                      e.currentTarget.style.borderColor = 'var(--color-navy)'
-                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(27,43,110,0.1)'
+                      e.currentTarget.style.borderColor = 'var(--color-primary-dark)'
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(9,109,125,0.12)'
                     }}
                     onBlur={e => {
                       e.currentTarget.style.borderColor = 'var(--color-border)'
@@ -390,7 +390,7 @@ export default function LoginPage() {
                   <label htmlFor="password" style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>
                     {t('login.password')}
                   </label>
-                  <button type="button" style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--color-teal)', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+                  <button type="button" style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
                     {t('login.forgotPassword')}
                   </button>
                 </div>
@@ -411,8 +411,8 @@ export default function LoginPage() {
                       transition: 'border-color 150ms ease, box-shadow 150ms ease',
                     }}
                     onFocus={e => {
-                      e.currentTarget.style.borderColor = 'var(--color-navy)'
-                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(27,43,110,0.1)'
+                      e.currentTarget.style.borderColor = 'var(--color-primary-dark)'
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(9,109,125,0.12)'
                     }}
                     onBlur={e => {
                       e.currentTarget.style.borderColor = 'var(--color-border)'
@@ -451,13 +451,13 @@ export default function LoginPage() {
                 type="submit" disabled={loading}
                 style={{
                   marginTop: 2, width: '100%', height: 50, borderRadius: 16,
-                  background: loading ? 'var(--color-gray-mid)' : 'var(--color-yellow)',
-                  color: loading ? '#fff' : 'var(--color-navy)',
+                  background: loading ? 'var(--color-gray-mid)' : 'var(--gradient-primary)',
+                  color: '#fff',
                   fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-body)',
                   border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
                   transition: 'transform 150ms ease, box-shadow 150ms ease',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  boxShadow: loading ? 'none' : '0 6px 20px rgba(245,200,0,0.45)',
+                  boxShadow: loading ? 'none' : '0 6px 20px rgba(224,52,75,0.4)',
                   letterSpacing: 0.3,
                 }}
                 onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.97)' }}
@@ -509,7 +509,7 @@ export default function LoginPage() {
             {/* Register */}
             <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', margin: '16px 0 0' }}>
               {t('login.noAccount')}{' '}
-              <Link to="/register" style={{ color: 'var(--color-navy)', fontWeight: 800, textDecoration: 'none' }}>
+              <Link to="/register" style={{ color: 'var(--color-primary-dark)', fontWeight: 800, textDecoration: 'none' }}>
                 {t('login.register')}
               </Link>
             </p>
@@ -536,7 +536,7 @@ export default function LoginPage() {
             align-items: center;
             justify-content: center;
             padding: 32px 24px;
-            background: #07101f !important;
+            background: #031f26 !important;
           }
           .lp-login-card {
             flex: 0 0 auto;
@@ -547,12 +547,12 @@ export default function LoginPage() {
             box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09);
             position: relative;
             z-index: 1;
-            background: var(--color-navy);
+            background: var(--color-primary-dark);
           }
           .lp-login-hero {
             min-height: 220px !important;
             padding-top: 36px !important;
-            background: linear-gradient(145deg, #1e306e 0%, var(--color-navy) 100%) !important;
+            background: linear-gradient(145deg, #054f5c 0%, var(--color-primary-dark) 100%) !important;
           }
           .lp-login-form {
             border-radius: 0 !important;

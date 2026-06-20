@@ -120,6 +120,13 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
   const speedSamplesRef = useRef<number[]>([])
   const isRecalcingRef = useRef<boolean>(false)
   const doRecalcRef = useRef<(() => void) | null>(null)
+  // Navegación heading-up
+  const prevNavPosRef = useRef<{ lat: number; lng: number } | null>(null)
+  const smoothedNavHeadingRef = useRef<number>(90)
+  const lastNearestIdxRef = useRef<number>(0)
+  const lastGpsProcTimeRef = useRef<number>(0)
+  const lastGpsProcPosRef = useRef<{ lat: number; lng: number } | null>(null)
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768
 
   doRecalcRef.current = async () => {
     if (isRecalcingRef.current) return
@@ -167,19 +174,19 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       const map = mapInstanceRef.current
       if (!map) return
       routeBorderRef.current = new Polyline({ path: decodedPath, map, strokeColor: '#ffffff', strokeWeight: 18, strokeOpacity: 1.0, zIndex: 9 })
-      directionsRendererRef.current = new Polyline({ path: decodedPath, map, strokeColor: '#e8341a', strokeWeight: 13, strokeOpacity: 1.0, zIndex: 10 })
+      directionsRendererRef.current = new Polyline({ path: decodedPath, map, strokeColor: '#ff9447', strokeWeight: 13, strokeOpacity: 1.0, zIndex: 10 })
       const lastPtRecalc = decodedPath[decodedPath.length - 1]
       if (lastPtRecalc && dest) {
         const { path: lmPath, endLat: lmLat, endLng: lmLng } = computeLastMilePath(lastPtRecalc.lat(), lastPtRecalc.lng(), dest.lat, dest.lng)
         lastMileRef.current = new Polyline({
           path: lmPath, map, strokeOpacity: 0,
-          icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#c0392b', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
+          icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#ff9447', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
           zIndex: 11,
         })
         const xS = 0.000015
         lastMileXRef.current = [
-          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
-          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#ff9447', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+          new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#ff9447', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
         ]
         if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
         updateXStroke(map, lastMileXRef.current)
@@ -215,7 +222,19 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
     }
 
     const onSuccess = (pos: GeolocationPosition) => {
-      const { latitude: lat, longitude: lng, speed } = pos.coords
+      const { latitude: lat, longitude: lng, speed, heading: gpsHeading } = pos.coords
+
+      // Throttle: ignorar updates más rápidos de 500ms que muevan menos de 2m
+      const nowGps = Date.now()
+      const timeSinceGps = nowGps - lastGpsProcTimeRef.current
+      if (timeSinceGps < 500 && lastGpsProcPosRef.current) {
+        const dlat = lat - lastGpsProcPosRef.current.lat
+        const dlng = (lng - lastGpsProcPosRef.current.lng) * Math.cos(lat * Math.PI / 180)
+        if (Math.sqrt(dlat * dlat + dlng * dlng) * 111139 < 2) return
+      }
+      lastGpsProcTimeRef.current = nowGps
+      lastGpsProcPosRef.current = { lat, lng }
+
       lastKnownPositionRef.current = { lat, lng }
       placeUserMarker(lat, lng)
 
@@ -230,6 +249,72 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
         }
         travelModeRef.current = newMode
       }
+
+      // ── Heading-up camera + ruta que se acorta ──────────────────────
+      if (navActiveRef.current && mapInstanceRef.current) {
+        const map = mapInstanceRef.current
+        const isVector = (map as any).get?.('renderingType') === 'VECTOR'
+
+        // 1. Calcular heading: usar GPS directo si está disponible y hay movimiento,
+        //    sino calcular desde la diferencia de posición anterior
+        let rawBearing = smoothedNavHeadingRef.current
+        if (gpsHeading != null && (speed ?? 0) > 0.5) {
+          rawBearing = gpsHeading
+        } else if (prevNavPosRef.current) {
+          const prev = prevNavPosRef.current
+          const dy = lat - prev.lat
+          const dx = (lng - prev.lng) * Math.cos((lat * Math.PI) / 180)
+          const distM = Math.sqrt(dy * dy + dx * dx) * 111139
+          if (distM > 3) {
+            rawBearing = (Math.atan2(dx, dy) * (180 / Math.PI) + 360) % 360
+          }
+        }
+        prevNavPosRef.current = { lat, lng }
+
+        // Suavizado exponencial con manejo de wraparound 0/360
+        let hdiff = rawBearing - smoothedNavHeadingRef.current
+        while (hdiff > 180) hdiff -= 360
+        while (hdiff < -180) hdiff += 360
+        smoothedNavHeadingRef.current = (smoothedNavHeadingRef.current + hdiff * 0.35 + 360) % 360
+        navBearingRef.current = smoothedNavHeadingRef.current
+
+        // 2. Cámara heading-up: centrar un poco adelante del usuario
+        //    para que aparezca en la parte baja de la pantalla (como Google Maps)
+        if (returnAnimFrameRef.current) { cancelAnimationFrame(returnAnimFrameRef.current); returnAnimFrameRef.current = null }
+        if (isVector) {
+          const headRad = smoothedNavHeadingRef.current * Math.PI / 180
+          const lookAheadM = 80
+          const latOff = (lookAheadM / 111139) * Math.cos(headRad)
+          const lngOff = (lookAheadM / 111139) * Math.sin(headRad) / Math.cos(lat * Math.PI / 180)
+          map.panTo({ lat: lat + latOff, lng: lng + lngOff })
+          map.setHeading(smoothedNavHeadingRef.current)
+          map.setTilt(65)
+        } else {
+          map.panTo({ lat, lng })
+        }
+
+        // 3. Recortar la polilínea desde la posición actual hacia adelante
+        const path = routePathRef.current
+        if (path.length > 1) {
+          const searchFrom = Math.max(0, lastNearestIdxRef.current)
+          const searchTo = Math.min(path.length - 1, searchFrom + 60)
+          let minDist = Infinity
+          let nearestIdx = searchFrom
+          for (let i = searchFrom; i <= searchTo; i++) {
+            const dlat = path[i].lat - lat
+            const dlng = (path[i].lng - lng) * Math.cos(lat * Math.PI / 180)
+            const d = dlat * dlat + dlng * dlng
+            if (d < minDist) { minDist = d; nearestIdx = i }
+          }
+          if (nearestIdx >= lastNearestIdxRef.current) lastNearestIdxRef.current = nearestIdx
+          const remaining = [{ lat, lng }, ...path.slice(lastNearestIdxRef.current + 1)]
+          if (remaining.length > 1) {
+            routeBorderRef.current?.setPath(remaining)
+            directionsRendererRef.current?.setPath(remaining)
+          }
+        }
+      }
+      // ────────────────────────────────────────────────────────────────
 
       if (!navActiveRef.current || routePathRef.current.length < 2) return
       const { remainingM, offRouteM } = getRemainingRoute({ lat, lng }, routePathRef.current)
@@ -528,7 +613,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             path: COLONIAL_ZONE_COORDS,
             strokeOpacity: 0,
             icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '10px' }],
-            strokeColor: '#ef4444',
+            strokeColor: '#ff9447',
             strokeWeight: 2,
             map,
           })
@@ -626,7 +711,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
           const boats: BoatInstance[] = [
             {
               id: 'nina', name: 'La Niña', emoji: '⛵',
-              coords: ninaCoords, baseSpeed: 0.85, sizeInMeters: 22,
+              coords: ninaCoords, baseSpeed: 0.45, sizeInMeters: 22,
               theme: { woodColor: 0x8b5a2b, sailsColor: 0xffffff, flagColor: 0x1d4ed8 },
               currentSegment: 0, segmentProgress: 0, goingForward: true, isWaiting: false,
               currentLat: ninaCoords[0].lat, currentLng: ninaCoords[0].lng, currentRotation: 0,
@@ -634,7 +719,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             },
             {
               id: 'pinta', name: 'La Pinta', emoji: '📦',
-              coords: pintaCoords, baseSpeed: 0.60, sizeInMeters: 26,
+              coords: pintaCoords, baseSpeed: 0.32, sizeInMeters: 26,
               theme: { woodColor: 0x3e2718, sailsColor: 0xf5f2eb, flagColor: 0xb91c1c },
               currentSegment: 0, segmentProgress: 0, goingForward: true, isWaiting: false,
               currentLat: pintaCoords[0].lat, currentLng: pintaCoords[0].lng, currentRotation: 0,
@@ -642,7 +727,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             },
             {
               id: 'santa_maria', name: 'Santa María', emoji: '👑',
-              coords: santaMariaCoords, baseSpeed: 0.45, sizeInMeters: 33,
+              coords: santaMariaCoords, baseSpeed: 0.22, sizeInMeters: 33,
               theme: { woodColor: 0x5c3a21, sailsColor: 0xe2e8f0, flagColor: 0xd97706 },
               currentSegment: 0, segmentProgress: 0, goingForward: true, isWaiting: false,
               currentLat: santaMariaCoords[0].lat, currentLng: santaMariaCoords[0].lng, currentRotation: 0,
@@ -650,17 +735,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             },
           ]
 
-          boats.forEach((boat) => {
-            const boatBubbleDiv = document.createElement('div')
-            boatBubbleDiv.className = `pirate-boat-bubble-${boat.id}`
-            boatBubbleDiv.style.cssText = 'position:absolute;pointer-events:none;'
-            const borderCol = boat.id === 'nina' ? '#1d4ed8' : boat.id === 'pinta' ? '#b91c1c' : '#d97706'
-            boatBubbleDiv.innerHTML = `<div class="boat-bubble" style="background:rgba(15,23,42,0.95);border:1.8px solid ${borderCol};color:#fef3c7;font-family:Georgia,serif;font-size:8px;font-weight:900;padding:3px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 4px 10px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.5px;z-index:10;">${boat.name}</div>`
-            const bubbleMarker = new AdvancedMarkerElement({ map, position: boat.coords[0], title: boat.name, content: boatBubbleDiv })
-            boat.bubbleMarker = bubbleMarker
-            boat.bubbleElement = boatBubbleDiv.querySelector('.boat-bubble') as HTMLDivElement
-            boatMarkersRefList.push(bubbleMarker)
-          })
+          // Nombres de barcos ocultos
 
           const threeScene = new THREE.Scene()
           const threeCamera = new THREE.PerspectiveCamera()
@@ -693,7 +768,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
           const seagulls: SeagullInstance[] = []
 
           const particles: { lat: number; lng: number; alt: number; speedLat: number; speedLng: number; speedAlt: number }[] = []
-          const particleCount = 150
+          const particleCount = isMobile ? 30 : 80
           for (let i = 0; i < particleCount; i++) {
             particles.push({
               lat: 18.474 + (Math.random() - 0.5) * 0.012,
@@ -740,7 +815,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             threeScene.add(dirLight)
             threeScene.add(particleSystem)
 
-            for (let i = 0; i < 25; i++) {
+            for (let i = 0; i < (isMobile ? 8 : 20); i++) {
               const mesh = createSeagullMesh()
               const leftWing = mesh.getObjectByName('leftWing') as THREE.Mesh
               const rightWing = mesh.getObjectByName('rightWing') as THREE.Mesh
@@ -760,7 +835,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
 
             const loader = new GLTFLoader()
             loader.load(
-              '/assets/model/ship_k_ii_caravel.glb',
+              '/assets/model/curcero.glb',
               (gltf) => {
                 const loadedModel = gltf.scene
                 loadedModel.traverse((child) => {
@@ -789,6 +864,8 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                   const glbBaseScale = 0.5
                   modelClone.scale.set(glbBaseScale, glbBaseScale, glbBaseScale)
                   wrapper.add(modelClone)
+
+
                   const boatGroup = new THREE.Group()
                   boatGroup.add(wrapper)
                   boat.innerModel3D = wrapper
@@ -799,7 +876,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
               },
               undefined,
               (error) => {
-                console.error('Error al cargar ship_k_ii_caravel.glb, usando barcos procedimentales:', error)
+                console.error('Error al cargar curcero.glb, usando barcos procedimentales:', error)
                 boats.forEach((boat) => {
                   const model = createProceduralBoat(boat.theme)
                   const boatGroup = new THREE.Group()
@@ -819,9 +896,19 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             threeRendererRef = renderer
           }
 
+          // Cap de frame rate para Three.js: 20fps en mobile, 60fps en desktop
+          const threeFrameMs = isMobile ? 50 : 16
+          let lastThreeDrawMs = 0
+
           webGLOverlay.onDraw = ({ transformer }: any) => {
             const renderer = threeRendererRef
             if (!renderer) return
+
+            const nowDraw = Date.now()
+            // Solo actualizar posiciones al ritmo limitado, pero SIEMPRE renderizar para evitar parpadeo
+            const shouldUpdate = nowDraw - lastThreeDrawMs >= threeFrameMs
+            if (shouldUpdate) lastThreeDrawMs = nowDraw
+
             const center = map.getCenter()
             const anchorLat = center ? center.lat() : 18.475
             const anchorLng = center ? center.lng() : -69.882
@@ -829,34 +916,37 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             if (pos) threeCamera.projectionMatrix.fromArray(pos)
             renderer.resetState()
             try {
-              const time = Date.now()
+              const time = nowDraw
               const latRad = (anchorLat * Math.PI) / 180
-              const posAttr = particleGeometry.attributes.position as THREE.BufferAttribute
-              for (let i = 0; i < particleCount; i++) {
-                const p = particles[i]
-                p.lat += p.speedLat; p.lng += p.speedLng; p.alt += p.speedAlt
-                if (Math.abs(p.lat - 18.474) > 0.006) p.speedLat *= -1
-                if (Math.abs(p.lng - -69.881) > 0.005) p.speedLng *= -1
-                if (p.alt < 1.5 || p.alt > 22.0) p.speedAlt *= -1
-                posAttr.setXYZ(i, (p.lng - anchorLng) * 111139 * Math.cos(latRad), (p.lat - anchorLat) * 111139, p.alt)
-              }
-              posAttr.needsUpdate = true
 
-              seagulls.forEach((gull) => {
-                gull.angle += gull.speed
-                const cx = (gull.centerLng - anchorLng) * 111139 * Math.cos(latRad)
-                const cy = (gull.centerLat - anchorLat) * 111139
-                const x = cx + Math.cos(gull.angle) * gull.radius
-                const y = cy + Math.sin(gull.angle) * gull.radius
-                const z = gull.height + Math.sin(time * 0.0025 + gull.wingPhase) * 2.0
-                gull.mesh.position.set(x, y, z)
-                gull.mesh.rotation.z = Math.atan2(Math.cos(gull.angle), -Math.sin(gull.angle)) - Math.PI / 2
-                if (gull.leftWing && gull.rightWing) {
-                  const flap = Math.sin(time * 0.01 * gull.wingSpeed + gull.wingPhase) * 0.6
-                  gull.leftWing.rotation.y = flap
-                  gull.rightWing.rotation.y = -flap
+              if (shouldUpdate) {
+                const posAttr = particleGeometry.attributes.position as THREE.BufferAttribute
+                for (let i = 0; i < particleCount; i++) {
+                  const p = particles[i]
+                  p.lat += p.speedLat; p.lng += p.speedLng; p.alt += p.speedAlt
+                  if (Math.abs(p.lat - 18.474) > 0.006) p.speedLat *= -1
+                  if (Math.abs(p.lng - -69.881) > 0.005) p.speedLng *= -1
+                  if (p.alt < 1.5 || p.alt > 22.0) p.speedAlt *= -1
+                  posAttr.setXYZ(i, (p.lng - anchorLng) * 111139 * Math.cos(latRad), (p.lat - anchorLat) * 111139, p.alt)
                 }
-              })
+                posAttr.needsUpdate = true
+
+                seagulls.forEach((gull) => {
+                  gull.angle += gull.speed
+                  const cx = (gull.centerLng - anchorLng) * 111139 * Math.cos(latRad)
+                  const cy = (gull.centerLat - anchorLat) * 111139
+                  const x = cx + Math.cos(gull.angle) * gull.radius
+                  const y = cy + Math.sin(gull.angle) * gull.radius
+                  const z = gull.height + Math.sin(time * 0.0025 + gull.wingPhase) * 2.0
+                  gull.mesh.position.set(x, y, z)
+                  gull.mesh.rotation.z = Math.atan2(Math.cos(gull.angle), -Math.sin(gull.angle)) - Math.PI / 2
+                  if (gull.leftWing && gull.rightWing) {
+                    const flap = Math.sin(time * 0.01 * gull.wingSpeed + gull.wingPhase) * 0.6
+                    gull.leftWing.rotation.y = flap
+                    gull.rightWing.rotation.y = -flap
+                  }
+                })
+              }
 
               boats.forEach((boat, idx) => {
                 if (!boat.model3D) return
@@ -866,13 +956,18 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                 const dx = lngDiff * 111139 * Math.cos((anchorLat * Math.PI) / 180)
                 const dy = latDiff * 111139
                 boat.model3D.position.set(dx, dy, 0)
-                const scaleFactor = (boat.sizeInMeters / 16) * 1.5
-                if (boat.innerModel3D) {
+                const scaleFactor = (boat.sizeInMeters / 16) * 22
+                if (boat.innerModel3D && shouldUpdate) {
                   const offsetTime = time + idx * 1200
-                  boat.innerModel3D.rotation.z = boat.currentRotation
-                  boat.innerModel3D.rotation.x = Math.sin(offsetTime * 0.002) * 0.04
-                  boat.innerModel3D.rotation.y = Math.sin(offsetTime * 0.0015) * 0.02
-                  boat.innerModel3D.position.z = Math.sin(offsetTime * 0.0035) * 0.75
+                  const targetZ = boat.currentRotation + Math.PI / 2
+                  const prevZ = boat.innerModel3D.rotation.z
+                  let diff = targetZ - prevZ
+                  while (diff > Math.PI) diff -= 2 * Math.PI
+                  while (diff < -Math.PI) diff += 2 * Math.PI
+                  boat.innerModel3D.rotation.z = prevZ + diff * 0.04
+                  boat.innerModel3D.rotation.x = Math.sin(offsetTime * 0.002) * 0.008
+                  boat.innerModel3D.rotation.y = Math.sin(offsetTime * 0.0015) * 0.005
+                  boat.innerModel3D.position.z = Math.sin(offsetTime * 0.0025) * 0.05
                   boat.innerModel3D.scale.set(scaleFactor, scaleFactor, scaleFactor)
                 }
               })
@@ -903,6 +998,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
           }
 
           const animate = () => {
+            if (document.visibilityState !== 'visible') return
             boats.forEach((boat) => {
               if (boat.isWaiting) return
               const startNode = boat.coords[boat.goingForward ? boat.currentSegment : boat.currentSegment + 1]
@@ -967,7 +1063,10 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       if (intervalId) clearInterval(intervalId)
       boatMarkersRefList.forEach((marker) => { if (marker) marker.map = null })
       if (webGLOverlayRef) webGLOverlayRef.setMap(null)
-      if (threeRendererRef) threeRendererRef.dispose()
+      if (threeRendererRef) {
+        threeRendererRef.dispose()
+        threeRendererRef.forceContextLoss()
+      }
     }
   }, [onSelectMonument])
 
@@ -1006,6 +1105,8 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       navActiveRef.current = false
       routePathRef.current = []
       onRouteUpdateRef.current = null
+      lastNearestIdxRef.current = 0
+      prevNavPosRef.current = null
       if (returnAnimFrameRef.current) { cancelAnimationFrame(returnAnimFrameRef.current); returnAnimFrameRef.current = null }
       if (routeBorderRef.current) { routeBorderRef.current.setMap(null); routeBorderRef.current = null }
       if (directionsRendererRef.current) { directionsRendererRef.current.setMap(null); directionsRendererRef.current = null }
@@ -1034,6 +1135,9 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       if (returnAnimFrameRef.current) { cancelAnimationFrame(returnAnimFrameRef.current); returnAnimFrameRef.current = null }
       const pos = lastKnownPositionRef.current
       if (!pos) return
+      // Reset nav state para nueva ruta
+      lastNearestIdxRef.current = 0
+      prevNavPosRef.current = null
       destPositionRef.current = { lat: destLat, lng: destLng }
       const dy = destLat - pos.lat
       const dx = (destLng - pos.lng) * Math.cos((pos.lat * Math.PI) / 180)
@@ -1073,19 +1177,19 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
         const { Polyline } = await importLibrary('maps') as any
         const map = mapInstanceRef.current
         routeBorderRef.current = new Polyline({ path, map, strokeColor: '#ffffff', strokeWeight: 18, strokeOpacity: 1.0, zIndex: 9 })
-        directionsRendererRef.current = new Polyline({ path, map, strokeColor: '#e8341a', strokeWeight: 13, strokeOpacity: 1.0, zIndex: 10 })
+        directionsRendererRef.current = new Polyline({ path, map, strokeColor: '#ff9447', strokeWeight: 13, strokeOpacity: 1.0, zIndex: 10 })
         const lastPt = path[path.length - 1]
         if (lastPt) {
           const { path: lmPath, endLat: lmLat, endLng: lmLng } = computeLastMilePath(lastPt.lat(), lastPt.lng(), destLat, destLng)
           lastMileRef.current = new Polyline({
             path: lmPath, map, strokeOpacity: 0,
-            icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#c0392b', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
+            icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3, strokeColor: '#ff9447', strokeWeight: 3 }, offset: '0', repeat: '10px' }],
             zIndex: 11,
           })
           const xS = 0.000015
           lastMileXRef.current = [
-            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
-            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#e8341a', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng - xS }, { lat: lmLat + xS, lng: lmLng + xS }], map, strokeColor: '#ff9447', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
+            new Polyline({ path: [{ lat: lmLat - xS, lng: lmLng + xS }, { lat: lmLat + xS, lng: lmLng - xS }], map, strokeColor: '#ff9447', strokeWeight: 5, strokeOpacity: 1, zIndex: 8 }),
           ]
           updateXStroke(map, lastMileXRef.current)
           lastMileZoomListenerRef.current = map.addListener('zoom_changed', () => updateXStroke(map, lastMileXRef.current))
@@ -1214,6 +1318,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       }
       requestAnimationFrame(animate)
     },
+    getUserPosition: () => lastKnownPositionRef.current,
   }))
 
   if (mapError) {
@@ -1236,8 +1341,6 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       )}
       <div className="relative h-full w-full overflow-hidden">
         <div ref={mapRef} className="h-full w-full" />
-        <div className="pointer-events-none absolute inset-0 z-5" style={{ background: 'radial-gradient(circle at center, transparent 55%, rgba(0,0,0,0.80) 100%)' }} />
-        <div className="pointer-events-none absolute inset-0 z-5" style={{ background: '#c9a050', opacity: 0.22 }} />
       </div>
     </div>
   )

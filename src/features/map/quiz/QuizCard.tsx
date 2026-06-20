@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { useQuizFlow } from './useQuizFlow'
-import GameButton from './GameButton'
 import PirateTimer from './PirateTimer'
 import type { QuizQuestion } from '../types/quiz.types'
 
@@ -17,326 +16,227 @@ const OPTION_LABELS = ['A', 'B', 'C', 'D']
 export default function QuizCard({ stopId, seasonId, questions, onComplete, onClose }: Props) {
   const { t } = useTranslation()
   const {
-    question,
-    questionIdx,
-    totalQuestions,
-    selectedOption,
-    setSelectedOption,
-    isWrong,
-    isCorrect,
-    correctAnswerIndex,
-    shakeKey,
-    needsSelection,
-    needsShakeKey,
-    skipIntro,
-    checking,
-    handleCheck,
-    handleContinueCorrect,
-    handleContinueWrong,
+    question, questionIdx, totalQuestions,
+    selectedOption, setSelectedOption,
+    isWrong, isCorrect, correctAnswerIndex,
+    shakeKey, needsSelection, needsShakeKey,
+    skipIntro, checking,
+    handleCheck, handleContinueCorrect, handleContinueWrong,
   } = useQuizFlow({ stopId, seasonId, questions, onComplete })
 
+  if (!question) return null
+
   return (
-    <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/50 backdrop-blur-xs p-0">
-      <div
-        className="relative w-full h-full flex flex-col overflow-hidden quiz-card-enter rounded-none"
-        style={{
-          backgroundImage: "linear-gradient(rgba(235,220,195,0.58), rgba(235,220,195,0.58)), url('/assets/img/fonto_textura.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          border: '8px solid var(--color-map-wood-dark)',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.5), inset 0 0 0 2px var(--color-map-gold), inset 0 0 16px rgba(0,0,0,0.5)'
-        }}
-      >
-        {/* Metal Decorative Corners */}
-        <svg className="absolute -top-px -left-px w-9 h-9 pointer-events-none z-30 text-map-gold-light" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -top-px -right-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-x-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -left-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-y-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px -right-px w-9 h-9 pointer-events-none z-30 text-map-gold-light transform scale-[-1]" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M3 20V3h17" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 11c3 0 8-5 8-8M3 7c1.5 0 4-2.5 4-4" strokeLinecap="round" />
-          <circle cx="5" cy="5" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+    <div
+      className="fixed inset-0 z-999 flex flex-col animate-card-boing"
+      style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)' }}
+    >
+      {/* Columna centrada con max-width */}
+      <div className="flex-1 min-h-0 w-full max-w-lg mx-auto flex flex-col">
 
-        {/* Center Clasps */}
-        <svg className="absolute -top-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-map-gold-light" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
-        <svg className="absolute -bottom-px left-1/2 -translate-x-1/2 w-14 h-6 pointer-events-none z-30 text-map-gold-light transform scale-y-[-1]" viewBox="0 0 56 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 3h32M16 3c4 4 8 7 12 7s8-3 12-7" strokeLinecap="round" />
-          <circle cx="28" cy="3" r="1.2" fill="currentColor" stroke="none" />
-        </svg>
+        {/* ── HEADER ── */}
+        <div className="shrink-0 flex items-center justify-between px-5 pt-4 pb-3 min-[430px]:px-8 min-[430px]:pt-6 min-[430px]:pb-4">
+          <button
+            onClick={onClose}
+            className="w-10 h-10 min-[430px]:w-13 min-[430px]:h-13 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ background: 'rgba(255,255,255,0.18)' }}
+          >
+            <i className="ri-close-line text-xl min-[430px]:text-2xl text-white" />
+          </button>
 
-        {/* TOP FADE OVERLAY */}
+          <span className="font-black text-sm min-[430px]:text-lg text-white tracking-wide">
+            PREGUNTA {questionIdx + 1}
+            <span className="font-normal" style={{ color: 'rgba(255,255,255,0.55)' }}> / {totalQuestions}</span>
+          </span>
+
+          <div className="flex flex-col items-center">
+            <PirateTimer
+              questionIdx={questionIdx}
+              paused={isWrong || isCorrect || checking}
+              onTimeUp={handleContinueWrong}
+            />
+          </div>
+        </div>
+
+        {/* ── CARD BLANCA ── */}
         <div
-          className="absolute top-0 inset-x-0 h-10 pointer-events-none z-40"
-          style={{ background: 'linear-gradient(to bottom, var(--color-map-wood-dark) 0%, rgba(50,30,15,0.7) 20%, rgba(50,30,15,0) 100%)' }}
-        />
+          className="flex-1 min-h-0 mx-3 min-[430px]:mx-4 rounded-3xl overflow-hidden flex flex-col"
+          style={{
+            background: '#ffffff',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.32)',
+            marginBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
 
-        {/* SCROLLABLE CONTENT */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4 flex flex-col gap-4 relative">
-
-          <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
-            <defs>
-              <filter id="torn-paper">
-                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-            </defs>
-          </svg>
-
-          {/* Question card */}
-          <div className={`relative px-6 pb-6 pt-8 mt-4 transition-all duration-300 ${skipIntro ? '' : 'parchment-unfurl'}`}>
-            <div
-              className="absolute inset-x-0 bottom-0 z-0"
-              style={{
-                top: '-16px',
-                background: 'linear-gradient(to bottom, rgba(250,246,235,0) 0%, rgba(250,246,235,0) 16px, rgba(250,246,235,0.7) 28px, var(--color-map-cream-light) 44px)',
-                boxShadow: '0 8px 24px rgba(80, 48, 25, 0.12), inset 0 0 20px rgba(168, 127, 42, 0.05)',
-                filter: 'url(#torn-paper)',
-                clipPath: 'polygon(0% 16px, 100% 16px, 100% 110%, 0% 110%)'
-              }}
-            />
-
-            {/* Parchment scroll cylinder */}
-            <div
-              className="absolute -top-3.5 left-1 right-1 h-[26px] z-20"
-              style={{
-                background: 'linear-gradient(to bottom, #54361e 0%, #a87e58 15%, var(--color-map-cream) 45%, var(--color-map-cream-light) 55%, var(--color-map-cream) 70%, #a87e58 85%, #54361e 100%)',
-                border: '1.5px solid var(--color-map-wood-mid)',
-                borderLeft: 'none',
-                borderRight: 'none',
-                borderRadius: '3px',
-                boxShadow: '0 4px 10px rgba(50,30,15,0.35)',
-              }}
-            />
-            <div
-              className="absolute -left-2 -top-2.5 w-3.5 h-[22px] rounded-l-md z-30"
-              style={{
-                background: 'linear-gradient(to bottom, var(--color-map-wood-dark) 0%, #5c3b21 50%, var(--color-map-wood-deep) 100%)',
-                border: '1.5px solid var(--color-map-wood-mid)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              }}
-            />
-            <div
-              className="absolute -right-2 -top-2.5 w-3.5 h-[22px] rounded-r-md z-30"
-              style={{
-                background: 'linear-gradient(to bottom, var(--color-map-wood-dark) 0%, #5c3b21 50%, var(--color-map-wood-deep) 100%)',
-                border: '1.5px solid var(--color-map-wood-mid)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-              }}
-            />
-
-            <div className="relative z-10 pb-20">
-              <svg className="absolute bottom-1 left-1 w-9 h-9 pointer-events-none text-map-gold opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M2 14v8h8M4 18v-2h2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <svg className="absolute bottom-1 right-1 w-9 h-9 pointer-events-none text-map-gold opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 14v8h-8M20 18v-2h-2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-
-              {/* Temporizador pirata */}
-              <PirateTimer
-                questionIdx={questionIdx}
-                paused={isWrong || isCorrect || checking}
-                onTimeUp={handleContinueWrong}
-              />
-
-              {/* Contador con líneas decorativas */}
-              <div className="flex items-center gap-3 mb-4 mt-3">
-                <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.45))' }} />
-                <p className="text-[11px] font-bold tracking-[0.18em] uppercase shrink-0" style={{ color: 'var(--color-map-gold)', fontFamily: 'var(--font-map-parchment)' }}>
-                  {t('map.question_of', { current: questionIdx + 1, total: totalQuestions })}
-                </p>
-                <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, transparent, rgba(168,127,42,0.45))' }} />
+          {/* Pregunta */}
+          <div
+            className="shrink-0 mx-4 mt-3 min-[430px]:mx-6 min-[430px]:mt-5 rounded-2xl px-5 min-[430px]:px-8 flex flex-col items-center"
+            style={{
+              background: question.isBonus ? 'rgba(255,148,71,0.10)' : 'rgba(0,187,180,0.1)',
+              paddingTop: question.isBonus ? '0.875rem' : '1.25rem',
+              paddingBottom: '1.25rem',
+            }}
+          >
+            {question.isBonus && (
+              <div
+                className="mb-4 px-5 py-1.5 rounded-full flex items-center gap-2"
+                style={{ background: '#ff9447', boxShadow: '0 4px 14px rgba(255,148,71,0.45)' }}
+              >
+                <i className="ri-star-fill text-sm min-[430px]:text-base text-white" />
+                <span className="text-xs min-[430px]:text-sm font-black tracking-widest uppercase text-white">BONUS</span>
+                <i className="ri-star-fill text-sm min-[430px]:text-base text-white" />
               </div>
-
-              {/* Badge BONUS */}
-              {question.isBonus && (
-                <div className="flex justify-center mb-4">
-                  <div
-                    className="flex items-center gap-2 px-4 py-1.5 rounded-full"
-                    style={{
-                      background: 'linear-gradient(90deg, #5c3e00, #c8910a, #5c3e00)',
-                      border: '1.5px solid #fcd34d',
-                      boxShadow: '0 0 18px rgba(252,211,77,0.45), inset 0 1px 0 rgba(255,255,255,0.1)',
-                    }}
-                  >
-                    <i className="ri-star-fill text-xs text-yellow-200" />
-                    <span className="text-[11px] font-black tracking-[0.25em] uppercase" style={{ color: '#fef9c3' }}>Bonus</span>
-                    <i className="ri-star-fill text-xs text-yellow-200" />
-                  </div>
-                </div>
-              )}
-
-              {/* Texto de la pregunta */}
-              <div className="relative px-1 py-4">
-                <div className="absolute top-0 inset-x-4 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.35), transparent)' }} />
-                <p
-                  className="text-center font-bold leading-[1.65]"
-                  style={{ color: 'var(--color-map-wood-dark)', fontFamily: 'var(--font-map-parchment)', fontSize: '15px' }}
-                >
-                  ¿{question.text.replace(/^[¿?"'"]+|[?"'"]+$/g, '')}?
-                </p>
-                <div className="absolute bottom-0 inset-x-4 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(168,127,42,0.35), transparent)' }} />
-              </div>
-
-              {/* Options */}
-              <div className={`flex flex-col gap-3 mt-6 ${needsSelection ? 'quiz-option-wrong' : ''}`} key={needsShakeKey}>
-                {question.options.map((option, i) => {
-                  const isSelected      = selectedOption === i
-                  const isIncorrect     = isWrong && isSelected
-                  const isCorrectFlash  = isCorrect && isSelected
-                  const isCorrectReveal = isWrong && correctAnswerIndex === i && !isSelected
-                  return (
-                    <button
-                      key={`${questionIdx}-${i}-${shakeKey}`}
-                      onClick={() => { if (!isWrong && !isCorrect) { setSelectedOption(i); } }}
-                      className={`game-option-btn option-slide-in ${isSelected && !isIncorrect && !isCorrectFlash ? 'option-selected' : ''} ${isIncorrect ? 'option-incorrect' : ''} ${isCorrectFlash || isCorrectReveal ? 'option-correct' : ''}`}
-                      style={{ animationDelay: skipIntro ? '0s' : `${1.1 + i * 0.12}s` }}
-                    >
-                      <div className="option-letter-badge">{OPTION_LABELS[i]}</div>
-                      <span className="flex-1 text-[15px] font-bold text-map-wood-dark text-left">{option}</span>
-                      {isSelected && !isIncorrect && !isCorrectFlash && (
-                        <div className="option-checkbox-circle bg-map-wood-dark text-map-gold-light">
-                          <i className="ri-check-line text-xs font-bold" />
-                        </div>
-                      )}
-                      {isIncorrect && (
-                        <div className="option-checkbox-circle bg-map-wood-deep text-map-cream">
-                          <i className="ri-close-line text-xs font-bold" />
-                        </div>
-                      )}
-                      {(isCorrectFlash || isCorrectReveal) && (
-                        <div className="option-checkbox-circle option-correct-circle">
-                          <i className="ri-check-line text-xs font-bold" />
-                        </div>
-                      )}
-                      {!isSelected && !isIncorrect && !isCorrectReveal && (
-                        <div className="option-checkbox-circle" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Wrong feedback */}
-              {isWrong && (
-                <div
-                  className="flex items-center justify-center gap-3 px-4 py-3.5 mt-10 animate-fade-in text-center"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(220,38,38,0.08) 15%, rgba(220,38,38,0.08) 85%, transparent)',
-                    borderTop: '1px solid rgba(220,38,38,0.35)',
-                    borderBottom: '1px solid rgba(220,38,38,0.35)',
-                  }}
-                >
-                  <i className="ri-close-large-line text-base font-black shrink-0" style={{ color: '#dc2626' }} />
-                  <p className="text-sm font-bold leading-snug" style={{ color: '#dc2626', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
-                    {t('map.wrong_answer')}
-                  </p>
-                </div>
-              )}
-
-              {/* Correct feedback */}
-              {isCorrect && (
-                <div
-                  className="flex items-center justify-center gap-3 px-4 py-3.5 mt-10 animate-fade-in text-center"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(22,163,74,0.08) 15%, rgba(22,163,74,0.08) 85%, transparent)',
-                    borderTop: '1px solid rgba(22,163,74,0.35)',
-                    borderBottom: '1px solid rgba(22,163,74,0.35)',
-                  }}
-                >
-                  <i className="ri-check-line text-base font-black shrink-0" style={{ color: '#16a34a' }} />
-                  <p className="text-sm font-bold leading-snug" style={{ color: '#16a34a', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
-                    {t('map.correct_answer')}
-                  </p>
-                </div>
-              )}
-
-              {/* Needs selection feedback */}
-              {needsSelection && !isWrong && (
-                <div
-                  className="flex items-center justify-center gap-3 px-4 py-3.5 mt-10 animate-fade-in text-center"
-                  style={{
-                    background: 'linear-gradient(90deg, transparent, rgba(168,127,42,0.12) 15%, rgba(168,127,42,0.12) 85%, transparent)',
-                    borderTop: '1px solid rgba(168,127,42,0.4)',
-                    borderBottom: '1px solid rgba(168,127,42,0.4)',
-                  }}
-                >
-                  <i className="ri-alert-line text-map-gold text-base shrink-0 animate-pulse" />
-                  <p className="text-sm font-bold leading-snug" style={{ color: 'var(--color-map-gold)', fontFamily: 'var(--font-map-parchment)', letterSpacing: '0.05em' }}>
-                    {t('map.pick_option')}
-                  </p>
-                </div>
-              )}
-            </div>
+            )}
+            <p className="text-center font-black text-base min-[430px]:text-lg leading-snug" style={{ color: '#096d7d' }}>
+              {question.text}
+            </p>
           </div>
 
-          <div className="h-1 shrink-0" />
-        </div>
+          {/* Opciones + feedback */}
+          <div
+            className="flex-1 min-h-0 overflow-y-auto px-4 min-[430px]:px-6 pt-4 min-[430px]:pt-5 pb-4 flex flex-col gap-2.5 min-[430px]:gap-4"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            <div
+              className={`flex flex-col gap-3 min-[430px]:gap-4 ${needsSelection ? 'quiz-option-wrong' : ''}`}
+              key={needsShakeKey}
+            >
+              {question.options.map((option, i) => {
+                const isSelected     = selectedOption === i
+                const isIncorrect    = isWrong && isSelected
+                const isCorrectFlash = isCorrect && isSelected
+                const isReveal       = isWrong && correctAnswerIndex === i && !isSelected
 
-        {/* FOOTER */}
-        <div
-          className="shrink-0 p-4 flex gap-3"
-          style={{ background: 'transparent', borderTop: '1px solid rgba(168,127,42,0.22)' }}
-        >
-          {isWrong ? (
-            <>
-              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose}>
-                {t('map.exit')}
-              </GameButton>
-              <GameButton variant="dark" className="flex-1 h-16 text-base" onClick={handleContinueWrong}>
-                {questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.continue')}
-              </GameButton>
-            </>
-          ) : isCorrect ? (
-            <>
-              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose}>
-                {t('map.exit')}
-              </GameButton>
-              <GameButton variant="dark" className="flex-1 h-16 text-base" onClick={handleContinueCorrect}>
-                {questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.continue')}
-              </GameButton>
-            </>
-          ) : (
-            <>
-              <GameButton variant="tan" className="w-28 h-16 text-xs" onClick={onClose} disabled={checking}>
-                {t('map.exit')}
-              </GameButton>
-              <GameButton
-                variant="dark"
-                className={`flex-1 h-16 text-base${checking ? ' opacity-60' : ''}`}
-                onClick={handleCheck}
-                disabled={checking}
+                const bg = isIncorrect
+                  ? '#fde8eb'
+                  : (isCorrectFlash || isReveal)
+                    ? '#e6f9f6'
+                    : isSelected
+                      ? '#e0f7f6'
+                      : '#ffffff'
+
+                const borderColor = isIncorrect
+                  ? '#e0344b'
+                  : (isCorrectFlash || isReveal)
+                    ? '#00bbb4'
+                    : isSelected
+                      ? '#096d7d'
+                      : 'rgba(0,187,180,0.2)'
+
+                const textColor = isIncorrect ? '#e0344b' : '#096d7d'
+
+                const badgeBg = isIncorrect
+                  ? '#e0344b'
+                  : (isCorrectFlash || isReveal)
+                    ? '#00bbb4'
+                    : isSelected
+                      ? '#096d7d'
+                      : 'rgba(0,187,180,0.13)'
+
+                const badgeColor = (isSelected || isIncorrect || isCorrectFlash || isReveal)
+                  ? '#fff'
+                  : '#00bbb4'
+
+                return (
+                  <button
+                    key={`${questionIdx}-${i}-${shakeKey}`}
+                    onClick={() => { if (!isWrong && !isCorrect) setSelectedOption(i) }}
+                    className="w-full flex items-center gap-3 min-[430px]:gap-4 px-4 min-[430px]:px-5 py-3 min-[430px]:py-4 rounded-2xl text-left font-bold text-sm min-[430px]:text-base active:scale-[0.98] transition-all duration-150"
+                    style={{
+                      background: bg,
+                      color: textColor,
+                      border: `2px solid ${borderColor}`,
+                      boxShadow: '0 4px 16px rgba(9,109,125,0.08)',
+                      animationDelay: skipIntro ? '0s' : `${i * 0.08}s`,
+                    }}
+                  >
+                    <span
+                      className="w-7 h-7 min-[430px]:w-9 min-[430px]:h-9 rounded-full flex items-center justify-center text-xs min-[430px]:text-sm font-black shrink-0 transition-all duration-150"
+                      style={{ background: badgeBg, color: badgeColor }}
+                    >
+                      {OPTION_LABELS[i]}
+                    </span>
+                    <span className="flex-1 leading-snug">{option}</span>
+                    {isIncorrect && <i className="ri-close-circle-fill text-lg min-[430px]:text-xl shrink-0" style={{ color: '#e0344b' }} />}
+                    {(isCorrectFlash || isReveal) && <i className="ri-checkbox-circle-fill text-lg min-[430px]:text-xl shrink-0" style={{ color: '#00bbb4' }} />}
+                    {isSelected && !isIncorrect && !isCorrectFlash && <i className="ri-checkbox-circle-fill text-lg min-[430px]:text-xl shrink-0" style={{ color: '#096d7d' }} />}
+                  </button>
+                )
+              })}
+            </div>
+
+            {isWrong && (
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-3 min-[430px]:py-4 rounded-2xl animate-fade-in"
+                style={{ background: '#fde8eb', border: '1px solid rgba(224,52,75,0.3)' }}
               >
-                {checking
-                  ? <i className="ri-loader-4-line animate-spin text-xl" />
-                  : (questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.next'))
-                }
-              </GameButton>
-            </>
-          )}
+                <i className="ri-close-circle-fill min-[430px]:text-lg" style={{ color: '#e0344b' }} />
+                <p className="text-sm min-[430px]:text-base font-bold" style={{ color: '#e0344b' }}>{t('map.wrong_answer')}</p>
+              </div>
+            )}
+            {isCorrect && (
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-3 min-[430px]:py-4 rounded-2xl animate-fade-in"
+                style={{ background: '#e6f9f6', border: '1px solid rgba(0,187,180,0.35)' }}
+              >
+                <i className="ri-checkbox-circle-fill min-[430px]:text-lg" style={{ color: '#00bbb4' }} />
+                <p className="text-sm min-[430px]:text-base font-bold" style={{ color: '#096d7d' }}>{t('map.correct_answer')}</p>
+              </div>
+            )}
+            {needsSelection && !isWrong && (
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-3 min-[430px]:py-4 rounded-2xl animate-fade-in"
+                style={{ background: 'rgba(255,148,71,0.1)', border: '1px solid rgba(255,148,71,0.4)' }}
+              >
+                <i className="ri-alert-fill min-[430px]:text-lg" style={{ color: '#ff9447' }} />
+                <p className="text-sm min-[430px]:text-base font-bold" style={{ color: '#ff9447' }}>{t('map.pick_option')}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div
+            className="shrink-0 px-4 min-[430px]:px-6 pb-4 min-[430px]:pb-6 pt-2 min-[430px]:pt-4 flex gap-2.5 min-[430px]:gap-3"
+            style={{ borderTop: '1px solid rgba(9,109,125,0.08)' }}
+          >
+            <button
+              onClick={onClose}
+              className="w-20 min-[430px]:w-24 h-11 min-[430px]:h-12 rounded-2xl text-sm min-[430px]:text-base font-black active:translate-y-[4px] transition-all"
+              style={{
+                background: 'linear-gradient(180deg,#f2ead6 0%,#e5dcc6 100%)',
+                color: '#8b6f47',
+                border: '2px solid #c9bc9e',
+                boxShadow: 'inset 0 2px 0 rgba(255,255,255,.7), 0 6px 0 #b8a87e, 0 10px 18px rgba(0,0,0,.10)',
+              }}
+            >
+              {t('map.exit')}
+            </button>
+
+            {(() => {
+              const handleAction = isWrong ? handleContinueWrong : isCorrect ? handleContinueCorrect : handleCheck
+              const label = checking
+                ? <i className="ri-loader-4-line animate-spin text-xl" />
+                : (questionIdx + 1 >= totalQuestions ? t('map.complete') : isWrong || isCorrect ? t('map.continue') : t('map.next'))
+              return (
+                <button
+                  onClick={handleAction}
+                  disabled={checking}
+                  className={`flex-1 h-11 min-[430px]:h-12 rounded-2xl text-sm min-[430px]:text-base font-black text-white flex items-center justify-center active:translate-y-[4px] transition-all ${checking ? 'opacity-60' : ''}`}
+                  style={{
+                    background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
+                    border: '2px solid #0c7f89',
+                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 12px 22px rgba(9,109,125,.25)',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })()}
+          </div>
+
         </div>
 
-        {/* BOTTOM STRIPE */}
-        <div
-          className="h-1.5 shrink-0"
-          style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold-light),var(--color-map-gold),var(--color-map-gold-light),transparent)' }}
-        />
-      </div>
+      </div>{/* fin columna centrada */}
     </div>
   )
 }

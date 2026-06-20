@@ -33,4 +33,5 @@ export interface MapBoardHandle {
   setNavActive: (active: boolean) => void
   focusOnStage: (stageIdx: number) => void
   focusOnStop: (stopIndex: number) => void
+  getUserPosition: () => { lat: number; lng: number } | null
 }

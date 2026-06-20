@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { haversineM } from '../features/map/utils/geo'
+import { VALIDATION_RADIUS_DEFAULT_M } from '../config/constants'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import MapBoard, { type MapBoardHandle, type RouteInfo } from '../features/map/MapBoard'
 import LocationGate from '../features/map/LocationGate'
 import type { Monumento } from '../features/map/types/map.types'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, onSnapshot } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../config/firebase'
 import { getStopWithQuestions, fetchMyPlayerStatus, type StopData, type QuestionData } from '../services/adminService'
@@ -25,6 +27,7 @@ import AboutApp from '../features/map/menu/AboutApp'
 import { useRealtimeStatus } from '../features/map/middleware/useRealtimeStatus'
 import StatusBlockCard from '../components/StatusBlockCard'
 import FeatureTour from '../components/FeatureTour'
+import '../features/map/quiz/quiz.css'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
@@ -206,6 +209,14 @@ export default function Map() {
     }
   }, [])
 
+  // Cierra el gate en tiempo real cuando la ubicación se activa
+  useEffect(() => {
+    if (locationGranted && showLocationGate) {
+      setLocationDenied(false)
+      setShowLocationGate(false)
+    }
+  }, [locationGranted, showLocationGate])
+
   // Re-sync toggle mientras el menú esté abierto (polling cada 1.5s)
   useEffect(() => {
     if (!showMenu || !navigator.geolocation) return
@@ -247,10 +258,13 @@ export default function Map() {
   }, [showMenu])
 
   const [selectedMonument, setSelectedMonument] = useState<Monumento | null>(null)
+  const [historyExpanded, setHistoryExpanded] = useState(false)
   const [mapLoading, setMapLoading] = useState(true)
   const [mapReady, setMapReady] = useState(false)
+  const handleMapReady = useCallback(() => setMapReady(true), [])
   const [timerFinished, setTimerFinished] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [browserChromeHidden, setBrowserChromeHidden] = useState(false)
 const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [navPhase, setNavPhase] = useState<'idle' | 'preview' | 'navigating'>('idle')
   const [isHudExpanded, setIsHudExpanded] = useState(false)
@@ -264,6 +278,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [noActiveSeason, setNoActiveSeason] = useState(false)
   const [seasonName, setSeasonName] = useState('')
   const [currentSeasonId, setCurrentSeasonId] = useState('')
+  const [geoLimit, setGeoLimit] = useState(false)
+  const [tooFarAlert, setTooFarAlert] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -293,6 +309,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         const activeSeasonName = String(activeSeasonDoc.data().name ?? '')
         setSeasonName(activeSeasonName)
         setCurrentSeasonId(activeSeasonId)
+        setGeoLimit(activeSeasonDoc.data().geoLimit === true)
 
         // ── PASO 2: Stages de la temporada ───────────────────────
         // /seasons/{id}/stages: allow read if request.auth != null  → siempre OK
@@ -412,6 +429,17 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     })()
   }, [])
 
+  // Suscripción en tiempo real a geoLimit de la temporada activa
+  useEffect(() => {
+    if (!currentSeasonId) return
+    const unsub = onSnapshot(doc(db, 'seasons', currentSeasonId), snap => {
+      if (snap.exists()) {
+        setGeoLimit(snap.data().geoLimit === true)
+      }
+    })
+    return unsub
+  }, [currentSeasonId])
+
   const [completedStops, setCompletedStops] = useState<boolean[]>([])
   const [lockedAlert, setLockedAlert] = useState<
     { type: 'stage'; blockedStageIdx: number } |
@@ -425,6 +453,10 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
     return Math.max(stageGroups.length - 1, 0)
   }, [completedStops, stageGroups])
+
+  const allCompleted = useMemo(() =>
+    stageGroups.length > 0 && stageGroups.every(g => g.every(i => completedStops[i]))
+  , [stageGroups, completedStops])
 
   const introTarget = useMemo(() => {
     if (!monuments || monuments.length === 0 || stageGroups.length === 0) return undefined
@@ -483,8 +515,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const { t, i18n } = useTranslation()
 
   // ── Menu pantalla completa ────────────────────────────────────
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [soundLevel, setSoundLevel] = useState(75)
+  const [soundEnabled, setSoundEnabled] = useState(true)
 
   const openMenu = useCallback(() => {
     setMenuBtnAnimating(true)
@@ -544,25 +575,17 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     return prevStagesDone && stageIdx === activeStageIndex
   }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups])
 
-  useEffect(() => {
-    if (!selectedMonument || !selectedMonumentIsAvailable || locationGranted) return
-    if (locationDenied) {
-      setShowLocationGate(true)
-    } else {
-      // 'prompt': pedir permiso con diálogo nativo directamente
-      navigator.geolocation?.getCurrentPosition(
-        () => setLocationGranted(true),
-        (err) => {
-          if (err.code === 1) { setLocationDenied(true); setShowLocationGate(true) }
-          else setLocationGranted(true)
-        },
-        { enableHighAccuracy: false, timeout: 10000 }
-      )
-    }
-  }, [selectedMonument, selectedMonumentIsAvailable, locationGranted, locationDenied])
 
   const handleStartQuiz = useCallback(async () => {
     if (!selectedMonument || selectedStopIndex < 0) return
+    if (locationDenied) { setShowLocationGate(true); return }
+
+    if (geoLimit) {
+      const userPos = mapControlsRef.current?.getUserPosition()
+      if (!userPos) { setShowLocationGate(true); return }
+      const distM = haversineM(userPos, { lat: selectedMonument.lat, lng: selectedMonument.lng })
+      if (distM > VALIDATION_RADIUS_DEFAULT_M) { setTooFarAlert(true); return }
+    }
 
     const stopId = selectedMonument.stopId
     if (!stopId) return
@@ -611,7 +634,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
 
     setQuizFlow({ step: 'history', stopIndex: selectedStopIndex, monument: selectedMonument, quizData })
-  }, [selectedMonument, selectedStopIndex, firestoreStops, i18n])
+  }, [selectedMonument, selectedStopIndex, firestoreStops, i18n, locationDenied, geoLimit])
 
   const handleQuizComplete = useCallback((
     stopIndex: number,
@@ -651,7 +674,20 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     })
     setQuizFlow({ step: 'idle' })
     setSelectedMonument(null)
+    mapControlsRef.current?.clearNavigation()
+    setNavPhase('idle')
+    setRouteInfo(null)
+    setIsHudExpanded(false)
   }, [])
+
+  useEffect(() => {
+    if (!allCompleted) return
+    mapControlsRef.current?.clearNavigation()
+    setNavPhase('idle')
+    setRouteInfo(null)
+    setIsHudExpanded(false)
+    setSelectedMonument(null)
+  }, [allCompleted])
 
   const prevCompletedStopsRef = useRef<boolean[]>(completedStops)
   useEffect(() => {
@@ -683,17 +719,26 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const closeCard = useCallback(() => {
     mapControlsRef.current?.clearNavigation()
     if (navPhase !== 'idle') {
-      mapControlsRef.current?.returnToOrigin()
+      // Ir a la primera parada disponible del stage activo
+      const stageStops = stageGroups[activeStageIndex] ?? []
+      const nextIdx = stageStops.find(i => !completedStops[i]) ?? -1
+      if (nextIdx >= 0) {
+        mapControlsRef.current?.focusOnStop(nextIdx)
+      } else {
+        mapControlsRef.current?.returnToOrigin()
+      }
     }
     setRouteInfo(null)
     setNavPhase('idle')
     setIsHudExpanded(false)
     setSelectedMonument(null)
-  }, [navPhase])
+    setHistoryExpanded(false)
+  }, [navPhase, stageGroups, activeStageIndex, completedStops])
 
   // "IR AL RETO": traza ruta y transiciona a fase preview
   const handleStartRoute = useCallback(() => {
     if (!selectedMonument) return
+    if (locationDenied) { setShowLocationGate(true); return }
     setRouteInfo(null)
     setNavPhase('preview')
     mapControlsRef.current?.startNavigation(
@@ -701,7 +746,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       selectedMonument.lng,
       (info) => setRouteInfo(info)
     )
-  }, [selectedMonument])
+  }, [selectedMonument, locationDenied])
 
   // "INICIAR": enfoca cámara en posición del usuario y activa HUD de navegación
   const handleStartNavigation = useCallback(() => {
@@ -713,6 +758,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   // Resetea estado de navegación al seleccionar un monumento diferente
   useEffect(() => {
+    setHistoryExpanded(false)
     if (selectedMonument) {
       mapControlsRef.current?.clearNavigation()
       setNavPhase('idle')
@@ -743,6 +789,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   }, [])
 
   useEffect(() => {
+    const check = () => setBrowserChromeHidden(window.screen.height - window.innerHeight < 80)
+    window.addEventListener('resize', check)
+    check()
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
     const timer = setTimeout(() => setTimerFinished(true), 2500)
     return () => clearTimeout(timer)
   }, [])
@@ -754,7 +807,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-map-wood-deep font-sans">
+    <div className="relative h-screen w-screen overflow-hidden  font-sans ">
 
       {/* ── Pantalla: Sin temporada activa ──────────────────────── */}
       {noActiveSeason && (
@@ -762,10 +815,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           className="fixed inset-0 z-60 flex flex-col items-center justify-center text-center px-6"
           style={{ background: 'radial-gradient(circle, var(--color-map-wood-mid) 0%, var(--color-map-wood-deep) 100%)' }}
         >
-          {/* Fondo decorativo sutil */}
-          <div className="absolute inset-0 pointer-events-none opacity-5"
-            style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')", backgroundSize: 'cover' }} />
-
           <div className="relative flex flex-col items-center gap-6 max-w-xs">
             {/* Logo principal */}
             <img
@@ -804,59 +853,57 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {mapLoading && !noActiveSeason && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center text-center px-4"
-          style={{ background: 'radial-gradient(circle, var(--color-map-wood-mid) 0%, var(--color-map-wood-deep) 100%)' }}
+          style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)' }}
         >
-          <div className="load-skull mb-6 select-none animate-skull">
+          {/* Logo circular */}
+          <div
+            className="mb-6 h-auto w-70  overflow-hidden select-none"
+          >
             <img
-              src="/assets/img/logo1.png"
+              src="/assets/img/logoConFondo.png"
               alt="Logo Turizoneando"
-              className="h-22 md:h-28 object-contain"
-              style={{ filter: 'sepia(0.6) saturate(1.3) contrast(1.05) brightness(0.95) drop-shadow(0 6px 16px rgba(252,211,77,0.25))' }}
+              className="w-full h-full object-cover"
             />
           </div>
-          <h2
-            className="text-2xl md:text-2xl font-normal text-map-gold-light tracking-wider animate-glow-text"
-            style={{ fontFamily: "'UnifrakturMaguntia', cursive" }}
-          >
-            {t('map.loading_title')}
-          </h2>
-          <p className="mt-3 text-xs md:text-sm italic text-[#fff3d1]/70 tracking-wider font-serif">
+
+          {/* Nombre app */}
+          <img
+            src="/assets/img/logoSoloLetras.png"
+            alt="Turizoneando"
+            className="h-40 object-contain -mt-25 "
+            style={{ filter: 'brightness(0) invert(1)' }}
+          />
+
+          {/* Subtítulo */}
+          {/* <p className="text-xs font-semibold tracking-widest uppercase mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>
             {t('map.loading_subtitle')}
-          </p>
+          </p> */}
+
+          {/* Nombre de la temporada */}
           {seasonName && (
-            <p
-              className="mt-4 text-3xl md:text-4xl font-black text-map-gold-light tracking-widest uppercase"
-              style={{ fontFamily: 'Georgia, serif', textShadow: '0 0 24px rgba(252,211,77,0.5), 0 2px 8px rgba(0,0,0,0.6)' }}
+            <div
+              className="px-5 py-2 rounded-full -mt-14"
+              style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)' }}
             >
-              {seasonName}
-            </p>
+              <p className="text-sm font-black text-white tracking-widest uppercase">{seasonName}</p>
+            </div>
           )}
+
+          {/* Spinner */}
+          <div
+            className="mt-8 h-6 w-6 rounded-full border-2 animate-spin"
+            style={{ borderColor: 'rgba(255,255,255,0.6)', borderTopColor: 'transparent' }}
+          />
         </div>
       )}
-
-      {/* ── Marco decorativo vintage ─────────────────────────────── */}
-      <div className="pointer-events-none absolute inset-0 z-30">
-        <div className="absolute inset-0 shadow-[inset_0_0_60px_30px_var(--color-map-wood-deep)]" />
-        <svg viewBox="0 0 1200 700" preserveAspectRatio="none" className="h-full w-full absolute inset-0" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <filter id="roughen">
-              <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="2" result="noise" />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale={3} />
-            </filter>
-          </defs>
-          <rect x="8" y="8" width="1185" height="685" fill="none" stroke="var(--color-map-gold)" strokeWidth="2" rx="4" filter="url(#roughen)" />
-          <rect x="13" y="13" width="1175" height="675" fill="none" stroke="var(--color-map-wood-dark)" strokeWidth="1.2" rx="3.5" opacity="0.75" />
-        </svg>
-      </div>
-
 
       {/* ── Botón pantalla completa top-left ─────────────────────── */}
       {!mapLoading && (
         <button
           id="tour-fullscreen"
           onClick={toggleFullscreen}
-          className="absolute top-7.5 left-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md text-map-gold-light active:scale-90 transition-all"
-          style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
+          className="absolute left-3 z-30 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border-2 border-primary/70 bg-primary-dark/95 backdrop-blur-md text-white active:scale-90 transition-all"
+          style={{ top: 'max(1.5rem, env(safe-area-inset-top))', boxShadow: '0 4px 24px rgba(0,187,180,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' }}
           aria-label={isFullscreen ? t('map.aria_fullscreen_exit') : t('map.aria_fullscreen_enter')}
         >
           <i className={isFullscreen ? 'ri-fullscreen-exit-line text-xl' : 'ri-fullscreen-line text-xl'} />
@@ -868,8 +915,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         <button
           id="tour-menu"
           onClick={openMenu}
-          className={`absolute top-7.5 right-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md text-map-gold-light transition-all ${menuBtnAnimating ? 'menu-btn-pulse' : ''}`}
-          style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
+          className={`absolute right-3 z-30 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border-2 border-primary/70 bg-primary-dark/95 backdrop-blur-md text-white transition-all ${menuBtnAnimating ? 'menu-btn-pulse' : ''}`}
+          style={{ top: 'max(1.5rem, env(safe-area-inset-top))', boxShadow: '0 4px 24px rgba(0,187,180,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' }}
           aria-label={t('map.aria_open_menu')}
         >
           <i className="ri-menu-line text-xl" />
@@ -878,23 +925,23 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       {/* ── Barra top-center: Menú + Etapas + Ajustes ─────────────── */}
       {!mapLoading && navPhase !== 'navigating' && (
-        <div id="tour-stages" className="absolute top-7.5 left-1/2 -translate-x-1/2 z-30">
+        <div id="tour-stages" className="absolute left-1/2 -translate-x-1/2 z-30" style={{ top: 'max(1.5rem, env(safe-area-inset-top))' }}>
           <div
-            className="flex items-center gap-2 rounded-full border-2 border-map-gold bg-map-wood-mid/95 backdrop-blur-md px-2 py-1.5"
-            style={{ boxShadow: '0 4px 24px rgba(168,127,42,0.45), inset 0 1px 0 rgba(252,211,77,0.12)' }}
+            className="flex items-center gap-1.5 sm:gap-2 rounded-full border-2 border-primary/70 bg-primary-dark/95 backdrop-blur-md px-2 py-1.5 sm:px-2.5 sm:py-2"
+            style={{ boxShadow: '0 4px 24px rgba(0,187,180,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' }}
           >
             {/* Etapas */}
             <div className="flex items-center gap-2">
               {monuments === null && (
                 <div className="flex items-center gap-1.5 px-3">
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--color-map-gold)', borderTopColor: 'transparent' }} />
-                  <span className="text-[10px] font-bold text-map-gold uppercase tracking-wider">{t('map.loading_title')}</span>
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">{t('map.loading_title')}</span>
                 </div>
               )}
               {monuments !== null && monuments.length === 0 && (
-                <div className="h-8 flex items-center gap-1.5 px-4 rounded-full border border-map-gold bg-map-wood-mid">
-                  <i className="ri-map-pin-off-line text-xs text-map-gold shrink-0" />
-                  <span className="text-[10px] font-bold text-map-gold uppercase tracking-wider whitespace-nowrap">{t('map.no_stops')}</span>
+                <div className="h-8 flex items-center gap-1.5 px-4 rounded-full border border-white/30 bg-white/10">
+                  <i className="ri-map-pin-off-line text-xs text-white/70 shrink-0" />
+                  <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider whitespace-nowrap">{t('map.no_stops')}</span>
                 </div>
               )}
               {monuments !== null && monuments.length > 0 && stages.map((stage, idx) => {
@@ -914,11 +961,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <button key={idx} onClick={toggle}
                     style={{
                       ...STAGE_BTN_TRANSITION,
-                      boxShadow: open ? '0 0 10px rgba(252,211,77,0.35), 0 2px 8px rgba(0,0,0,0.5)' : '0 2px 6px rgba(0,0,0,0.4)',
+                      boxShadow: open ? '0 0 10px rgba(0,187,180,0.5), 0 2px 8px rgba(0,0,0,0.3)' : '0 2px 6px rgba(0,0,0,0.3)',
                     }}
-                    className={`relative h-8 rounded-full bg-linear-to-b from-yellow-300 to-amber-600 border border-yellow-400 flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 gap-1.5' : 'w-8'}`}>
-                    <i className={`ri-checkbox-circle-line text-map-wood-dark shrink-0 ${open ? 'text-xs' : 'text-base'}`} />
-                    {open && <span className="text-[10px] font-black text-map-wood-dark uppercase tracking-wide whitespace-nowrap stage-text-reveal">{t('map.stage', { n: idx + 1 })}</span>}
+                    className={`relative h-8 sm:h-9 rounded-full bg-linear-to-b from-primary to-primary-dark border border-primary/80 flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 sm:px-3.5 gap-1.5 sm:gap-2' : 'w-8 sm:w-9'}`}>
+                    <i className={`ri-checkbox-circle-line text-white shrink-0 ${open ? 'text-xs sm:text-sm' : 'text-base sm:text-lg'}`} />
+                    {open && <span className="quiz-label text-[10px] sm:text-xs text-white uppercase tracking-wide whitespace-nowrap stage-text-reveal leading-none translate-y-px">{t('map.stage', { n: idx + 1 })}</span>}
                   </button>
                 )
 
@@ -926,11 +973,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <button key={idx} onClick={toggle}
                     style={{
                       ...STAGE_BTN_TRANSITION,
-                      boxShadow: open ? '0 0 12px rgba(252,211,77,0.4), 0 2px 8px rgba(0,0,0,0.5)' : '0 0 5px rgba(252,211,77,0.15), 0 2px 6px rgba(0,0,0,0.4)',
+                      boxShadow: open ? '0 0 12px rgba(255,255,255,0.3), 0 2px 8px rgba(0,0,0,0.3)' : '0 0 5px rgba(255,255,255,0.12), 0 2px 6px rgba(0,0,0,0.3)',
                     }}
-                    className={`h-8 rounded-full border flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 gap-1.5 border-map-gold-light bg-map-wood-dark' : 'w-8 border-map-gold-light bg-map-wood-dark'}`}>
-                    <i className="ri-compass-3-fill text-xs text-map-gold-light shrink-0" />
-                    {open && <span className="text-[10px] font-black text-map-gold-light uppercase tracking-wide whitespace-nowrap stage-text-reveal">{t('map.stage', { n: idx + 1 })}</span>}
+                    className={`h-8 sm:h-9 rounded-full border flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 sm:px-3.5 gap-1.5 sm:gap-2 border-white bg-white/20' : 'w-8 sm:w-9 border-white bg-white/20'}`}>
+                    <i className="ri-flag-fill text-xs sm:text-sm text-white shrink-0" />
+                    {open && <span className="quiz-label text-[10px] sm:text-xs text-white uppercase tracking-wide whitespace-nowrap stage-text-reveal leading-none translate-y-px">{t('map.stage', { n: idx + 1 })}</span>}
                   </button>
                 )
 
@@ -938,11 +985,11 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <button key={idx} onClick={toggle}
                     style={{
                       ...STAGE_BTN_TRANSITION,
-                      boxShadow: open ? '0 0 8px rgba(107,84,36,0.35), 0 2px 8px rgba(0,0,0,0.5)' : '0 2px 6px rgba(0,0,0,0.4)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                     }}
-                    className={`h-8 rounded-full border flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 gap-1.5 border-map-gold bg-map-wood-dark' : 'w-8 border-map-gold bg-map-wood-mid'}`}>
-                    <i className="ri-lock-fill text-xs text-map-gold shrink-0" />
-                    {open && <span className="text-[10px] font-black text-map-gold uppercase tracking-wide whitespace-nowrap stage-text-reveal">{t('map.stage', { n: idx + 1 })}</span>}
+                    className={`h-8 sm:h-9 rounded-full border flex items-center justify-center overflow-hidden active:scale-90 ${open ? 'px-3 sm:px-3.5 gap-1.5 sm:gap-2 border-white/30 bg-white/10' : 'w-8 sm:w-9 border-white/30 bg-white/10'}`}>
+                    <i className="ri-lock-fill text-xs sm:text-sm text-white/50 shrink-0" />
+                    {open && <span className="text-[10px] sm:text-xs font-black text-white/50 uppercase tracking-wide whitespace-nowrap stage-text-reveal">{t('map.stage', { n: idx + 1 })}</span>}
                   </button>
                 )
               })}
@@ -955,97 +1002,65 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {navPhase === 'navigating' && routeInfo && (
         <>
           {/* Card flotante (móvil y desktop) */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-[420px] animate-slide-up">
-            <div className="rounded-xl overflow-hidden border border-map-gold shadow-2xl bg-map-cream-light">
+          <div className={`absolute ${isFullscreen || browserChromeHidden ? 'bottom-6' : 'bottom-20'} left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-[420px] animate-slide-up`}>
+            <div className="rounded-[28px] overflow-hidden bg-white" style={{ border: '1.5px solid rgba(9,109,125,0.25)', boxShadow: '0 8px 32px rgba(9,109,125,0.22), 0 2px 8px rgba(0,0,0,0.10)' }}>
 
-              {/* Sección expandible: info del monumento */}
-              <div
-                style={{
-                  maxHeight: isHudExpanded ? '160px' : '0px',
-                  transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div className="flex items-center gap-4 p-3.5 border-b border-map-gold/30">
-                  {/* Foto del monumento */}
-                  <div className="h-22 w-30 shrink-0 rounded-sm overflow-hidden border-2 border-map-gold shadow-md">
-                    <img
-                      src={selectedMonument?.imagen}
-                      alt={selectedMonument?.nombre}
-                      className="h-full w-full object-cover"
-                    />
+              {/* Sección expandible */}
+              <div style={{ maxHeight: isHudExpanded ? '160px' : '0px', transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden' }}>
+                <div className="flex items-center gap-3.5 p-3.5" style={{ borderBottom: '1px solid rgba(9,109,125,0.12)' }}>
+                  <div className="h-20 w-24 shrink-0 rounded-xl overflow-hidden shadow-md" style={{ border: '2px solid #096d7d' }}>
+                    <img src={selectedMonument?.imagen} alt={selectedMonument?.nombre} className="h-full w-full object-cover" />
                   </div>
-                  {/* Destino → Parada 1 */}
-                  <div className="flex flex-col flex-1 gap-1">
-                    <div className="flex items-start gap-2">
-                      <div>
-                        <div className="text-[10px] font-bold text-map-gold uppercase tracking-widest leading-none mb-1">{t('map.destination')}</div>
-                        <div className="text-sm font-bold text-map-wood-dark leading-tight font-serif mb-2">{selectedMonument?.nombre}</div>
-                        <button
-                          onClick={handleStartQuiz}
-                          className="flex items-center justify-center gap-2 py-2.5 px-4 bg-map-wood-dark text-map-gold-light rounded-sm w-full active:scale-95 transition-all"
-                          style={{ border: '1px solid var(--color-map-gold)', boxShadow: '0 2px 12px rgba(252,211,77,0.15)' }}
-                        >
-                          <i className="ri-play-circle-line text-xl"></i>
-                          <span className="font-bold text-sm">{t('map.start_challenge')}</span>
-                        </button>   
-                      </div>
-                    </div>
+                  <div className="flex flex-col flex-1 gap-1.5">
+                    <div className="text-[10px] font-bold uppercase tracking-widest leading-none" style={{ color: '#00bbb4' }}>{t('map.destination')}</div>
+                    <div className="text-sm font-bold leading-tight text-gray-800 mb-0.5">{selectedMonument?.nombre}</div>
+                    <button
+                      onClick={handleStartQuiz}
+                      className="flex items-center justify-center gap-2 py-2 px-4 rounded-full w-full active:scale-95 transition-all text-white font-bold text-sm"
+                      style={{ background: '#096d7d' }}
+                    >
+                      <i className="ri-play-circle-line text-lg" />
+                      <span>{t('map.start_challenge')}</span>
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* Barra principal: siempre visible */}
-              <div className="flex items-center justify-between gap-2.5 p-3">
-
-                {/* Izquierda: icono modo + distancia + tiempo */}
-                <div className="flex items-center gap-4 flex-1">
-                  {/* Icono modo de viaje */}
-                  <div className="flex flex-col items-center justify-center h-10 w-10 shrink-0 rounded-full bg-map-wood-dark">
-                    <i
-                      className={`text-xl text-map-gold-light ${routeInfo.travelMode === 'DRIVE' ? 'ri-roadster-fill' : 'ri-walk-line'}`}
-                    />
+              {/* Barra principal */}
+              <div className="flex items-center justify-between gap-2 p-3">
+                {/* Izquierda: modo + distancia + tiempo */}
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center justify-center h-10 w-10 shrink-0 rounded-full" style={{ background: '#096d7d' }}>
+                    <i className={`text-lg text-white ${routeInfo.travelMode === 'DRIVE' ? 'ri-roadster-fill' : 'ri-walk-line'}`} />
                   </div>
-
-                  {/* Distancia */}
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-semibold text-map-gold uppercase tracking-wide leading-none mb-0.5">{t('map.distance')}</span>
-                    <span className="text-sm font-extrabold text-map-wood-dark leading-tight">{routeInfo.distanceKm} km</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wide leading-none mb-0.5" style={{ color: '#00bbb4' }}>{t('map.distance')}</span>
+                    <span className="text-sm font-extrabold" style={{ color: '#096d7d' }}>{routeInfo.distanceKm} km</span>
                   </div>
-
-                  <div className="w-px h-8 bg-map-gold/40 shrink-0" />
-
-                  {/* Tiempo */}
+                  <div className="w-px h-7 shrink-0" style={{ background: 'rgba(0,187,180,0.25)' }} />
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-semibold text-map-gold uppercase tracking-wide leading-none mb-0.5">{t('map.time')}</span>
-                    <span className="text-sm font-extrabold text-map-wood-dark leading-tight">
-                      {formatDuration(routeInfo.durationMin)}
-                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-wide leading-none mb-0.5" style={{ color: '#00bbb4' }}>{t('map.time')}</span>
+                    <span className="text-sm font-extrabold" style={{ color: '#096d7d' }}>{formatDuration(routeInfo.durationMin)}</span>
                   </div>
                 </div>
 
-                {/* Derecha: X + expandir */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Derecha: X + chevron */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={closeCard}
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-map-wood-dark bg-map-gold/20 transition-colors active:scale-90 shadow-lg"
+                    className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90 transition-all"
+                    style={{ background: '#fff', border: '1.5px solid rgba(9,109,125,0.15)', color: '#096d7d', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
                     aria-label="Cancelar navegación"
                   >
-                    <i className="ri-close-large-line"></i>
+                    <i className="ri-close-line text-lg" />
                   </button>
                   <button
                     onClick={() => setIsHudExpanded(prev => !prev)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-map-wood-dark bg-map-gold/20 shadow-lg transition-all active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full active:scale-90 transition-all"
+                    style={{ background: '#fff', border: '1.5px solid rgba(9,109,125,0.15)', color: '#096d7d', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
                     aria-label={isHudExpanded ? 'Colapsar info' : 'Ver destino'}
                   >
-                    <i
-                      className="ri-arrow-up-s-line text-2xl"
-                      style={{
-                        display: 'inline-block',
-                        transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                        transform: isHudExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                      }}
-                    />
+                    <i className="ri-arrow-up-s-line text-xl" style={{ display: 'inline-block', transition: 'transform 0.35s cubic-bezier(0.4,0,0.2,1)', transform: isHudExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
                   </button>
                 </div>
               </div>
@@ -1063,7 +1078,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             monuments={monuments}
             onSelectMonument={setSelectedMonument}
             selectedMonument={selectedMonument}
-            onLoadComplete={() => setMapReady(true)}
+            onLoadComplete={handleMapReady}
             startIntroAnimation={!mapLoading && monuments !== null}
             visibleStage={expandedStage ?? 0}
             completedStops={completedStops}
@@ -1082,118 +1097,131 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
       {/* ── Tarjeta de monumento (fases idle y preview) ──────────── */}
       {selectedMonument && navPhase !== 'navigating' && (
+        <>
+
         <div
           key={selectedMonument.nombre}
-          className="absolute bottom-6 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-[370px] -translate-x-1/2 rounded-xl bg-map-cream border border-map-gold shadow-2xl flex flex-col animate-fade-in"
+          className={`absolute ${isFullscreen || browserChromeHidden ? 'bottom-4' : 'bottom-20'} left-1/2 z-20 w-[calc(100%-2rem)] max-w-[380px] -translate-x-1/2 rounded-3xl bg-white border border-gray-100 shadow-2xl flex flex-col animate-fade-in overflow-hidden p-1.5 max-h-[calc(100dvh-5rem)]`}
         >
-          {/* ── Cabecera de imagen (compartida entre fases) ── */}
-          <div className="relative h-36 w-full bg-stone-900 shrink-0 rounded-t-xl overflow-hidden">
+          {/* ── Imagen ── */}
+          <div className="relative h-36 w-full shrink-0">
             <img
               key={selectedMonument.nombre}
               src={selectedMonument.imagen}
               alt={selectedMonument.nombre}
-              className="h-full w-full object-cover animate-fade-in"
+              className="h-full w-full object-cover animate-fade-in rounded-3xl"
             />
-            <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/20 to-black/30" />
-            <div className="absolute bottom-3 left-3 right-10">
-              <h2 className="text-base font-bold font-serif text-map-gold-light tracking-wide leading-tight">
-                {selectedMonument.nombre}
-              </h2>
-            </div>
+            {/* Badge de estado – top-left */}
+            {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
+                <i className="ri-checkbox-circle-fill text-sm" style={{ color: '#16a34a' }} />
+                <span className="text-[10px] font-bold" style={{ color: '#16a34a' }}>Completada</span>
+              </div>
+            ) : (
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
+                {selectedMonumentIsAvailable ? (
+                  <>
+                    <i className="ri-map-pin-2-fill text-sm" style={{ color: '#096d7d' }} />
+                    <span className="text-[10px] font-bold" style={{ color: '#096d7d' }}>Disponible</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="ri-lock-fill text-sm text-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-400">Bloqueada</span>
+                  </>
+                )}
+              </div>
+            )}
+            {/* Cerrar – top-right */}
             <button
               onClick={closeCard}
-              className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-map-gold-light hover:bg-black/80 transition-colors backdrop-blur-xs"
+              className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm transition-all active:scale-90"
               aria-label="Cerrar"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <i className="ri-close-line text-lg text-gray-500" />
             </button>
           </div>
 
-          {/* ── FASE IDLE: descripción + botón IR AL RETO ── */}
-          {navPhase === 'idle' && (
-            <div className="p-3.5 space-y-3.5">
-              <div className="bg-map-cream-light border border-map-gold/30 rounded-sm p-3 shadow-inner relative">
-                <p
-                  className="text-[11.5px] text-map-wood-dark leading-relaxed font-serif font-medium"
-                  style={{ display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                >
-                  {selectedMonument.descripcion}
-                </p>
-                <div className="absolute bottom-0 left-0 right-0 h-14 rounded-b-sm pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 0%, var(--color-map-cream-light) 75%)' }} />
-              </div>
-              {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
-                <div className="flex items-center justify-center gap-1.5 px-1 py-1">
-                  <i className="ri-information-line text-sm text-map-gold" />
-                  <span className="text-[11.5px] text-map-gold font-serif italic">{t('map.stop_done')}</span>
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={handleStartRoute}
-                    className="w-full flex items-center justify-center gap-2 rounded-sm bg-linear-to-r from-map-wood-dark to-map-wood-mid py-2.5 text-sm font-bold text-map-gold-light border border-map-gold/40 shadow-md hover:from-map-wood-mid hover:to-map-wood-dark active:scale-98 transition-all"
-                  >
-                    <i className="ri-footprint-fill text-xl"></i>
-                    {t('map.go_now')}
-                  </button>
-                  {selectedMonumentIsAvailable && (
-                    <button
-                      onClick={handleStartQuiz}
-                      className="w-full flex items-center justify-center gap-2 rounded-sm py-2.5 text-sm font-black text-map-gold-light active:scale-95 transition-all"
-                      style={{
-                        background: 'linear-gradient(90deg,#3a1f08,#503019,#3a1f08)',
-                        border: '1.5px solid var(--color-map-gold-light)',
-                        boxShadow: '0 4px 20px rgba(252,211,77,0.2)',
-                      }}
-                    >
-                      <i className="ri-sword-line text-xl"></i>
-                      {t('map.start_quiz')}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          {/* ── Contenido ── */}
+          <div className="px-3 pt-2.5 pb-3 space-y-2 overflow-y-auto flex-1">
 
-          {/* ── FASE PREVIEW: estilo Google Maps adaptado al tema vintage ── */}
-          {navPhase === 'preview' && (
-            <div className="p-3.5 space-y-2.5 flex-1 animate-fade-in">
-              {routeInfo ? (
-                <div className="flex items-stretch gap-2 pb-1">
-                  {/* Distancia */}
-                  <div className="flex flex-col items-center justify-center gap-1 bg-map-wood-dark/10 hover:bg-map-wood-dark/18 rounded-sm py-2 flex-1 transition-all active:scale-95">
-                    <i className="ri-route-line text-xl text-map-gold"></i>
-                    <span className="text-xs font-bold text-map-wood-dark tracking-wide leading-none">
-                      {routeInfo.distanceKm} km
-                    </span>
+            {/* FASE IDLE */}
+            {navPhase === 'idle' && (
+              <div className="space-y-3 mt-1.5">
+                <p className={`text-[11px] text-gray-500 leading-relaxed text-justify hyphens-auto${historyExpanded ? '' : ' line-clamp-4'}`} lang="es">
+                  {selectedMonument.descripcion ?? ''}
+                </p>
+                {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
+                  !historyExpanded && (
+                    <button
+                      onClick={() => setHistoryExpanded(true)}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 active:opacity-70 transition-opacity"
+                    >
+                      <i className="ri-book-open-line text-sm" style={{ color: '#00bbb4' }} />
+                      <span className="text-xs font-semibold" style={{ color: '#00bbb4' }}>Leer historia de nuevo</span>
+                    </button>
+                  )
+                ) : (
+                  <>
+                    <button
+                      onClick={handleStartRoute}
+                      className="w-full rounded-full flex items-center px-2 py-3 active:scale-[0.98] transition-transform"
+                      style={{ background: '#096d7d' }}
+                    >
+                  
+                      <span className="flex-1 flex gap-1.5 items-center justify-center text-center text-white text-md font-semibold tracking-wide ">
+                       <i className="ri-footprint-fill text-lg"/>  Como llegar
+                      </span>
+                      
+                    </button>
+                    {/* {selectedMonumentIsAvailable && (
+                      <button
+                        onClick={handleStartQuiz}
+                        className="w-full py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
+                        style={{ background: 'linear-gradient(135deg,#e0344b 0%,#ff9447 100%)', boxShadow: '0 4px 16px rgba(224,52,75,0.28)' }}
+                      >
+                        {t('map.start_quiz')}
+                      </button>
+                    )} */}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* FASE PREVIEW */}
+            {navPhase === 'preview' && (
+              <div className="space-y-2.5 animate-fade-in">
+                {routeInfo ? (
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 flex-1" style={{ background: 'rgba(0,187,180,0.08)' }}>
+                      <i className="ri-walk-line text-base" style={{ color: '#096d7d' }} />
+                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>Distancia</span>
+                      <span className="text-xs font-extrabold" style={{ color: '#096d7d' }}>{routeInfo.distanceKm} km</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 flex-1" style={{ background: 'rgba(0,187,180,0.08)' }}>
+                      <i className="ri-time-line text-base" style={{ color: '#096d7d' }} />
+                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>Tiempo</span>
+                      <span className="text-xs font-extrabold" style={{ color: '#096d7d' }}>{formatDuration(routeInfo.durationMin)}</span>
+                    </div>
+                    <button
+                      onClick={handleStartNavigation}
+                      className="flex flex-col items-center justify-center gap-1 py-3 px-4 rounded-2xl text-white font-bold text-sm flex-[1.4] transition-all active:scale-95"
+                      style={{ background: '#096d7d' }}
+                    >
+                      <i className="ri-navigation-fill text-xl" />
+                      <span>{t('map.navigate')}</span>
+                    </button>
                   </div>
-                  {/* Tiempo */}
-                  <div className="flex flex-col items-center justify-center gap-1 bg-map-wood-dark/10 hover:bg-map-wood-dark/18 rounded-sm py-2 flex-1 transition-all active:scale-95">
-                    <i className="ri-time-line text-xl text-map-gold"></i>
-                    <span className="text-xs font-bold text-map-wood-dark tracking-wide leading-none">
-                      {formatDuration(routeInfo.durationMin)}
-                    </span>
+                ) : (
+                  <div className="flex items-center justify-center py-3">
+                    <span className="text-xs text-gray-400 italic animate-pulse">{t('map.calculating')}</span>
                   </div>
-                  {/* INICIAR — botón principal más grande */}
-                  <button
-                    onClick={handleStartNavigation}
-                    className="flex flex-col items-center justify-center gap-1 bg-map-wood-dark hover:bg-map-wood-dark/80 rounded-sm py-2 px-5 shadow-lg transition-all active:scale-95 flex-[1.6]"
-                  >
-                    <i className="ri-ship-line text-xl text-map-gold-light"></i>
-                    <span className="text-sm font-bold text-map-gold-light tracking-widest leading-none">
-                      {t('map.navigate')}
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-3">
-                  <span className="text-xs text-map-gold/60 italic animate-pulse">{t('map.calculating')}</span>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
+        </>
       )}
 
       {/* ── Quiz Flow ────────────────────────────────────────────── */}
@@ -1206,7 +1234,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             audioUrl={quizFlow.quizData.audioUrl}
             monumentName={quizFlow.monument.nombre}
             monumentImage={quizFlow.monument.imagen}
-            onSkip={advance}
+            isMuted={!soundEnabled}
+            onClose={() => setQuizFlow({ step: 'idle' })}
             onContinue={advance}
           />
         )
@@ -1228,7 +1257,21 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           stopIndex={quizFlow.stopIndex}
           seasonId={currentSeasonId}
           stageId={quizFlow.stageId}
-          onSpinComplete={(claimedPrize) => setQuizFlow({ step: 'prize', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, showRanking: quizFlow.showRanking, claimedPrize })}
+          onSpinComplete={(claimedPrize) => {
+            if (claimedPrize.prizeId === '__empty__') {
+              // Sin premio — ir directo a la siguiente parada sin mostrar PrizeCard
+              const idx = quizFlow.stopIndex
+              setCompletedStops(prev => { const n = [...prev]; n[idx] = true; return n })
+              setSelectedMonument(null)
+              if (quizFlow.showRanking) {
+                setQuizFlow({ step: 'ranking_end', stopIndex: idx })
+              } else {
+                setQuizFlow({ step: 'idle' })
+              }
+            } else {
+              setQuizFlow({ step: 'prize', stopIndex: quizFlow.stopIndex, monument: quizFlow.monument, showRanking: quizFlow.showRanking, claimedPrize })
+            }
+          }}
         />
       )}
       {quizFlow.step === 'prize' && (
@@ -1278,41 +1321,44 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         return (
           <div
             className="fixed inset-0 z-60 flex items-center justify-center px-6"
-            style={{ background: 'rgba(8,4,2,0.82)', backdropFilter: 'blur(6px)' }}
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
           >
             <div
-              style={{
-                width: '100%', maxWidth: 340,
-                background: 'linear-gradient(160deg, var(--color-map-wood-dark) 0%, var(--color-map-wood-deep) 100%)',
-                borderRadius: 20,
-                border: '2px solid var(--color-map-gold)',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.7), 0 0 32px rgba(168,127,42,0.15)',
-                overflow: 'hidden',
-              }}
+              className="w-full max-w-[320px] rounded-3xl overflow-hidden"
+              style={{ background: '#ffffff', boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(9,109,125,0.12)' }}
             >
-              <div style={{ height: 3, background: 'linear-gradient(90deg,transparent,var(--color-map-gold),transparent)' }} />
-              <div style={{ padding: '28px 24px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(168,127,42,0.12)', border: '2px solid rgba(168,127,42,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ri-close-circle-line" style={{ fontSize: 28, color: 'var(--color-map-gold)' }} />
+              <div className="flex flex-col items-center gap-4 px-6 py-6 text-center">
+                {/* Ícono */}
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{ background: 'linear-gradient(135deg,#ff9447 0%,#e0344b 100%)', boxShadow: '0 8px 24px rgba(224,52,75,0.35)' }}
+                >
+                  <i className="ri-close-circle-fill text-3xl text-white" />
                 </div>
+
+                {/* Texto */}
                 <div>
-                  <p style={{ margin: '0 0 6px', fontFamily: 'var(--font-display, Georgia, serif)', fontSize: 17, fontWeight: 800, color: 'var(--color-map-gold-light)' }}>
+                  <p className="text-base font-black mb-1" style={{ color: '#096d7d' }}>
                     {t('map.quiz_failed_title')}
                   </p>
-                  <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.55 }}>
+                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(9,109,125,0.65)' }}>
                     {t('map.quiz_failed_msg')}
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 4 }}>
+
+                {/* Botones */}
+                <div className="flex gap-2.5 w-full mt-1">
                   <button
                     onClick={() => setQuizFlow({ step: 'idle' })}
-                    style={{ flex: 1, height: 46, borderRadius: 12, border: '1.5px solid rgba(168,127,42,0.3)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    className="flex-1 h-12 rounded-xl text-sm font-bold transition-all active:scale-95"
+                    style={{ background: '#f5fdfc', border: '1.5px solid rgba(0,187,180,0.25)', color: '#096d7d' }}
                   >
                     {t('map.back_map')}
                   </button>
                   <button
                     onClick={() => setQuizFlow({ step: 'quiz', stopIndex, monument, quizData, retryCount: retryCount + 1 })}
-                    style={{ flex: 2, height: 46, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, var(--color-map-wood-dark), var(--color-map-wood-mid))', color: 'var(--color-map-gold-light)', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(168,127,42,0.25)' }}
+                    className="flex-[2] h-12 rounded-xl text-sm font-black text-white transition-all active:scale-95"
+                    style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
                   >
                     {t('map.quiz_retry')}
                   </button>
@@ -1327,46 +1373,65 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {showMenu && menuView === 'main' && (
         <div
           className="fixed inset-0 z-50 flex flex-col menu-fullscreen-enter overflow-hidden"
-          style={{ background: 'var(--color-map-cream-light)' }}
+          style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)' }}
         >
-          {/* Franja dorada superior */}
-          <div className="h-1 shrink-0" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold),var(--color-map-gold-light),var(--color-map-gold),transparent)' }} />
-
-          {/* Header con perfil */}
-          <div
-            className="menu-section-in flex items-center gap-3 px-4 py-3 shrink-0"
-            style={{ borderBottom: '1px solid rgba(168,127,42,0.2)', animationDelay: '0s' }}
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div
-                className="h-10 w-10 rounded-full flex items-center justify-center border border-map-gold shrink-0"
-                style={{ background: 'linear-gradient(135deg,var(--color-map-wood-dark),var(--color-map-wood-mid))' }}
+          {/* ── Zona teal ── */}
+          <div className="shrink-0 px-5 pt-5">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={handleLogout}
+                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: 'rgba(255,255,255,0.18)' }}
               >
-                <span className="text-sm font-black text-map-gold-light leading-none" style={{ fontFamily: 'Georgia, serif' }}>
-                  {auth.currentUser?.displayName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-black text-map-wood-dark truncate" style={{ fontFamily: 'Georgia, serif' }}>{auth.currentUser?.displayName || ''}</h3>
-                <p className="text-[10px] text-map-gold truncate">{auth.currentUser?.email || ''}</p>
-              </div>
+                <i className="ri-shut-down-line text-xl text-white" />
+              </button>
+              <span className="font-black text-sm text-white tracking-widest uppercase">Menú</span>
+              <button
+                onClick={() => setShowMenu(false)}
+                className="w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: 'rgba(255,255,255,0.18)' }}
+              >
+                <i className="ri-close-line text-xl text-white" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowMenu(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-map-wood-dark active:scale-90 transition-all shrink-0"
-              style={{ background: 'rgba(168,127,42,0.1)', border: '1px solid rgba(168,127,42,0.3)' }}
-            >
-              <i className="ri-close-line text-xl" />
-            </button>
+
+            {/* Avatar + nombre */}
+            <div className="flex flex-col items-center gap-1.5 pb-5">
+              <div
+                className="h-16 w-16 rounded-full overflow-hidden flex items-center justify-center"
+                style={{ border: '4px solid #ffffff', boxShadow: '0 8px 28px rgba(0,0,0,0.22)', background: 'linear-gradient(135deg,#18d5cd 0%,#096d7d 100%)' }}
+              >
+                {auth.currentUser?.photoURL ? (
+                  <img src={auth.currentUser.photoURL} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-black text-white leading-none">
+                    {auth.currentUser?.displayName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                  </span>
+                )}
+              </div>
+              <h3 className="font-black text-base mt-1" style={{ color: '#e5dcc6' }}>
+                {auth.currentUser?.displayName || ''}
+              </h3>
+              <p className="text-[11px]" style={{ color: 'rgba(229,220,198,0.65)' }}>
+                {auth.currentUser?.email || ''}
+              </p>
+            </div>
           </div>
 
+          {/* ── Card blanca ── */}
+          <div
+            className="flex-1 min-h-0 rounded-t-3xl flex flex-col overflow-hidden"
+            style={{ background: '#f5fdfc', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' }}
+          >
+
           {/* Contenido scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 min-h-0" style={{ scrollbarWidth: 'none' }}>
 
             {/* ── Cuenta ── */}
             <section className="menu-section-in" style={{ animationDelay: '0.06s' }}>
-              <h4 className="text-xs font-black text-map-gold uppercase tracking-widest mb-2 px-1">{t('map.menu_account')}</h4>
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-map-cream-light)', border: '1px solid rgba(168,127,42,0.2)' }}>
+              <h4 className="text-xs font-black uppercase tracking-widest mb-2 px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.menu_account')}</h4>
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(0,187,180,0.18)', boxShadow: '0 2px 12px rgba(0,187,180,0.06)' }}>
                 {([
                   { icon: 'ri-user-3-line',        label: t('map.menu_edit_profile'),    action: () => setMenuView('edit_profile') },
                   { icon: 'ri-lock-password-line', label: t('map.menu_change_password'), action: () => setMenuView('change_password') },
@@ -1374,58 +1439,66 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <button
                     key={item.label}
                     onClick={item.action}
-                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-map-gold/10"
-                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(168,127,42,0.12)' } : undefined}
+                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors"
+                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(0,187,180,0.1)' } : undefined}
                   >
-                    <i className={`${item.icon} text-lg text-map-gold shrink-0`} style={{ width: '20px' }} />
-                    <span className="text-sm font-semibold text-map-wood-dark flex-1">{item.label}</span>
-                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(168,127,42,0.5)' }} />
+                    <i className={`${item.icon} text-lg shrink-0`} style={{ color: '#00bbb4', width: '20px' }} />
+                    <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{item.label}</span>
+                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(0,187,180,0.45)' }} />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* ── Juego ── */}
+            <section className="menu-section-in" style={{ animationDelay: '0.13s' }}>
+              <h4 className="text-xs font-black uppercase tracking-widest mb-2 px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.menu_game')}</h4>
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(0,187,180,0.18)', boxShadow: '0 2px 12px rgba(0,187,180,0.06)' }}>
+                {([
+                  { icon: 'ri-bar-chart-2-line', label: t('map.menu_progress'), action: () => setMenuView('progress') },
+                  { icon: 'ri-trophy-line',       label: t('map.menu_ranking'),  action: () => setMenuView('ranking') },
+                  { icon: 'ri-gift-2-line',       label: t('map.menu_prizes'),   action: () => setMenuView('my_prizes') },
+                ] as { icon: string; label: string; action?: () => void }[]).map((item, i, arr) => (
+                  <button
+                    key={item.label}
+                    onClick={item.action}
+                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors"
+                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(0,187,180,0.1)' } : undefined}
+                  >
+                    <i className={`${item.icon} text-lg shrink-0`} style={{ color: '#00bbb4', width: '20px' }} />
+                    <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{item.label}</span>
+                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(0,187,180,0.45)' }} />
                   </button>
                 ))}
               </div>
             </section>
 
             {/* ── Preferencias ── */}
-            <section className="menu-section-in" style={{ animationDelay: '0.13s' }}>
-              <h4 className="text-xs font-black text-map-gold uppercase tracking-widest mb-2 px-1">{t('map.menu_preferences')}</h4>
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-map-cream-light)', border: '1px solid rgba(168,127,42,0.2)' }}>
+            <section className="menu-section-in" style={{ animationDelay: '0.20s' }}>
+              <h4 className="text-xs font-black uppercase tracking-widest mb-2 px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.menu_preferences')}</h4>
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(0,187,180,0.18)', boxShadow: '0 2px 12px rgba(0,187,180,0.06)' }}>
                 {/* Idioma */}
-                <div className="flex items-center gap-3.5 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(168,127,42,0.12)' }}>
-                  <i className="ri-global-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
-                  <span className="text-sm font-semibold text-map-wood-dark flex-1">{t('map.menu_language')}</span>
-                  <div className="flex rounded-full overflow-hidden" style={{ background: 'var(--color-map-cream)', border: '1px solid rgba(168,127,42,0.3)' }}>
+                <div className="flex items-center gap-3.5 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(0,187,180,0.1)' }}>
+                  <i className="ri-global-line text-lg shrink-0" style={{ color: '#00bbb4', width: '20px' }} />
+                  <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{t('map.menu_language')}</span>
+                  <div className="flex rounded-full overflow-hidden" style={{ background: 'rgba(0,187,180,0.08)', border: '1px solid rgba(0,187,180,0.25)' }}>
                     {(['ES', 'EN'] as const).map(lang => (
                       <button
                         key={lang}
                         onClick={() => i18n.changeLanguage(lang.toLowerCase())}
                         className="px-3.5 py-1 text-xs font-black transition-all"
-                        style={i18n.language === lang.toLowerCase() ? { background: 'var(--color-map-wood-dark)', color: 'var(--color-map-gold-light)' } : { color: 'var(--color-map-gold)' }}
+                        style={i18n.language === lang.toLowerCase() ? { background: '#00bbb4', color: '#ffffff' } : { color: 'rgba(9,109,125,0.55)' }}
                       >
                         {lang}
                       </button>
                     ))}
                   </div>
                 </div>
-                {/* Notificaciones */}
-                <div className="flex items-center gap-3.5 px-4 py-3.5" style={{ borderBottom: '1px solid rgba(168,127,42,0.12)' }}>
-                  <i className="ri-notification-3-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
-                  <span className="text-sm font-semibold text-map-wood-dark flex-1">{t('map.menu_notifications')}</span>
-                  <button
-                    onClick={() => setNotificationsEnabled(p => !p)}
-                    className="relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0"
-                    style={{ background: notificationsEnabled ? 'var(--color-map-wood-dark)' : 'var(--color-map-tan)' }}
-                  >
-                    <span
-                      className="absolute top-0.5 rounded-full shadow transition-all duration-200"
-                      style={{ width: '20px', height: '20px', background: 'var(--color-map-gold-light)', left: notificationsEnabled ? 'calc(100% - 22px)' : '2px' }}
-                    />
-                  </button>
-                </div>
                 {/* Ubicación */}
-                <div className="flex flex-col" style={{ borderBottom: '1px solid rgba(168,127,42,0.12)' }}>
+                <div className="flex flex-col" style={{ borderBottom: '1px solid rgba(0,187,180,0.1)' }}>
                   <div className="flex items-center gap-3.5 px-4 py-3.5">
-                    <i className="ri-map-pin-2-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
-                    <span className="text-sm font-semibold text-map-wood-dark flex-1">{t('map.menu_location')}</span>
+                    <i className="ri-map-pin-2-line text-lg shrink-0" style={{ color: '#00bbb4', width: '20px' }} />
+                    <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{t('map.menu_location')}</span>
                     <button
                       onClick={() => {
                         if (locationGranted) {
@@ -1463,49 +1536,45 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                         }
                       }}
                       className="relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0"
-                      style={{ background: locationGranted ? 'var(--color-map-wood-dark)' : 'var(--color-map-tan)' }}
+                      style={{ background: locationGranted ? '#00bbb4' : 'rgba(0,187,180,0.18)' }}
                     >
                       <span
                         className="absolute top-0.5 rounded-full shadow transition-all duration-200"
-                        style={{ width: '20px', height: '20px', background: 'var(--color-map-gold-light)', left: locationGranted ? 'calc(100% - 22px)' : '2px' }}
+                        style={{ width: '20px', height: '20px', background: '#ffffff', left: locationGranted ? 'calc(100% - 22px)' : '2px' }}
                       />
                     </button>
                   </div>
                   {locationToggleMsg && (
                     <div className="flex items-center gap-2 px-4 pb-3 animate-fade-in">
-                      <i className="ri-alert-line text-sm shrink-0" style={{ color: 'var(--color-map-gold)' }} />
-                      <p className="text-[11px] leading-snug flex-1 font-semibold" style={{ color: 'var(--color-map-gold)' }}>
+                      <i className="ri-alert-line text-sm shrink-0" style={{ color: '#ff9447' }} />
+                      <p className="text-[11px] leading-snug flex-1 font-semibold" style={{ color: '#ff9447' }}>
                         {t(locationGranted ? 'map.location_disable_hint' : 'map.location_denied_hint')}
                       </p>
                     </div>
                   )}
                 </div>
                 {/* Sonido de Narración */}
-                <div className="flex items-center gap-3.5 px-4 py-4">
-                  <i className="ri-volume-up-line text-lg text-map-gold shrink-0" style={{ width: '20px' }} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-map-wood-dark block mb-2">{t('map.menu_sound')}</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={soundLevel}
-                        onChange={e => setSoundLevel(Number(e.target.value))}
-                        className="flex-1 h-1.5 cursor-pointer"
-                        style={{ accentColor: 'var(--color-map-gold)' }}
-                      />
-                      <span className="text-xs font-bold text-map-gold w-8 text-right shrink-0">{soundLevel}%</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-3.5 px-4 py-3.5">
+                  <i className={`text-lg shrink-0 ${soundEnabled ? 'ri-volume-up-line' : 'ri-volume-mute-line'}`} style={{ color: '#00bbb4', width: '20px' }} />
+                  <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{t('map.menu_sound')}</span>
+                  <button
+                    onClick={() => setSoundEnabled(p => !p)}
+                    className="relative w-12 h-6 rounded-full transition-colors duration-200 shrink-0"
+                    style={{ background: soundEnabled ? '#00bbb4' : 'rgba(0,187,180,0.18)' }}
+                  >
+                    <span
+                      className="absolute top-0.5 rounded-full shadow transition-all duration-200"
+                      style={{ width: '20px', height: '20px', background: '#ffffff', left: soundEnabled ? 'calc(100% - 22px)' : '2px' }}
+                    />
+                  </button>
                 </div>
               </div>
             </section>
 
             {/* ── Información ── */}
             <section className="menu-section-in" style={{ animationDelay: '0.20s' }}>
-              <h4 className="text-xs font-black text-map-gold uppercase tracking-widest mb-2 px-1">{t('map.menu_info')}</h4>
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-map-cream-light)', border: '1px solid rgba(168,127,42,0.2)' }}>
+              <h4 className="text-xs font-black uppercase tracking-widest mb-2 px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.menu_info')}</h4>
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid rgba(0,187,180,0.18)', boxShadow: '0 2px 12px rgba(0,187,180,0.06)' }}>
                 {([
                   { icon: 'ri-book-2-line',        label: t('map.menu_rules'),   action: () => setMenuView('rally_rules') },
                   { icon: 'ri-file-shield-2-line', label: t('map.menu_privacy'), action: () => setMenuView('privacy') },
@@ -1514,62 +1583,19 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <button
                     key={item.label}
                     onClick={item.action}
-                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-map-gold/10"
-                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(168,127,42,0.12)' } : undefined}
+                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors"
+                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(0,187,180,0.1)' } : undefined}
                   >
-                    <i className={`${item.icon} text-lg text-map-gold shrink-0`} style={{ width: '20px' }} />
-                    <span className="text-sm font-semibold text-map-wood-dark flex-1">{item.label}</span>
-                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(168,127,42,0.5)' }} />
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {/* ── Juego ── */}
-            <section className="menu-section-in" style={{ animationDelay: '0.27s' }}>
-              <h4 className="text-xs font-black text-map-gold uppercase tracking-widest mb-2 px-1">{t('map.menu_game')}</h4>
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--color-map-cream-light)', border: '1px solid rgba(168,127,42,0.2)' }}>
-                {([
-                  { icon: 'ri-bar-chart-2-line',       label: t('map.menu_progress'), action: () => setMenuView('progress') },
-                  { icon: 'ri-trophy-line',            label: t('map.menu_ranking'),  action: () => setMenuView('ranking') },
-                  { icon: 'ri-gift-2-line',            label: t('map.menu_prizes'),   action: () => setMenuView('my_prizes') },
-                ] as { icon: string; label: string; action?: () => void }[]).map((item, i, arr) => (
-                  <button
-                    key={item.label}
-                    onClick={item.action}
-                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors active:bg-map-gold/10"
-                    style={i < arr.length - 1 ? { borderBottom: '1px solid rgba(168,127,42,0.12)' } : undefined}
-                  >
-                    <i className={`${item.icon} text-lg text-map-gold shrink-0`} style={{ width: '20px' }} />
-                    <span className="text-sm font-semibold text-map-wood-dark flex-1">{item.label}</span>
-                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(168,127,42,0.5)' }} />
+                    <i className={`${item.icon} text-lg shrink-0`} style={{ color: '#00bbb4', width: '20px' }} />
+                    <span className="text-sm font-semibold flex-1" style={{ color: '#096d7d' }}>{item.label}</span>
+                    <i className="ri-arrow-right-s-line text-xl" style={{ color: 'rgba(0,187,180,0.45)' }} />
                   </button>
                 ))}
               </div>
             </section>
 
           </div>
-
-          {/* Botón Cerrar Sesión */}
-          <div className="menu-section-in px-4 pb-8 pt-3 shrink-0" style={{ background: 'var(--color-map-cream-light)', animationDelay: '0.33s' }}>
-            <div className="h-px mb-4" style={{ background: 'linear-gradient(90deg,transparent,rgba(168,127,42,0.3),transparent)' }} />
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-              style={{
-                background: 'linear-gradient(180deg, #7a4824 0%, #321e0f 100%)',
-                border: '1.5px solid rgba(199,163,97,0.35)',
-                color: '#fcd34d',
-                boxShadow: '0 3px 0 #1a0d05, inset 0 1px 0 rgba(255,255,255,0.08)',
-              }}
-            >
-              <i className="ri-logout-box-r-line text-base" />
-              {t('map.menu_logout')}
-            </button>
-          </div>
-
-          {/* Franja dorada inferior */}
-          <div className="h-1 shrink-0" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold),var(--color-map-gold-light),var(--color-map-gold),transparent)' }} />
+          </div>{/* card blanca */}
         </div>
       )}
 
@@ -1586,7 +1612,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {/* ── Vistas del menú ─────────────────────────────────────── */}
       {showMenu && menuView === 'edit_profile'   && <EditProfile   onBack={() => setMenuView('main')} />}
       {showMenu && menuView === 'change_password' && <ChangePassword onBack={() => setMenuView('main')} />}
-      {showMenu && menuView === 'progress'        && <Progress       onBack={() => setMenuView('main')} completedStops={completedStops} />}
+      {showMenu && menuView === 'progress'        && <Progress       onBack={() => setMenuView('main')} completedStops={completedStops} monuments={monuments ?? []} stageGroups={stageGroups} seasonName={seasonName} />}
       {showMenu && menuView === 'my_prizes'       && <MyPrizes      onBack={() => setMenuView('main')} />}
       {showMenu && menuView === 'rally_rules'     && <RallyRules    onBack={() => setMenuView('main')} />}
       {showMenu && menuView === 'privacy'         && <PrivacyTerms  onBack={() => setMenuView('main')} />}
@@ -1595,7 +1621,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {/* ── Location Gate ────────────────────────────────────────── */}
       {showLocationGate && !mapLoading && (
         <LocationGate
-          onGranted={() => { setLocationGranted(true); setLocationDenied(false); setShowLocationGate(false) }}
           onDismiss={() => setShowLocationGate(false)}
         />
       )}
@@ -1604,58 +1629,96 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       {lockedAlert && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-6"
-          style={{ background: 'rgba(10,5,2,0.75)' }}
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
           onClick={() => setLockedAlert(null)}
         >
           <div
-            className="lock-alert-pop relative w-full max-w-[320px] rounded-2xl border-2 border-map-gold-light overflow-hidden"
-            style={{ background: 'linear-gradient(160deg,var(--color-map-wood-dark) 0%,var(--color-map-wood-deep) 100%)', boxShadow: '0 0 40px rgba(252,211,77,0.25), 0 20px 60px rgba(0,0,0,0.8)' }}
+            className="lock-alert-pop w-full max-w-[320px] rounded-3xl overflow-hidden"
+            style={{ background: '#ffffff', boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(9,109,125,0.12)' }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Franja superior dorada */}
-            <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold-light),transparent)' }} />
+            {/* Franja superior teal */}
+            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#075f6e,#00bbb4,#18d5cd)' }} />
 
             <div className="flex flex-col items-center gap-3 px-6 py-6 text-center">
-              {/* Ícono candado grande */}
+              {/* Ícono candado */}
               <div
-                className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-map-gold-light"
-                style={{ background: 'radial-gradient(circle,var(--color-map-wood-dark),var(--color-map-wood-deep))', boxShadow: '0 0 20px rgba(252,211,77,0.3)' }}
+                className="flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg,#18d5cd 0%,#096d7d 100%)', boxShadow: '0 8px 24px rgba(0,187,180,0.35)' }}
               >
-                <svg className="h-8 w-8 text-map-gold-light" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                </svg>
+                <i className="ri-lock-2-fill text-3xl text-white" />
               </div>
 
-              {/* Título */}
+              {/* Etiqueta + título */}
               <div>
-                <p className="text-[10px] font-bold tracking-[3px] text-map-gold uppercase mb-1">
+                <p className="text-[10px] font-black tracking-widest uppercase mb-1" style={{ color: '#00bbb4' }}>
                   {lockedAlert.type === 'stage' ? t('map.stage', { n: lockedAlert.blockedStageIdx + 1 }) : t('map.locked_stop_label')}
                 </p>
-                <h3 className="text-lg font-black text-map-gold-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                <h3 className="text-lg font-black" style={{ color: '#096d7d' }}>
                   {t('map.locked_title')}
                 </h3>
               </div>
 
               {/* Mensaje */}
-              <p className="text-[12px] text-[#fff3d1]/80 leading-relaxed font-serif">
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
                 {lockedAlert.type === 'stage'
                   ? t('map.locked_stage_msg', { n: activeStageIndex + 1 })
                   : t('map.locked_stop_msg', { name: lockedAlert.availableStopName })
                 }
               </p>
 
-              {/* Botón cerrar */}
+              {/* Botón */}
               <button
                 onClick={() => setLockedAlert(null)}
-                className="mt-1 w-full rounded-lg border border-map-gold-light/40 py-2.5 text-xs font-black tracking-widest text-map-gold-light uppercase transition-all active:scale-95"
-                style={{ background: 'linear-gradient(90deg,var(--color-map-wood-dark),var(--color-map-wood-mid))' }}
+                className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
               >
                 {t('map.understood')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Franja inferior dorada */}
-            <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,transparent,var(--color-map-gold-light),transparent)' }} />
+      {/* ── Alerta: usuario demasiado lejos de la parada ──────────── */}
+      {tooFarAlert && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setTooFarAlert(false)}
+        >
+          <div
+            className="lock-alert-pop w-full max-w-[320px] rounded-3xl overflow-hidden"
+            style={{ background: '#ffffff', boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(9,109,125,0.12)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#075f6e,#00bbb4,#18d5cd)' }} />
+            <div className="flex flex-col items-center gap-3 px-6 py-6 text-center">
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg,#18d5cd 0%,#096d7d 100%)', boxShadow: '0 8px 24px rgba(0,187,180,0.35)' }}
+              >
+                <i className="ri-lock-2-fill text-3xl text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black tracking-widest uppercase mb-1" style={{ color: '#00bbb4' }}>
+                  Reto bloqueado
+                </p>
+                <h3 className="text-lg font-black" style={{ color: '#096d7d' }}>
+                  ¡Estás muy lejos!
+                </h3>
+              </div>
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
+                Debes estar a menos de <strong>{VALIDATION_RADIUS_DEFAULT_M} metros</strong> de la parada para poder iniciar el reto.
+              </p>
+              <button
+                onClick={() => setTooFarAlert(false)}
+                className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
+              >
+                Entendido
+              </button>
+            </div>
           </div>
         </div>
       )}

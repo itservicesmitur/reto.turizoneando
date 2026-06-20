@@ -781,7 +781,7 @@ export default function SeasonsPage() {
               No se encontraron temporadas
             </h3>
             <p style={{ margin: '0 0 16px', color: 'var(--color-text-muted)', fontSize: 14 }}>
-              Crea una temporada para inicializar etapas y premios en el rally.
+              Crea una temporada para inicializar etapas y premios en el desafío cultural.
             </p>
           </div>
         ) : viewMode === 'table' ? (
@@ -1563,7 +1563,7 @@ export default function SeasonsPage() {
                         </div>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {t('seasonManagement.stagePoints')} (Paradas del Rally)
+                            {t('seasonManagement.stagePoints')} (Paradas del Desafío Cultural)
                           </label>
                           <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                             Número de paradas de esta etapa.
@@ -2017,7 +2017,7 @@ export default function SeasonsPage() {
                         </div>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-navy)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {t('seasonManagement.stagePoints')} (Paradas del Rally)
+                            {t('seasonManagement.stagePoints')} (Paradas del Desafío Cultural)
                           </label>
                           <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                             Número de paradas de esta etapa.
