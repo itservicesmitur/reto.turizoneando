@@ -485,7 +485,6 @@ export default function LevelUpCard({
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
           >
             <source src="/assets/img/COFRE.webm" type="video/webm" />
-            <source src="/assets/img/COFRE.gif" type="image/gif" />
           </video>
         )}
       </div>

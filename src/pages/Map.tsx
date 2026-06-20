@@ -815,10 +815,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           className="fixed inset-0 z-60 flex flex-col items-center justify-center text-center px-6"
           style={{ background: 'radial-gradient(circle, var(--color-map-wood-mid) 0%, var(--color-map-wood-deep) 100%)' }}
         >
-          {/* Fondo decorativo sutil */}
-          <div className="absolute inset-0 pointer-events-none opacity-5"
-            style={{ backgroundImage: "url('/assets/img/fonto_textura.jpg')", backgroundSize: 'cover' }} />
-
           <div className="relative flex flex-col items-center gap-6 max-w-xs">
             {/* Logo principal */}
             <img
