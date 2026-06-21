@@ -35,8 +35,17 @@
         "source": "/**",
         "headers": [
           {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
           },
           {
             "key": "Pragma",
@@ -45,15 +54,20 @@
           {
             "key": "Expires",
             "value": "0"
-          },
-          {
-            "key": "Cross-Origin-Opener-Policy",
-            "value": "same-origin-allow-popups"
           }
         ]
       },
       {
-        "source": "/assets/**",
+        "source": "/locales/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "/assets/@(*.js|*.css|*.woff|*.woff2|*.ttf)",
         "headers": [
           {
             "key": "Cache-Control",
@@ -66,7 +80,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=86400"
+            "value": "public, max-age=3600"
           }
         ]
       }
