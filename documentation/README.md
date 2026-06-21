@@ -1,6 +1,6 @@
 # Documentación del Proyecto - Reto Turizoneando
 
-Este directorio contiene las especificaciones técnicas y guías de las herramientas y skills de Firebase programadas para el desarrollo del Rally Educativo de la Zona Colonial.
+Este directorio contiene las especificaciones técnicas y guías de las herramientas y skills de Firebase programadas para el desarrollo del Rally Educativo de la Ciudad Colonial.
 
 ## Índice de Skills en Orden de Implementación
 

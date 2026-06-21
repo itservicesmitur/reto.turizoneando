@@ -7,6 +7,7 @@ import {
   signUpWithGoogle,
   getGoogleRedirectResult,
   savePlayerProfile,
+  sendOtp,
 } from '../services/authService'
 import type { User } from 'firebase/auth'
 import logoImg   from '../assets/logo1.png'
@@ -275,6 +276,7 @@ export default function RegisterPage() {
     setLoading(true)
     setError(null)
     try {
+      const needsOtp = !fbUser.emailVerified
       await savePlayerProfile(fbUser.uid, {
         firstName: firstName.trim(),
         lastName:  lastName.trim(),
@@ -282,8 +284,14 @@ export default function RegisterPage() {
         ageRange, preferredLang: prefLang,
         email: email || fbUser.email || '',
         photoURL: fbUser.photoURL || undefined,
+        emailVerified: !needsOtp,
       })
-      navigate('/map', { replace: true })
+      if (needsOtp) {
+        await sendOtp()
+        navigate('/verify-email', { replace: true })
+      } else {
+        navigate('/map', { replace: true })
+      }
     } catch (err) {
       console.error('[RegisterPage] savePlayerProfile failed:', err)
       const code = (err as { code?: string }).code

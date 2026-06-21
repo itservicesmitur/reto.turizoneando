@@ -68,7 +68,7 @@ export default function AboutApp({ onBack }: Props) {
             </div>
             <div className="flex items-center gap-3 px-4 py-3.5">
               <i className="ri-map-2-line text-lg shrink-0" style={{ color: '#00bbb4' }} />
-              <p className="text-xs" style={{ color: '#096d7d', opacity: 0.75 }}>Desafío Cultural de la Zona Colonial, Santo Domingo</p>
+              <p className="text-xs" style={{ color: '#096d7d', opacity: 0.75 }}>Desafío Cultural de la Ciudad Colonial, Santo Domingo</p>
             </div>
           </div>
         </div>

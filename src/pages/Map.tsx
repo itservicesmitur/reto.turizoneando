@@ -280,6 +280,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [currentSeasonId, setCurrentSeasonId] = useState('')
   const [geoLimit, setGeoLimit] = useState(false)
   const [tooFarAlert, setTooFarAlert] = useState(false)
+  // Posición del usuario para el badge de distancia en la tarjeta de parada
+  const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -574,6 +576,32 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     const prevStagesDone = stageIdx === 0 || stageGroups.slice(0, stageIdx).every(g => g.every(i => completedStops[i]))
     return prevStagesDone && stageIdx === activeStageIndex
   }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups])
+
+  // ── Polling de posición del usuario mientras una parada está seleccionada ────
+  useEffect(() => {
+    if (!selectedMonument) { setUserPosition(null); return }
+    const sync = () => {
+      const pos = mapControlsRef.current?.getUserPosition()
+      if (pos) setUserPosition(pos)
+    }
+    sync() // inmediato
+    const id = setInterval(sync, 3000)
+    return () => clearInterval(id)
+  }, [selectedMonument])
+
+  // Distancia en metros entre el usuario y la parada seleccionada
+  const distanceToSelected = useMemo(() => {
+    if (!selectedMonument || !userPosition) return null
+    return haversineM(userPosition, { lat: selectedMonument.lat, lng: selectedMonument.lng })
+  }, [selectedMonument, userPosition])
+
+  // ¿Puede el usuario iniciar el reto ahora mismo?
+  const canStartChallenge = useMemo(() => {
+    if (!selectedMonumentIsAvailable) return false
+    if (!geoLimit) return true                              // geo OFF → siempre puede
+    if (distanceToSelected === null) return false           // sin posición → no puede
+    return distanceToSelected <= VALIDATION_RADIUS_DEFAULT_M
+  }, [selectedMonumentIsAvailable, geoLimit, distanceToSelected])
 
 
   const handleStartQuiz = useCallback(async () => {
@@ -1015,12 +1043,23 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                     <div className="text-[10px] font-bold uppercase tracking-widest leading-none" style={{ color: '#00bbb4' }}>{t('map.destination')}</div>
                     <div className="text-sm font-bold leading-tight text-gray-800 mb-0.5">{selectedMonument?.nombre}</div>
                     <button
-                      onClick={handleStartQuiz}
+                      onClick={canStartChallenge ? handleStartQuiz : undefined}
+                      disabled={!canStartChallenge}
                       className="flex items-center justify-center gap-2 py-2 px-4 rounded-full w-full active:scale-95 transition-all text-white font-bold text-sm"
-                      style={{ background: '#096d7d' }}
+                      style={{
+                        background: canStartChallenge ? '#096d7d' : 'rgba(0,0,0,0.15)',
+                        cursor: canStartChallenge ? 'pointer' : 'not-allowed',
+                        opacity: canStartChallenge ? 1 : 0.6,
+                      }}
                     >
-                      <i className="ri-play-circle-line text-lg" />
-                      <span>{t('map.start_challenge')}</span>
+                      <i className={`text-lg ${canStartChallenge ? 'ri-play-circle-line' : 'ri-map-pin-time-line'}`} />
+                      <span>
+                        {canStartChallenge
+                          ? t('map.start_challenge')
+                          : distanceToSelected !== null
+                            ? `${Math.round(distanceToSelected)} m · necesitas ${VALIDATION_RADIUS_DEFAULT_M} m`
+                            : 'Obteniendo ubicación…'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1168,21 +1207,53 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                       className="w-full rounded-full flex items-center px-2 py-3 active:scale-[0.98] transition-transform"
                       style={{ background: '#096d7d' }}
                     >
-                  
-                      <span className="flex-1 flex gap-1.5 items-center justify-center text-center text-white text-md font-semibold tracking-wide ">
-                       <i className="ri-footprint-fill text-lg"/>  Como llegar
+                      <span className="flex-1 flex gap-1.5 items-center justify-center text-center text-white text-md font-semibold tracking-wide">
+                        <i className="ri-footprint-fill text-lg" /> Como llegar
                       </span>
-                      
                     </button>
-                    {/* {selectedMonumentIsAvailable && (
-                      <button
-                        onClick={handleStartQuiz}
-                        className="w-full py-2.5 rounded-xl text-sm font-black text-white transition-all active:scale-95"
-                        style={{ background: 'linear-gradient(135deg,#e0344b 0%,#ff9447 100%)', boxShadow: '0 4px 16px rgba(224,52,75,0.28)' }}
-                      >
-                        {t('map.start_quiz')}
-                      </button>
-                    )} */}
+
+                    {/* ── Botón Comenzar Reto (geo-fenced) ── */}
+                    {selectedMonumentIsAvailable && (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={canStartChallenge ? handleStartQuiz : undefined}
+                          disabled={!canStartChallenge}
+                          className="w-full rounded-full flex items-center px-2 py-3 transition-all active:scale-[0.98] disabled:active:scale-100"
+                          style={{
+                            background: canStartChallenge
+                              ? 'linear-gradient(135deg,#e0344b 0%,#ff9447 100%)'
+                              : 'rgba(0,0,0,0.06)',
+                            border: canStartChallenge ? 'none' : '1.5px solid rgba(0,0,0,0.1)',
+                            boxShadow: canStartChallenge ? '0 4px 16px rgba(224,52,75,0.28)' : 'none',
+                            cursor: canStartChallenge ? 'pointer' : 'not-allowed',
+                            opacity: canStartChallenge ? 1 : 0.65,
+                          }}
+                        >
+                          <span
+                            className="flex-1 flex gap-1.5 items-center justify-center text-center text-md font-semibold tracking-wide"
+                            style={{ color: canStartChallenge ? '#ffffff' : '#64748b' }}
+                          >
+                            <i className={`text-lg ${canStartChallenge ? 'ri-sword-fill' : 'ri-map-pin-time-line'}`} />
+                            {canStartChallenge ? t('map.start_challenge') : 'Comenzar Reto'}
+                          </span>
+                        </button>
+
+                        {/* Badge de distancia cuando geoLimit está activo y el usuario está lejos */}
+                        {geoLimit && !canStartChallenge && (
+                          <div
+                            className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full mx-auto animate-fade-in"
+                            style={{ background: 'rgba(255,148,71,0.12)', border: '1px solid rgba(255,148,71,0.35)' }}
+                          >
+                            <i className="ri-map-pin-range-line text-xs" style={{ color: '#ff9447' }} />
+                            <span className="text-[11px] font-bold" style={{ color: '#b45309' }}>
+                              {distanceToSelected !== null
+                                ? `${Math.round(distanceToSelected)} m de distancia · necesitas ${VALIDATION_RADIUS_DEFAULT_M} m`
+                                : 'Obteniendo tu ubicación…'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

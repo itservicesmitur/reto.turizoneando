@@ -81,7 +81,10 @@ export {
   sendAdminPasswordResetEmail,
   sendAdminPrizeCodeEmail,
   sendPlayerPrizeCodes,
-  claimPrizeAndNotify
+  claimPrizeAndNotify,
+  sendOtpEmail,
+  verifyOtp,
+  notifyLowStock,
 } from "./email/sendGrid";
 
 

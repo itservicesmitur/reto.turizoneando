@@ -86,6 +86,10 @@ const PARTICLES = [
   { top: '75%', left: '14%',  w:  8, c: 'rgba(0,187,180,0.35)',  d: '0.7s', dur: '3.5s' },
   { top: '48%', right:  '6%', w:  5, c: 'rgba(224,52,75,0.4)',   d: '1.4s', dur: '2.8s' },
   { top: '18%', left: '35%',  w:  4, c: 'rgba(255,255,255,0.2)', d: '1.8s', dur: '3.0s' },
+  { top: '55%', left: '42%',  w:  6, c: 'rgba(255,148,71,0.5)',  d: '0.6s', dur: '2.7s' },
+  { top: '28%', right:  '4%', w:  9, c: 'rgba(0,187,180,0.45)', d: '1.2s', dur: '3.1s' },
+  { top: '84%', right: '26%', w:  5, c: 'rgba(224,52,75,0.38)', d: '0.2s', dur: '2.5s' },
+  { top:  '4%', right: '40%', w:  7, c: 'rgba(255,255,255,0.22)',d: '1.6s', dur: '3.3s' },
 ]
 
 // ──────────────────────────────────────────────────────────────────
@@ -178,15 +182,23 @@ export default function LandingPage() {
       </nav>
 
       {/* ══ HERO ════════════════════════════════════════════════════════ */}
-      <section style={{ minHeight: '100dvh', position: 'relative', overflow: 'hidden', background: 'var(--color-primary-dark)' }}>
+      <section className="lp-hero-bg-section" style={{ minHeight: '100dvh', position: 'relative', overflow: 'hidden' }}>
 
-        {/* Background blobs */}
+        {/* Background blobs + overlays */}
         <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -140, right: -100, width: 440, height: 440, borderRadius: '50%', background: 'rgba(0,187,180,0.13)', animation: 'blobDrift 12s ease-in-out infinite alternate' }} />
-          <div style={{ position: 'absolute', bottom: '15%', left: -80, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,148,71,0.07)', animation: 'blobDrift 16s ease-in-out infinite alternate-reverse' }} />
-          <div style={{ position: 'absolute', top: '50%', right: '8%', width: 200, height: 200, borderRadius: '50%', background: 'rgba(224,52,75,0.08)', animation: 'blobDrift 10s ease-in-out infinite alternate' }} />
+          {/* Blobs */}
+          <div style={{ position: 'absolute', top: -140, right: -100, width: 560, height: 560, borderRadius: '50%', background: 'rgba(0,187,180,0.2)', filter: 'blur(48px)', animation: 'blobDrift 12s ease-in-out infinite alternate' }} />
+          <div style={{ position: 'absolute', bottom: '10%', left: -100, width: 420, height: 420, borderRadius: '50%', background: 'rgba(255,148,71,0.13)', filter: 'blur(40px)', animation: 'blobDrift 16s ease-in-out infinite alternate-reverse' }} />
+          <div style={{ position: 'absolute', top: '45%', right: '6%', width: 280, height: 280, borderRadius: '50%', background: 'rgba(224,52,75,0.13)', filter: 'blur(32px)', animation: 'blobDrift 10s ease-in-out infinite alternate' }} />
+          <div style={{ position: 'absolute', bottom: '-8%', left: '28%', width: 460, height: 220, borderRadius: '50%', background: 'rgba(255,148,71,0.09)', filter: 'blur(52px)', animation: 'blobDrift 14s ease-in-out infinite alternate' }} />
+          {/* Palm leaves – left */}
+          <img src="/assets/img/palm_leaves_shadow.png" alt="" style={{ position: 'absolute', top: 0, left: -10, height: '72%', width: 'auto', opacity: 0.55, objectFit: 'contain', objectPosition: 'top left', mixBlendMode: 'multiply' }} />
+          {/* Palm leaves – right (mirrored) */}
+          <img src="/assets/img/palm_leaves_shadow.png" alt="" style={{ position: 'absolute', top: 0, right: -10, height: '58%', width: 'auto', opacity: 0.35, objectFit: 'contain', objectPosition: 'top right', transform: 'scaleX(-1)', mixBlendMode: 'multiply' }} />
           {/* Grid overlay */}
-          <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.03, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+          {/* Edge vignette */}
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(4,30,36,0.55) 100%)' }} />
           {/* Particles */}
           {PARTICLES.map((p, i) => (
             <div key={i} style={{
@@ -205,82 +217,120 @@ export default function LandingPage() {
         <div className="lp-hero-wrap">
 
           {/* ── Left: Content ── */}
-          <div className="lp-hero-content">
+          <div className="lp-hero-content" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            maxWidth: '520px',
+            background: 'rgba(5, 50, 60, 0.78)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            padding: '0 0 28px',
+            borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            boxShadow: '0 8px 40px 0 rgba(0,0,0,0.35), 0 0 0 1px rgba(0,187,180,0.1)',
+            position: 'relative',
+            zIndex: 3,
+            overflow: 'hidden',
+          }}>
+            {/* Gradient top accent bar */}
+            <div style={{ width: '100%', height: 3, background: 'linear-gradient(90deg, #ff9447 0%, #00bbb4 50%, #e0344b 100%)', flexShrink: 0 }} />
+
+            <div className="lp-hero-inner" style={{ padding: '24px 28px 0', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               background: 'rgba(0,187,180,0.14)', border: '1px solid rgba(0,187,180,0.32)',
               borderRadius: 20, padding: '6px 14px', marginBottom: 22,
             }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', flexShrink: 0, animation: 'liveBlip 1.5s ease-in-out infinite' }} />
               <i className="ri-map-pin-line" style={{ color: 'var(--color-primary)', fontSize: 13 }} />
               <span style={{ color: 'var(--color-primary)', fontSize: 11, fontWeight: 800, letterSpacing: 1.8, textTransform: 'uppercase' }}>
-                Zona Colonial · Verano 2026
+                Ciudad Colonial · Verano 2026
               </span>
             </div>
 
-            <img
-              src="/assets/img/logoSoloLetras.png"
-              alt="Turizoneando"
-              className="lp-hero-logo"
-              style={{
-                display: 'block',
-                height: 'auto',
-                objectFit: 'contain',
-                transitionDelay: '0.08s',
-                filter: 'brightness(0) invert(1)',
-              }}
-            />
+            <div className="lp-r" style={{ margin: '0 0 4px', width: '100%', maxWidth: 'min(360px, 100%)', overflow: 'hidden' }}>
+              <img
+                src="/assets/img/logoSoloLetras.png"
+                alt="Turizoneando"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  marginTop: '-20%',
+                  marginBottom: '-20%',
+                  filter: 'brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.2))'
+                }}
+              />
+            </div>
 
-            <p className="lp-r" style={{
-              color: 'rgba(255,255,255,0.72)', fontSize: 'clamp(15px, 4vw, 19px)',
-              margin: '0 0 36px', lineHeight: 1.55, maxWidth: 400,
-              transitionDelay: '0.16s',
+            <h2 className="lp-r lp-hero-title-gradient" style={{
+              fontFamily: 'var(--font-body)', fontSize: 'clamp(18px, 4vw, 24px)',
+              color: '#ffc060', textTransform: 'uppercase', fontWeight: 900,
+              lineHeight: 1.2, textAlign: 'left', marginTop: '10px', marginBottom: '14px', letterSpacing: '-0.5px',
+              textShadow: '0 2px 6px rgba(0,0,0,0.35)',
             }}>
               {t('landing.hero_subtitle')}
+            </h2>
+
+            <p className="lp-r" style={{
+              color: '#f2f4f8', fontSize: 'clamp(14px, 3vw, 16px)',
+              margin: '0 0 28px', lineHeight: 1.6, maxWidth: '440px',
+              textAlign: 'left', fontWeight: 600, opacity: 0.95,
+              textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+            }}>
+              {lang === 'es' 
+                ? 'Estás a punto de embarcarte en una aventura por las calles más antiguas del Nuevo Mundo. Cada desafío esconde un secreto que solo los más atentos descubrirán.'
+                : 'You are about to embark on an adventure through the oldest streets of the New World. Each challenge hides a secret that only the most attentive will discover.'}
             </p>
 
-            <div className="lp-r" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', transitionDelay: '0.26s' }}>
+            <div className="lp-r" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', transitionDelay: '0.26s', alignItems: 'center' }}>
               <Link to="/register"
                 className="lp-cta-btn"
                 style={{
-                  background: 'var(--gradient-primary)', color: '#fff',
-                  padding: '14px 30px', borderRadius: 16, fontWeight: 800, fontSize: 16,
+                  background: 'linear-gradient(135deg, #ffa826 0%, #ffc060 100%)', color: '#fff',
+                  padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15,
                   textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                  boxShadow: '0 8px 28px rgba(224,52,75,0.45)',
+                  boxShadow: '0 6px 20px rgba(255,168,38,0.35)',
+                  textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.2)',
+                  letterSpacing: '0.5px'
                 }}
               >
                 <i className="ri-rocket-line" style={{ fontSize: 18 }} />
                 {t('landing.hero_cta')}
               </Link>
               <Link to="/login" style={{
-                background: 'rgba(255,255,255,0.08)', color: '#fff',
-                border: '1.5px solid rgba(255,255,255,0.28)',
-                padding: '14px 24px', borderRadius: 16, fontWeight: 700, fontSize: 15,
+                background: 'rgba(255,255,255,0.15)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.25)',
+                padding: '12px 28px', borderRadius: 24, fontWeight: 800, fontSize: 15,
                 textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-                backdropFilter: 'blur(8px)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}>
                 {t('landing.hero_login')}
                 <i className="ri-arrow-right-line" />
               </Link>
             </div>
 
-            {/* Mini feature pills */}
-            <div className="lp-r lp-hero-pills" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 28, transitionDelay: '0.34s' }}>
+            {/* Mini stats strip */}
+            <div className="lp-r" style={{ display: 'flex', width: '100%', marginTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 16, transitionDelay: '0.38s' }}>
               {[
-                { icon: 'ri-trophy-line',      label: lang === 'es' ? 'Premios' : 'Prizes' },
-                { icon: 'ri-gamepad-line',     label: lang === 'es' ? 'Interactivo' : 'Interactive' },
-                { icon: 'ri-question-line',    label: 'Quizz' },
-              ].map((p, i) => (
-                <span key={i} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 20, padding: '5px 12px',
+                { n: '9+', label: lang === 'es' ? 'Paradas' : 'Stops',      icon: 'ri-map-pin-fill' },
+                { n: '3',  label: lang === 'es' ? 'Etapas'  : 'Stages',     icon: 'ri-flag-fill'    },
+                { n: '19', label: lang === 'es' ? 'Retos'   : 'Challenges', icon: 'ri-question-fill' },
+              ].map((stat, i) => (
+                <div key={i} style={{
+                  flex: 1, textAlign: 'center',
+                  borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                  padding: '0 8px',
                 }}>
-                  <i className={p.icon} style={{ color: 'var(--color-primary)', fontSize: 12 }} />
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>{p.label}</span>
-                </span>
+                  <i className={stat.icon} style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', display: 'block', marginBottom: 3 }} />
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: '#ffc060', lineHeight: 1 }}>{stat.n}</div>
+                  <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.45)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 3 }}>{stat.label}</div>
+                </div>
               ))}
             </div>
-          </div>
+            </div>{/* end padding wrapper */}
+          </div>{/* end lp-hero-content */}
 
           {/* ── Right: Mascot ── */}
           <div className="lp-hero-mascot-col" aria-hidden>
@@ -326,7 +376,7 @@ export default function LandingPage() {
             { n: 3,  s: '',  k: 'stats_stages',  icon: 'ri-trophy-fill'    },
             { n: 19, s: '',  k: 'stats_quizz',   icon: 'ri-question-fill'  },
             { n: 9,  s: '',  k: 'stats_stories', icon: 'ri-headphone-fill' },
-            { n: 2,  s: '',  k: 'stats_langs',   icon: 'ri-translate-fill' },
+            { n: 2,  s: '',  k: 'stats_langs',   icon: 'ri-translate-2' },
           ] as const).map((stat) => (
             <div key={stat.k} className="lp-stat-item" style={{ textAlign: 'center', minWidth: 80 }}>
               <div style={{ marginBottom: 6 }}>
@@ -619,68 +669,113 @@ export default function LandingPage() {
       </section>
 
       {/* ══ CTA ═════════════════════════════════════════════════════════ */}
-      <section style={{
-        background: 'var(--color-primary-dark)', padding: '100px 24px',
-        position: 'relative', overflow: 'hidden', textAlign: 'center',
-      }}>
-        <div aria-hidden style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,148,71,0.09) 0%, transparent 65%)', pointerEvents: 'none', animation: 'pulseGlow 5s ease-in-out infinite' }} />
-        <div aria-hidden style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(0,187,180,0.08)', pointerEvents: 'none' }} />
-        <div aria-hidden style={{ position: 'absolute', bottom: -60, left: -60, width: 240, height: 240, borderRadius: '50%', background: 'rgba(224,52,75,0.07)', pointerEvents: 'none' }} />
+      <section 
+        className="lp-hero-bg-section"
+        style={{
+          padding: '120px 24px min(38dvh, 320px)',
+          position: 'relative', overflow: 'hidden', textAlign: 'center',
+        }}
+      >
+        {/* Glow behind buildings */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1, pointerEvents: 'none',
+          height: 'min(38dvh, 320px)',
+          background: 'radial-gradient(circle at 50% 100%, rgba(255, 168, 38, 0.22) 0%, transparent 70%)'
+        }} />
 
-        <div className="lp-r" style={{ position: 'relative', zIndex: 1, marginBottom: 16 }}>
-          <img src={mascot5} alt="" style={{
-            width: 'min(170px, 42vw)', height: 'auto',
-            filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.35))',
-            display: 'inline-block',
-            animation: 'float 4.2s ease-in-out infinite',
-          }} />
+        {/* Logos at the bottom of the section */}
+        <div style={{
+          position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 4,
+          display: 'flex', alignItems: 'center', gap: '20px', opacity: 0.95, width: 'max-content'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 18H20C20 18 19 14 17 12C15 10 13 10 12 10C11 10 9 10 7 12C5 14 4 18 4 18Z" fill="#fff" />
+              <path d="M12 2V10" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+              <path d="M12 4L17 8H12" fill="#fff" />
+            </svg>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '8px', fontWeight: 900, color: '#fff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>Ministerio de Turismo</span>
+              <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.5px', lineHeight: 1.1 }}>República Dominicana</span>
+            </div>
+          </div>
+          <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.25)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 900, color: '#fff', letterSpacing: '0.8px' }}>DO</span>
+            <span style={{ fontSize: '7px', color: '#fff', opacity: 0.85, textTransform: 'uppercase', fontWeight: 700, width: '55px', lineHeight: 1.1 }}>República Dominicana</span>
+          </div>
         </div>
 
-        <h2 className="lp-r" style={{
-          fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 7vw, 56px)',
-          color: '#fff', margin: '0 0 14px', position: 'relative', zIndex: 1,
-          transitionDelay: '0.1s',
+        <div style={{
+          maxWidth: '560px',
+          margin: '0 auto',
+          background: 'rgba(6, 63, 74, 0.65)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          padding: '36px 28px',
+          borderRadius: '24px',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
+          position: 'relative',
+          zIndex: 3
         }}>
-          {t('landing.cta_title')}
-        </h2>
+          {/* Mascot in CTA */}
+          <div className="lp-r" style={{ position: 'relative', zIndex: 3, marginBottom: 20 }}>
+            <img src={mascot5} alt="" style={{
+              width: 'min(150px, 35vw)', height: 'auto',
+              filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.25))',
+              display: 'inline-block',
+              animation: 'float 4.2s ease-in-out infinite',
+            }} />
+          </div>
 
-        <p className="lp-r" style={{
-          color: 'rgba(255,255,255,0.62)', fontSize: 16, maxWidth: 420,
-          margin: '0 auto 36px', lineHeight: 1.6, position: 'relative', zIndex: 1,
-          transitionDelay: '0.18s',
-        }}>
-          {t('landing.cta_body')}
-        </p>
-
-        <div className="lp-r" style={{
-          display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
-          position: 'relative', zIndex: 1, transitionDelay: '0.26s',
-        }}>
-          <Link to="/register"
-            className="lp-cta-btn"
-            style={{
-              background: 'var(--gradient-primary)', color: '#fff',
-              padding: '16px 38px', borderRadius: 18, fontWeight: 800, fontSize: 18,
-              textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-              boxShadow: '0 10px 40px rgba(224,52,75,0.45)',
-            }}
-          >
-            <i className="ri-rocket-line" style={{ fontSize: 20 }} />
-            {t('landing.cta_register')}
-          </Link>
-          <Link to="/login" style={{
-            background: 'rgba(255,255,255,0.08)', color: '#fff',
-            border: '1.5px solid rgba(255,255,255,0.28)',
-            padding: '16px 28px', borderRadius: 18, fontWeight: 700, fontSize: 16,
-            textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
-            backdropFilter: 'blur(8px)',
+          <h2 className="lp-r" style={{
+            fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 7vw, 56px)',
+            color: '#fff', margin: '0 0 14px', position: 'relative', zIndex: 3,
+            transitionDelay: '0.1s', textShadow: '0 2px 8px rgba(0,0,0,0.1)'
           }}>
-            {t('landing.cta_login')}
-          </Link>
+            {t('landing.cta_title')}
+          </h2>
+
+          <p className="lp-r" style={{
+            color: '#f2f4f8', fontSize: 16, maxWidth: 420,
+            margin: '0 auto 36px', lineHeight: 1.6, position: 'relative', zIndex: 3,
+            transitionDelay: '0.18s', fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+          }}>
+            {t('landing.cta_body')}
+          </p>
+
+          <div className="lp-r" style={{
+            display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
+            position: 'relative', zIndex: 3, transitionDelay: '0.26s',
+          }}>
+            <Link to="/register"
+              className="lp-cta-btn"
+              style={{
+                background: 'linear-gradient(to bottom, #ffc060, #ffa826)', color: '#fff',
+                padding: '14px 34px', borderRadius: 24, fontWeight: 900, fontSize: 16,
+                textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+                boxShadow: '0 8px 24px rgba(255,168,38,0.4)', border: '1px solid rgba(255,255,255,0.2)',
+                textTransform: 'uppercase', letterSpacing: '0.5px'
+              }}
+            >
+              <i className="ri-rocket-line" style={{ fontSize: 18 }} />
+              {t('landing.cta_register')}
+            </Link>
+            <Link to="/login" style={{
+              background: 'rgba(255,255,255,0.15)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.25)',
+              padding: '14px 28px', borderRadius: 24, fontWeight: 800, fontSize: 15,
+              textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            }}>
+              {t('landing.cta_login')}
+            </Link>
+          </div>
         </div>
 
-        <p style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11, marginTop: 52, letterSpacing: 0.5 }}>
-          Turizoneando · MITUR · Zona Colonial, Santo Domingo
+        <p style={{ color: '#ffffff', fontSize: 11, marginTop: 70, letterSpacing: 0.5, position: 'relative', zIndex: 3, fontWeight: 800, opacity: 0.8, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+          Turizoneando · MITUR · Ciudad Colonial, Santo Domingo
         </p>
         <div style={{ height: 'var(--safe-bottom)' }} />
       </section>
@@ -688,6 +783,14 @@ export default function LandingPage() {
       {/* ── Global styles & animations ──────────────────────────────── */}
       <style>{`
         /* ── Keyframes ──────────────────────────── */
+        @keyframes liveBlip {
+          0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(74,222,128,0.7); }
+          50%       { opacity: 0.8; transform: scale(1.15); box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+        }
+        @keyframes shimmerMove {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
         @keyframes twinkle {
           from { opacity: 0.15; transform: scale(0.7); }
           to   { opacity: 1;    transform: scale(1.4); }
@@ -760,6 +863,19 @@ export default function LandingPage() {
           margin: -80px 0 -90px -44px;
         }
 
+        /* ── Section Backgrounds ────────────────── */
+        .lp-hero-bg-section {
+          background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.25) 0%, rgba(6, 63, 74, 0.6) 100%), url('/assets/img/hero_bg_mobile.png');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+        }
+        @media (min-width: 760px) {
+          .lp-hero-bg-section {
+            background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.15) 0%, rgba(6, 63, 74, 0.55) 100%), url('/assets/img/hero_bg_desktop.png');
+          }
+        }
+
         /* ── Hero layout ────────────────────────── */
         .lp-hero-wrap {
           display: flex;
@@ -784,24 +900,29 @@ export default function LandingPage() {
         }
         .lp-hero-mascot-col {
           position: absolute;
-          right: -8px;
+          right: 0;
           bottom: 0;
-          width: clamp(160px, 44vw, 300px);
+          width: clamp(130px, 40vw, 220px);
           pointer-events: none;
-          z-index: 1;
+          z-index: 4;
           display: flex;
           align-items: flex-end;
           justify-content: center;
         }
+        /* card inner content: leave room for mascot on mobile */
+        .lp-hero-inner {
+          padding-right: clamp(110px, 36vw, 200px);
+        }
         .lp-mascot-glow-ring {
           position: absolute;
-          bottom: 10%;
+          bottom: 8%;
           left: 50%;
           transform: translateX(-50%);
-          width: clamp(140px, 38vw, 260px);
-          height: clamp(140px, 38vw, 260px);
+          width: clamp(160px, 46vw, 300px);
+          height: clamp(160px, 46vw, 300px);
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,148,71,0.16) 0%, rgba(0,187,180,0.08) 50%, transparent 70%);
+          background: radial-gradient(circle, rgba(255,148,71,0.28) 0%, rgba(0,187,180,0.15) 45%, transparent 70%);
+          filter: blur(6px);
           animation: pulseGlow 3.5s ease-in-out infinite;
         }
         .lp-mascot-float {
@@ -834,9 +955,28 @@ export default function LandingPage() {
           background-clip: text;
         }
 
-        /* ── CTA hover ──────────────────────────── */
+        /* ── Hero title gradient ─────────────────── */
+        .lp-hero-title-gradient {
+          background: linear-gradient(125deg, #ffc060 0%, #ffffff 55%, #ff9447 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          text-shadow: none !important;
+        }
+
+        /* ── CTA shimmer ─────────────────────────── */
         .lp-cta-btn {
+          position: relative;
+          overflow: hidden;
           transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        .lp-cta-btn::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.28) 50%, transparent 60%);
+          transform: translateX(-100%);
+          animation: shimmerMove 3s ease-in-out infinite 1.2s;
         }
         .lp-cta-btn:hover {
           transform: translateY(-3px) scale(1.02);
@@ -892,6 +1032,9 @@ export default function LandingPage() {
         @media (min-width: 760px) {
           .lp-nav-wordmark {
             display: block;
+          }
+          .lp-hero-inner {
+            padding-right: 28px;
           }
           .lp-hero-logo {
             width: min(520px, 90%);

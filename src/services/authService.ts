@@ -12,7 +12,8 @@ import {
   type User,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
-import { auth, db } from '../config/firebase'
+import { httpsCallable } from 'firebase/functions'
+import { auth, db, functions } from '../config/firebase'
 
 export interface PlayerProfile {
   firstName:     string
@@ -147,8 +148,18 @@ export async function changePassword(currentPassword: string, newPassword: strin
   await updatePassword(user, newPassword)
 }
 
+export async function sendOtp(): Promise<void> {
+  const fn = httpsCallable<void, { success: boolean }>(functions, 'sendOtpEmail')
+  await fn()
+}
+
+export async function verifyOtpCode(code: string): Promise<void> {
+  const fn = httpsCallable<{ code: string }, { success: boolean }>(functions, 'verifyOtp')
+  await fn({ code })
+}
+
 // Requires Firestore rule: allow create: if request.auth.uid == playerId
-export async function savePlayerProfile(uid: string, profile: PlayerProfile): Promise<void> {
+export async function savePlayerProfile(uid: string, profile: PlayerProfile & { emailVerified?: boolean }): Promise<void> {
   const dataToSave: any = {
     uid,
     displayName:   `${profile.firstName} ${profile.lastName}`.trim(),
@@ -159,6 +170,7 @@ export async function savePlayerProfile(uid: string, profile: PlayerProfile): Pr
     ageRange:      profile.ageRange,
     preferredLang: profile.preferredLang,
     email:         profile.email,
+    emailVerified: profile.emailVerified ?? false,
     score:         0,
     mapProgress:   {},
     currentNodeId: null,

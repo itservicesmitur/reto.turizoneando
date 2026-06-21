@@ -169,6 +169,44 @@ function mixAudioBuffers(narrationBuf: Buffer, musicBuf: Buffer, musicVolume = 0
   });
 }
 
+function adjustAudioSpeed(audioBuf: Buffer, speed: number): Promise<Buffer> {
+  if (!speed || speed === 1.0) return Promise.resolve(audioBuf);
+
+  const tmpDir = os.tmpdir();
+  const id = Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+  const inputPath = path.join(tmpDir, `input_${id}.mp3`);
+  const outputPath = path.join(tmpDir, `speed_${id}.mp3`);
+
+  fs.writeFileSync(inputPath, audioBuf);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg()
+      .input(inputPath)
+      .audioFilter(`atempo=${speed}`)
+      .format("mp3")
+      .output(outputPath)
+      .on("end", () => {
+        try {
+          const buf = fs.readFileSync(outputPath);
+          [inputPath, outputPath].forEach((f) => {
+            try { fs.unlinkSync(f); } catch { /* ignore */ }
+          });
+          resolve(buf);
+        } catch (readErr) {
+          reject(readErr);
+        }
+      })
+      .on("error", (err) => {
+        [inputPath, outputPath].forEach((f) => {
+          try { fs.unlinkSync(f); } catch { /* ignore */ }
+        });
+        reject(err);
+      })
+      .run();
+  });
+}
+
+
 // ─── Music presets ────────────────────────────────────────────────────────────
 // Admins can pick one of these in the UI; each maps to a Sound Generation prompt.
 
@@ -238,7 +276,18 @@ export const getElevenLabsVoices = onCall({
     if (!response.ok) {
       throw new Error(await response.text() || `ElevenLabs API error: ${response.status}`);
     }
-    return await response.json();
+    const data = await response.json();
+    if (data && Array.isArray(data.voices)) {
+      const exists = data.voices.some((v: any) => v.voice_id === "cQIBhnciTWugZAxX52uW");
+      if (!exists) {
+        data.voices.push({
+          voice_id: "cQIBhnciTWugZAxX52uW",
+          name: "Charlee Fantasy",
+          category: "cloned",
+        });
+      }
+    }
+    return data;
   } catch (error: any) {
     throw new HttpsError("internal", error.message || "Failed to fetch voices.");
   }
@@ -264,11 +313,12 @@ export const generateElevenLabsAudio = onCall({
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
-  const { text, voiceId, musicPreset, musicVolume } = request.data as {
+  const { text, voiceId, musicPreset, musicVolume, speed } = request.data as {
     text?: string;
     voiceId?: string;
     musicPreset?: string;
     musicVolume?: number;
+    speed?: number;
   };
 
   if (!text?.trim()) throw new HttpsError("invalid-argument", "Text is required.");
@@ -281,7 +331,9 @@ export const generateElevenLabsAudio = onCall({
 
   try {
     // 1. Generate narration
-    const narrationBuffer = await generateTTSBuffer(text, voiceId, apiKey);
+    const rawNarrationBuffer = await generateTTSBuffer(text, voiceId, apiKey);
+    const targetSpeed = typeof speed === "number" ? Math.min(Math.max(speed, 0.5), 2.0) : 1.0;
+    const narrationBuffer = await adjustAudioSpeed(rawNarrationBuffer, targetSpeed);
 
     let finalBuffer = narrationBuffer;
     let fileName: string;

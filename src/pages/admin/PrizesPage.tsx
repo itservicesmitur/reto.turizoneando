@@ -6,6 +6,8 @@ import {
   updatePrize,
   deletePrize,
   fetchLocals,
+  getNotificationSettings,
+  saveNotificationSettings,
   PRIZE_CATEGORIAS,
   type PrizeData,
   type PrizeCategoria,
@@ -54,11 +56,41 @@ export default function PrizesPage() {
   // Locals catalog (for the local selector in prize form)
   const [locals, setLocals] = useState<LocalData[]>([])
 
+  // ── Notification settings ────────────────────────────────────────────────
+  const [alertEmail, setAlertEmail]       = useState('')
+  const [alertEmailDraft, setAlertEmailDraft] = useState('')
+  const [alertSaving, setAlertSaving]     = useState(false)
+  const [alertSaveMsg, setAlertSaveMsg]   = useState<'ok' | 'err' | null>(null)
+
   // Fetch prizes on mount
   useEffect(() => {
     load()
     fetchLocals().then(setLocals).catch(() => {})
+    getNotificationSettings()
+      .then(s => { setAlertEmail(s.stockAlertEmail); setAlertEmailDraft(s.stockAlertEmail) })
+      .catch(() => {})
   }, [])
+
+  async function handleSaveAlertEmail() {
+    const trimmed = alertEmailDraft.trim()
+    if (trimmed && !trimmed.includes('@')) {
+      setAlertSaveMsg('err')
+      setTimeout(() => setAlertSaveMsg(null), 3000)
+      return
+    }
+    try {
+      setAlertSaving(true)
+      await saveNotificationSettings({ stockAlertEmail: trimmed })
+      setAlertEmail(trimmed)
+      setAlertSaveMsg('ok')
+      setTimeout(() => setAlertSaveMsg(null), 3000)
+    } catch {
+      setAlertSaveMsg('err')
+      setTimeout(() => setAlertSaveMsg(null), 3000)
+    } finally {
+      setAlertSaving(false)
+    }
+  }
 
   async function load() {
     try {
@@ -493,6 +525,106 @@ export default function PrizesPage() {
             <i className="ri-filter-off-line" />
             Limpiar Filtros
           </button>
+        )}
+      </div>
+
+      {/* ── Panel de Alertas de Stock ── */}
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 16,
+        padding: '18px 20px',
+        boxShadow: 'var(--shadow-card)',
+        marginBottom: 24,
+        border: '1.5px solid rgba(255,148,71,0.25)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+            background: 'rgba(255,148,71,0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <i className="ri-notification-3-line" style={{ fontSize: 16, color: '#d97706' }} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-navy)' }}>Notificaciones de Stock Bajo</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              Recibe un email automático cuando el stock de un premio baje a <strong>10</strong> o <strong>5</strong> unidades.
+            </div>
+          </div>
+          {/* Estado actual */}
+          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            {alertEmail ? (
+              <span style={{
+                fontSize: 11, fontWeight: 800, color: '#16a34a',
+                background: 'rgba(22,163,74,0.1)', padding: '3px 10px', borderRadius: 20
+              }}>
+                ✓ Activo
+              </span>
+            ) : (
+              <span style={{
+                fontSize: 11, fontWeight: 800, color: '#64748b',
+                background: 'rgba(100,116,139,0.1)', padding: '3px 10px', borderRadius: 20
+              }}>
+                Sin configurar
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 14 }}>
+          <div style={{ flex: '1 1 260px', position: 'relative' }}>
+            <i className="ri-mail-line" style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+              color: 'var(--color-gray-mid)', fontSize: 15, pointerEvents: 'none'
+            }} />
+            <input
+              id="stock-alert-email"
+              type="email"
+              placeholder="correo-de-alerta@ejemplo.com"
+              value={alertEmailDraft}
+              onChange={e => { setAlertEmailDraft(e.target.value); setAlertSaveMsg(null) }}
+              onKeyDown={e => e.key === 'Enter' && handleSaveAlertEmail()}
+              style={{
+                width: '100%', height: 40, borderRadius: 8, boxSizing: 'border-box',
+                border: alertSaveMsg === 'err' ? '1.5px solid #dc2626' : '1px solid var(--color-border)',
+                paddingLeft: 36, paddingRight: 14, fontSize: 14,
+                fontFamily: 'var(--font-body)', color: 'var(--color-text)',
+                background: '#f8f9fb', outline: 'none',
+              }}
+            />
+          </div>
+          <button
+            onClick={handleSaveAlertEmail}
+            disabled={alertSaving}
+            style={{
+              height: 40, padding: '0 18px', borderRadius: 8,
+              background: alertSaving ? 'rgba(27,43,110,0.4)' : 'var(--color-navy)',
+              color: '#fff', fontSize: 13, fontWeight: 700,
+              border: 'none', cursor: alertSaving ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+              transition: 'background 150ms ease'
+            }}
+          >
+            {alertSaving
+              ? <><i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} /> Guardando…</>
+              : <><i className="ri-save-line" /> Guardar email</>}
+          </button>
+        </div>
+
+        {alertSaveMsg === 'ok' && (
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#16a34a', fontWeight: 700 }}>
+            ✓ Email de alertas guardado correctamente.
+          </p>
+        )}
+        {alertSaveMsg === 'err' && (
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626', fontWeight: 700 }}>
+            ✗ Ingresa un email válido.
+          </p>
+        )}
+        {alertEmailDraft !== alertEmail && alertSaveMsg === null && (
+          <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--color-text-muted)' }}>
+            Cambios sin guardar — presiona <strong>Guardar email</strong> para aplicarlos.
+          </p>
         )}
       </div>
 

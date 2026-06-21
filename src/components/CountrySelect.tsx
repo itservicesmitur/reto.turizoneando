@@ -100,6 +100,27 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, isBrand
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Manage keyboard dismissal and visibility on mobile when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      // Dismiss virtual keyboard if an input/textarea is currently focused
+      if (
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement
+      ) {
+        document.activeElement.blur();
+      }
+
+      // Smooth scroll container into view after browser layout
+      const timer = setTimeout(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   const handleSelect = (country: Country) => {
     // Save Spanish name in DB by default, or the current selected language name
     const selectedVal = lang === 'en' ? country.en : country.es;
@@ -251,7 +272,7 @@ export default function CountrySelect({ value, onChange, id, isMapTheme, isBrand
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={searchInputStyle}
-            autoFocus
+            autoFocus={typeof window !== 'undefined' && window.innerWidth >= 768}
           />
 
           {/* List */}

@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
             </span>
             <span className="al-badge">
               <i className="ri-map-pin-2-line" />
-              Zona Colonial, SD
+              Ciudad Colonial, SD
             </span>
             <span className="al-badge">
               <i className="ri-building-2-line" />

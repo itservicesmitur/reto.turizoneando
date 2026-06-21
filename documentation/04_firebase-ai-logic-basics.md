@@ -4,7 +4,7 @@ Esta skill detalla la integración de Inteligencia Artificial Generativa del lad
 
 ## Características Clave
 1. **Generación de Textos e Historias:**
-   Permite narrar dinámicamente datos curiosos y la historia de las paradas de la Zona Colonial.
+   Permite narrar dinámicamente datos curiosos y la historia de las paradas de la Ciudad Colonial.
 2. **Estructura Multimodal:**
    Procesa entradas de texto combinadas con imágenes o audios de las paradas (archivos > 20 MB se suben primero a Firebase Storage).
 3. **Flujos de Conversación en Tiempo Real (Streaming):**

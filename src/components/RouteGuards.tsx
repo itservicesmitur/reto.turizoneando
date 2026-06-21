@@ -8,7 +8,7 @@ import { savePlayerProfile } from '../services/authService'
 import CountrySelect from './CountrySelect'
 import StatusBlockCard from './StatusBlockCard'
 
-type ClientStatus = 'pending' | 'auth' | 'unauth' | 'incomplete' | 'banned'
+type ClientStatus = 'pending' | 'auth' | 'unauth' | 'incomplete' | 'banned' | 'unverified'
 type AdminStatus  = 'pending' | 'ok'  | 'denied'
 
 // ── Shared spinner ────────────────────────────────────────────────────────
@@ -412,7 +412,11 @@ export function ProtectedRoute() {
             !data.firstName || !data.lastName ||
             !data.gender    || !data.nationality || !data.ageRange
 
-          setStatus(isIncomplete ? 'incomplete' : 'auth')
+          if (isIncomplete) { setStatus('incomplete'); return }
+
+          if (data.emailVerified === false) { setStatus('unverified'); return }
+
+          setStatus('auth')
         },
         () => {
           // Permiso denegado u otro error de red → dejar pasar sin bloquear
@@ -440,9 +444,10 @@ export function ProtectedRoute() {
       />
     )
   }
-  if (status === 'pending')    return <AuthSpinner />
-  if (status === 'unauth')     return <Navigate to="/login" replace />
-  if (status === 'incomplete') return <CompleteProfileForm user={currentUser} onComplete={() => setStatus('auth')} />
+  if (status === 'pending')     return <AuthSpinner />
+  if (status === 'unauth')      return <Navigate to="/login" replace />
+  if (status === 'unverified')  return <Navigate to="/verify-email" replace />
+  if (status === 'incomplete')  return <CompleteProfileForm user={currentUser} onComplete={() => setStatus('auth')} />
   return <Outlet />
 }
 

@@ -236,7 +236,7 @@ function getEmailFooter(): string {
             <td>
               <div class="footer-banner">
                 <strong style="color: #096d7d;">Ministerio de Turismo (MITUR)</strong><br>
-                Dirección de Fomento Turístico de la Zona Colonial, Santo Domingo, RD<br>
+                Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD<br>
                 Este correo fue enviado de forma segura. Si recibiste este mensaje por error, por favor notifícanos y elimínalo.<br>
                 &copy; ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
               </div>
@@ -452,7 +452,7 @@ export const sendPlayerPrizeCodes = onCall({
       ${getEmailHeader("Turizoneando", "Tus Premios del Desafío Cultural", LOGO_URL)}
       <div style="font-size: 15px; line-height: 1.6; color: #1e293b;">
         <h2 class="greeting">¡Hola, ${displayName}!</h2>
-        <p style="margin: 0 0 20px 0;">¡Felicidades por completar el Desafío Cultural de la Zona Colonial! Aquí ${codes.length === 1 ? "está tu premio ganado" : "están todos tus premios ganados"}:</p>
+        <p style="margin: 0 0 20px 0;">¡Felicidades por completar el Desafío Cultural de la Ciudad Colonial! Aquí ${codes.length === 1 ? "está tu premio ganado" : "están todos tus premios ganados"}:</p>
         ${codeBlocksHtml}
         <h3 class="section-title">¿Cómo canjear tu premio?</h3>
         <ol class="steps-list">
@@ -472,7 +472,7 @@ export const sendPlayerPrizeCodes = onCall({
 
     const subject = codes.length === 1
       ? `Tu premio de Turizoneando: ${codes[0].prizeName} — Código ${codes[0].code}`
-      : `Tus ${codes.length} premios de Turizoneando — Desafío Cultural Zona Colonial`;
+      : `Tus ${codes.length} premios de Turizoneando — Desafío Cultural Ciudad Colonial`;
 
     await sendRawEmail(email.trim().toLowerCase(), subject, htmlContent, textContent);
 
@@ -644,7 +644,7 @@ export const claimPrizeAndNotify = onCall({
         ${getEmailHeader("Turizoneando", "¡Felicidades por tu Premio!", LOGO_URL)}
         <div style="font-size:15px;line-height:1.6;color:#1e293b;">
           <h2 class="greeting">¡Hola, ${claimed.playerDisplayName}!</h2>
-          <p style="margin:0 0 16px 0;">¡Felicidades! Completaste una etapa del Desafío Cultural de la Zona Colonial y ganaste un premio especial:</p>
+          <p style="margin:0 0 16px 0;">¡Felicidades! Completaste una etapa del Desafío Cultural de la Ciudad Colonial y ganaste un premio especial:</p>
           <div class="prize-card">
             ${categoryBadge}
             <h3 class="prize-name">${claimed.prizeName}</h3>
@@ -676,6 +676,103 @@ export const claimPrizeAndNotify = onCall({
   }
 
   return { success: true, code: claimed.code, wonAt: claimed.wonAt, emailSent };
+});
+
+// ── SEND OTP VERIFICATION EMAIL ───────────────────────────────────────────
+export const sendOtpEmail = onCall({
+  secrets: [sendgridApiKeySecret, sendgridFromEmailSecret]
+}, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+
+  const uid = request.auth.uid;
+  const email = request.auth.token.email;
+  if (!email) throw new HttpsError("failed-precondition", "No email on account.");
+
+  const db = getFirestore();
+  const otpRef = db.collection("otpCodes").doc(uid);
+
+  // Rate limit: 60s between resends
+  const existing = await otpRef.get();
+  if (existing.exists) {
+    const createdAt = existing.data()!.createdAt as Timestamp;
+    const elapsed = Timestamp.now().seconds - createdAt.seconds;
+    if (elapsed < 60) {
+      throw new HttpsError("resource-exhausted", String(Math.ceil(60 - elapsed)));
+    }
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const now  = Timestamp.now();
+  const expiresAt = new Timestamp(now.seconds + 10 * 60, 0);
+
+  await otpRef.set({ code, email, expiresAt, attempts: 0, createdAt: now });
+
+  const htmlContent = `
+    ${getEmailHeader("Verificación de correo", "Verificación de cuenta")}
+    <div style="font-size:15px;line-height:1.6;color:#1e293b;">
+      <h2 class="greeting">Verifica tu correo electrónico</h2>
+      <p style="margin:0 0 20px 0;">Usa el siguiente código para activar tu cuenta en <strong>Turizoneando</strong>. Expira en <strong>10 minutos</strong>.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <div style="display:inline-block;background:#f0fafa;border:2px dashed #00bbb4;border-radius:16px;padding:20px 36px;">
+          <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Tu código de verificación</div>
+          <div style="font-family:monospace;font-size:40px;font-weight:900;letter-spacing:8px;color:#096d7d;">${code}</div>
+        </div>
+      </div>
+      <p style="margin:0;font-size:13px;color:#94a3b8;text-align:center;border-top:1px solid #c8e8e6;padding-top:16px;">Si no creaste esta cuenta, puedes ignorar este correo.</p>
+    </div>
+    ${getEmailFooter()}
+  `;
+
+  await sendRawEmail(
+    email,
+    `${code} es tu código de verificación - Turizoneando`,
+    htmlContent,
+    `Tu código de verificación para Turizoneando es: ${code}\n\nEste código expira en 10 minutos.`
+  );
+
+  return { success: true };
+});
+
+// ── VERIFY OTP CODE ───────────────────────────────────────────────────────
+export const verifyOtp = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+
+  const uid = request.auth.uid;
+  const { code } = request.data as { code?: string };
+  if (!code?.trim()) throw new HttpsError("invalid-argument", "Código requerido.");
+
+  const db = getFirestore();
+  const otpRef = db.collection("otpCodes").doc(uid);
+  const snap = await otpRef.get();
+
+  if (!snap.exists) throw new HttpsError("not-found", "No hay código pendiente. Solicita uno nuevo.");
+
+  const data = snap.data()!;
+  const expiresAt = data.expiresAt as Timestamp;
+
+  if (Timestamp.now().seconds > expiresAt.seconds) {
+    await otpRef.delete();
+    throw new HttpsError("deadline-exceeded", "El código expiró. Solicita uno nuevo.");
+  }
+
+  const attempts = (data.attempts as number) || 0;
+  if (attempts >= 5) {
+    await otpRef.delete();
+    throw new HttpsError("resource-exhausted", "Demasiados intentos. Solicita un nuevo código.");
+  }
+
+  if (data.code !== code.trim()) {
+    await otpRef.update({ attempts: FieldValue.increment(1) });
+    const remaining = 4 - attempts;
+    throw new HttpsError("invalid-argument", `Código incorrecto. ${remaining > 0 ? `Te quedan ${remaining} intentos.` : "Solicita un nuevo código."}`);
+  }
+
+  await Promise.all([
+    otpRef.delete(),
+    db.collection("players").doc(uid).update({ emailVerified: true }),
+  ]);
+
+  return { success: true };
 });
 
 // ── RESEND PRIZE CODE EMAIL CALLABLE ─────────────────────────────────────
@@ -736,7 +833,7 @@ export const sendAdminPrizeCodeEmail = onCall({
       ${getEmailHeader("Turizoneando", "¡Felicidades por tu Premio!", LOGO_URL)}
       <div style="font-size: 15px; line-height: 1.6; color: #1e293b;">
         <h2 class="greeting">¡Hola, ${playerDisplayName}!</h2>
-        <p style="margin: 0 0 16px 0;">¡Felicidades! Completaste un gran recorrido en el Desafío Cultural de la Zona Colonial y te has ganado un premio especial:</p>
+        <p style="margin: 0 0 16px 0;">¡Felicidades! Completaste un gran recorrido en el Desafío Cultural de la Ciudad Colonial y te has ganado un premio especial:</p>
 
         <div class="prize-card">
           <span class="category-badge">${prizeCategory}</span>
@@ -767,3 +864,130 @@ export const sendAdminPrizeCodeEmail = onCall({
     throw new HttpsError("internal", error.message || "Failed to resend prize code email.");
   }
 });
+
+// ── LOW-STOCK ALERT: Firestore trigger ────────────────────────────────────────
+// Fires whenever a document in /prizes/{prizeId} is updated.
+// If stockCurrent crosses a threshold (10 or 5) for the first time, sends an
+// alert email to the address stored in /settings/notifications.stockAlertEmail.
+// Thresholds already notified are stored in /prizes/{id}.alertsSent to avoid duplicates.
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+
+const STOCK_ALERT_THRESHOLDS = [10, 5];
+
+export const notifyLowStock = onDocumentUpdated(
+  {
+    document: "prizes/{prizeId}",
+    secrets: [sendgridApiKeySecret, sendgridFromEmailSecret],
+  },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after  = event.data?.after.data();
+    if (!before || !after) return;
+
+    const prevStock: number = typeof before.stockCurrent === "number" ? before.stockCurrent : Infinity;
+    const currStock: number = typeof after.stockCurrent  === "number" ? after.stockCurrent  : 0;
+
+    // Only act when stock decreased
+    if (currStock >= prevStock) return;
+
+    // Which thresholds did we just cross?
+    const crossed = STOCK_ALERT_THRESHOLDS.filter(t => prevStock > t && currStock <= t);
+    if (crossed.length === 0) return;
+
+    // Which of those haven't been notified yet?
+    const alertsSent: number[] = Array.isArray(after.alertsSent) ? after.alertsSent : [];
+    const newCrossed = crossed.filter(t => !alertsSent.includes(t));
+    if (newCrossed.length === 0) return;
+
+    // Mark thresholds as sent FIRST (idempotence — avoids duplicates on retry)
+    await event.data!.after.ref.update({
+      alertsSent: [...alertsSent, ...newCrossed],
+    });
+
+    // Read the notification email from /settings/notifications
+    const db = getFirestore();
+    const settingsSnap = await db.collection("settings").doc("notifications").get();
+    const alertEmail: string = (settingsSnap.data()?.stockAlertEmail || "").trim();
+    if (!alertEmail || !alertEmail.includes("@")) {
+      console.log("[notifyLowStock] No stockAlertEmail configured — skipping.");
+      return;
+    }
+
+    const prizeName  = String(after.name      || "Premio");
+    const categoria  = String(after.categoria || "");
+    const prizeImg   = String(after.imageUrl  || "");
+    const localName  = String(after.localName || "");
+    const prizeRef   = event.data!.after.ref;
+
+    // Send one email per newly-crossed threshold (usually just one at a time)
+    for (const threshold of newCrossed) {
+      const isCritical   = threshold <= 5;
+      const urgencyIcon  = isCritical ? "🔴" : "🟡";
+      const urgencyLabel = isCritical ? "Stock crítico" : "Stock bajo";
+      const urgencyColor  = isCritical ? "#dc2626" : "#d97706";
+      const urgencyBg     = isCritical ? "rgba(220,38,38,0.07)" : "rgba(217,119,6,0.07)";
+      const urgencyBorder = isCritical ? "rgba(220,38,38,0.3)" : "rgba(217,119,6,0.3)";
+
+      const subject = `${urgencyIcon} ${urgencyLabel}: ${prizeName} — quedan ${currStock} unidades`;
+
+      const imgHtml = prizeImg
+        ? `<div style="text-align:center;margin:16px 0;"><img src="${prizeImg}" alt="${prizeName}" style="max-width:140px;height:140px;object-fit:cover;border-radius:10px;border:1.5px solid #e2e8f0;" /></div>`
+        : "";
+      const catBadge = categoria
+        ? `<span style="font-size:11px;font-weight:800;color:#00bbb4;text-transform:uppercase;letter-spacing:1px;background:rgba(0,187,180,0.12);padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:10px;">${categoria}</span>`
+        : "";
+      const localLine = localName
+        ? `<p style="margin:6px 0 0;font-size:13px;color:#64748b;">📍 Establecimiento: <strong>${localName}</strong></p>`
+        : "";
+
+      const htmlContent = `
+        ${getEmailHeader("Alerta de Stock", "Sistema de Notificaciones")}
+        <div style="font-size:15px;line-height:1.6;color:#1e293b;">
+
+          <div style="background:${urgencyBg};border:1.5px solid ${urgencyBorder};border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;">
+            <span style="font-size:26px;line-height:1;">${urgencyIcon}</span>
+            <div>
+              <p style="margin:0 0 4px;font-weight:800;font-size:15px;color:${urgencyColor};">${urgencyLabel}</p>
+              <p style="margin:0;font-size:13px;color:#475569;">
+                Quedan <strong>${currStock} unidades</strong> de este premio (umbral de alerta: ${threshold}).
+              </p>
+            </div>
+          </div>
+
+          <div style="background:#f0fafa;border:1px solid #c8e8e6;border-radius:14px;padding:22px;margin:0 0 20px;text-align:center;">
+            ${catBadge}
+            <h3 style="font-size:18px;font-weight:700;color:#096d7d;margin:0 0 4px;">${prizeName}</h3>
+            ${localLine}
+            ${imgHtml}
+            <div style="margin-top:14px;display:inline-block;background:${urgencyBg};border:2px solid ${urgencyBorder};border-radius:10px;padding:10px 28px;">
+              <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Stock disponible</div>
+              <div style="font-size:36px;font-weight:900;color:${urgencyColor};">${currStock}</div>
+            </div>
+          </div>
+
+          <p style="margin:0 0 12px;font-size:14px;color:#475569;">
+            Por favor, accede al panel de administración y repón el stock de este premio a la brevedad para asegurar que los jugadores puedan seguir ganándolo.
+          </p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:14px;">
+            Este correo fue generado automáticamente por el sistema de notificaciones de Turizoneando.<br>
+            ID del premio: <code style="font-family:monospace;">${prizeRef.id}</code>
+          </p>
+        </div>
+        ${getEmailFooter()}
+      `;
+
+      const textContent =
+        `[${isCritical ? "CRÍTICO" : "ADVERTENCIA"}] Stock bajo — ${prizeName}\n\n` +
+        `Quedan ${currStock} unidades (umbral de alerta: ${threshold}).\n` +
+        (localName ? `Establecimiento: ${localName}\n` : "") +
+        `\nAccede al panel de administración para reponer el stock.\nID premio: ${prizeRef.id}\n\nMITUR - Turizoneando`;
+
+      try {
+        await sendRawEmail(alertEmail, subject, htmlContent, textContent);
+        console.log(`[notifyLowStock] Alert sent for prize ${prizeRef.id} at threshold ${threshold} → ${alertEmail}`);
+      } catch (emailErr: any) {
+        console.error(`[notifyLowStock] Failed to send alert for prize ${prizeRef.id}:`, emailErr);
+      }
+    }
+  }
+);

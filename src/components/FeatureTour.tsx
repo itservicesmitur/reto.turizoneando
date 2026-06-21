@@ -1,5 +1,8 @@
 import React from 'react'
 import { Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from 'react-joyride'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../config/firebase'
+import WelcomeCard from '../features/map/quiz/WelcomeCard'
 
 const TOUR_KEY = 'turizoneando_tour_done_users'
 
@@ -16,7 +19,7 @@ const steps: Step[] = [
     title: '¡Bienvenido al mapa!',
     content: (
       <p style={{ margin: 0, fontSize: 13, color: 'rgba(9,109,125,0.72)', lineHeight: 1.65 }}>
-        Este es el mapa de la Zona Colonial. Aquí encontrarás todas las paradas del recorrido histórico.
+        Este es el mapa de la Ciudad Colonial. Aquí encontrarás todas las paradas del recorrido histórico.
       </p>
     ),
   },
@@ -500,9 +503,11 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
 
 // ─── Componente principal ──────────────────────────────────────────────────
 
-type Phase = 'tour' | 'demo' | 'done'
+type Phase = 'welcome' | 'tour' | 'demo' | 'done'
 
-interface Props { ready: boolean; userId?: string }
+interface WelcomeData { text_es: string; text_en: string; audioUrl_es: string; audioUrl_en: string }
+
+interface Props { ready: boolean; userId?: string; lang?: 'es' | 'en' }
 
 function getDoneUsers(): string[] {
   try { return JSON.parse(localStorage.getItem(TOUR_KEY) ?? '[]') } catch { return [] }
@@ -515,17 +520,42 @@ function markUserDone(userId: string) {
   }
 }
 
-export default function FeatureTour({ ready, userId }: Props) {
+export default function FeatureTour({ ready, userId, lang = 'es' }: Props) {
   const alreadyDone = userId ? getDoneUsers().includes(userId) : false
-  const [run, setRun] = React.useState(false)
-  const [phase, setPhase] = React.useState<Phase>('tour')
+  const [run,     setRun]     = React.useState(false)
+  const [phase,   setPhase]   = React.useState<Phase>('welcome')
+  const [welcome, setWelcome] = React.useState<WelcomeData | null>(null)
 
+  // Fetch welcome message from Firestore once
   React.useEffect(() => {
-    if (ready && !alreadyDone) {
-      const t = setTimeout(() => setRun(true), 1200)
+    if (alreadyDone) return
+    getDoc(doc(db, 'appConfig', 'welcomeMessage'))
+      .then(snap => {
+        if (snap.exists()) {
+          const d = snap.data()
+          setWelcome({
+            text_es:     d.text_es     || '',
+            text_en:     d.text_en     || '',
+            audioUrl_es: d.audioUrl_es || '',
+            audioUrl_en: d.audioUrl_en || '',
+          })
+        } else {
+          // No welcome message configured → skip straight to tour
+          setPhase('tour')
+        }
+      })
+      .catch(() => setPhase('tour'))
+  }, [alreadyDone])
+
+  // Start Joyride after welcome is dismissed
+  React.useEffect(() => {
+    if (ready && phase === 'tour') {
+      const t = setTimeout(() => setRun(true), 600)
       return () => clearTimeout(t)
     }
-  }, [ready, alreadyDone])
+  }, [ready, phase])
+
+  const handleWelcomeContinue = () => setPhase('tour')
 
   const handleEvent = (data: EventData) => {
     const { status } = data
@@ -546,6 +576,9 @@ export default function FeatureTour({ ready, userId }: Props) {
 
   if (alreadyDone || phase === 'done') return null
 
+  const welcomeText = lang === 'en' ? (welcome?.text_en || '') : (welcome?.text_es || '')
+  const audioUrl    = lang === 'en' ? (welcome?.audioUrl_en || '') : (welcome?.audioUrl_es || '')
+
   return (
     <>
       <style>{`
@@ -557,6 +590,14 @@ export default function FeatureTour({ ready, userId }: Props) {
         }
         .__floater__arrow { display: none !important; }
       `}</style>
+
+      {phase === 'welcome' && welcome && welcomeText && (
+        <WelcomeCard
+          text={welcomeText}
+          audioUrl={audioUrl || undefined}
+          onContinue={handleWelcomeContinue}
+        />
+      )}
 
       {phase === 'tour' && (
         <Joyride

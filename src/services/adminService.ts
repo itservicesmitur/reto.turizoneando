@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions'
-import { doc, getDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, addDoc, deleteDoc, writeBatch, query, where, serverTimestamp } from 'firebase/firestore'
 import { functions, db } from '../config/firebase'
 
 
@@ -1057,14 +1057,42 @@ export async function generateElevenLabsAudio(
   text: string,
   voiceId: string,
   musicPreset?: string,
-  musicVolume?: number
+  musicVolume?: number,
+  speed?: number
 ): Promise<{ downloadUrl: string }> {
   const generateAudioFn = httpsCallable<
-    { text: string; voiceId: string; musicPreset?: string; musicVolume?: number },
+    { text: string; voiceId: string; musicPreset?: string; musicVolume?: number; speed?: number },
     { downloadUrl: string }
   >(functions, 'generateElevenLabsAudio')
-  const response = await generateAudioFn({ text, voiceId, musicPreset, musicVolume })
+  const response = await generateAudioFn({ text, voiceId, musicPreset, musicVolume, speed })
   return response.data
+}
+
+// ── Welcome Message ───────────────────────────────────────────────────────
+
+export interface WelcomeMessageData {
+  text_es: string
+  text_en: string
+  audioUrl_es: string
+  audioUrl_en: string
+  updatedAt?: string | null
+}
+
+export async function fetchWelcomeMessage(): Promise<WelcomeMessageData | null> {
+  const snap = await getDoc(doc(db, 'appConfig', 'welcomeMessage'))
+  if (!snap.exists()) return null
+  const d = snap.data()
+  return {
+    text_es:    d.text_es    || '',
+    text_en:    d.text_en    || '',
+    audioUrl_es: d.audioUrl_es || '',
+    audioUrl_en: d.audioUrl_en || '',
+    updatedAt:  d.updatedAt?.toDate?.()?.toISOString?.() ?? null,
+  }
+}
+
+export async function saveWelcomeMessage(data: Omit<WelcomeMessageData, 'updatedAt'>): Promise<void> {
+  await setDoc(doc(db, 'appConfig', 'welcomeMessage'), { ...data, updatedAt: serverTimestamp() }, { merge: true })
 }
 
 export async function previewMusicTrack(musicPreset: string): Promise<{ downloadUrl: string }> {
@@ -1165,6 +1193,23 @@ export async function getPrizesForStage(seasonId: string, stageId: string): Prom
   return response.data.prizes
 }
 
+// ── Notification Settings ─────────────────────────────────────────────────────
 
+export interface NotificationSettings {
+  stockAlertEmail: string
+}
 
+/** Read /settings/notifications from Firestore */
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  const snap = await getDoc(doc(db, 'settings', 'notifications'))
+  if (snap.exists()) {
+    const data = snap.data()
+    return { stockAlertEmail: data.stockAlertEmail || '' }
+  }
+  return { stockAlertEmail: '' }
+}
 
+/** Write /settings/notifications to Firestore (merge so other fields are preserved) */
+export async function saveNotificationSettings(settings: Partial<NotificationSettings>): Promise<void> {
+  await setDoc(doc(db, 'settings', 'notifications'), settings, { merge: true })
+}

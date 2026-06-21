@@ -47,10 +47,12 @@ const SettingsPage = lazyLoad(() => import('./pages/admin/SettingsPage'))
 const CodesPage = lazyLoad(() => import('./pages/admin/CodesPage'))
 const AttemptsLogPage = lazyLoad(() => import('./pages/admin/AttemptsLogPage'))
 const LocalsPage = lazyLoad(() => import('./pages/admin/LocalsPage'))
+const WelcomePage = lazyLoad(() => import('./pages/admin/WelcomePage'))
 const ProvidersPage = lazyLoad(() => import('./pages/admin/ProvidersPage'))
 const ProviderDashboard = lazyLoad(() => import('./pages/provider/ProviderDashboard'))
 const PublicValidationPage = lazyLoad(() => import('./pages/PublicValidationPage'))
-const ResetPasswordPage = lazyLoad(() => import('./pages/ResetPasswordPage'))
+const ResetPasswordPage  = lazyLoad(() => import('./pages/ResetPasswordPage'))
+const VerifyEmailPage   = lazyLoad(() => import('./pages/VerifyEmailPage'))
 
 
 const router = createBrowserRouter([
@@ -60,6 +62,7 @@ const router = createBrowserRouter([
   // ── Auth routes (no layout) ────────────────────────────────────
   { path: '/login', element: <Suspense fallback={null}><LoginPage /></Suspense> },
   { path: '/register', element: <Suspense fallback={null}><RegisterPage /></Suspense> },
+  { path: '/verify-email', element: <Suspense fallback={null}><VerifyEmailPage /></Suspense> },
   { path: '/admin/login', element: <Suspense fallback={null}><AdminLoginPage /></Suspense> },
   {
     path: '/reset-password',
@@ -219,6 +222,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={null}>
                 <AttemptsLogPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'welcome',
+            element: (
+              <Suspense fallback={null}>
+                <WelcomePage />
               </Suspense>
             ),
           },

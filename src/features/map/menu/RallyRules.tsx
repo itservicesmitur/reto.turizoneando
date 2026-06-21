@@ -62,7 +62,7 @@ export default function RallyRules({ onBack }: Props) {
             <i className="ri-book-2-line text-4xl text-white" />
           </div>
           <p className="text-xs font-bold mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Zona Colonial, Santo Domingo
+            Ciudad Colonial, Santo Domingo
           </p>
         </div>
       </div>

@@ -67,6 +67,7 @@ export default function StopsPage() {
   // ElevenLabs States
   const [selectedVoice, setSelectedVoice] = useState('PPzYpIqttlTYA83688JI') // Antoni (Deep Narrator) as default
   const [customVoiceId, setCustomVoiceId] = useState('')
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0)
   const [generatingAudio, setGeneratingAudio] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
   const [availableVoices, setAvailableVoices] = useState<{ id: string; name: string; category: string }[]>([])
@@ -75,6 +76,7 @@ export default function StopsPage() {
   // ElevenLabs English States
   const [selectedVoiceEn, setSelectedVoiceEn] = useState('PPzYpIqttlTYA83688JI')
   const [customVoiceIdEn, setCustomVoiceIdEn] = useState('')
+  const [voiceSpeedEn, setVoiceSpeedEn] = useState<number>(1.0)
   const [generatingAudioEn, setGeneratingAudioEn] = useState(false)
   const [audioErrorEn, setAudioErrorEn] = useState<string | null>(null)
 
@@ -505,7 +507,8 @@ export default function StopsPage() {
         formNarration.trim(),
         voiceId.trim(),
         selectedMusicPreset !== 'none' ? selectedMusicPreset : undefined,
-        selectedMusicPreset !== 'none' ? musicVolume : undefined
+        selectedMusicPreset !== 'none' ? musicVolume : undefined,
+        voiceSpeed
       )
       setPreviewAudioUrl(result.downloadUrl)
     } catch (err: any) {
@@ -546,7 +549,8 @@ export default function StopsPage() {
         formNarrationEn.trim(),
         voiceId.trim(),
         selectedMusicPreset !== 'none' ? selectedMusicPreset : undefined,
-        selectedMusicPreset !== 'none' ? musicVolume : undefined
+        selectedMusicPreset !== 'none' ? musicVolume : undefined,
+        voiceSpeedEn
       )
       setPreviewAudioUrlEn(result.downloadUrl)
     } catch (err: any) {
@@ -1684,6 +1688,7 @@ export default function StopsPage() {
                               ) : (
                                 <>
                                   <option value="PPzYpIqttlTYA83688JI">Capitán Turi (Recomendado)</option>
+                                  <option value="cQIBhnciTWugZAxX52uW">Charlee Fantasy</option>
                                   <option value="ErXwobaYiN019PkySvjV">Narrador Antoni (Profundo)</option>
                                   <option value="21m00Tcm4TlvDq8ikWAM">Narradora Rachel (Femenina)</option>
                                   <option value="JBFqnCBcaCvXMip5zpqz">Narrador George (Cálido)</option>
@@ -1693,25 +1698,48 @@ export default function StopsPage() {
                             </select>
                           </div>
 
-                          {/* Custom Voice ID */}
-                          {selectedVoice === 'custom' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                                Voice ID Personalizado
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="Ej: 2EiwWnXF... "
-                                value={customVoiceId}
-                                onChange={e => setCustomVoiceId(e.target.value)}
-                                style={{
-                                  height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
-                                  padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
-                                }}
-                              />
-                            </div>
-                          )}
+                          {/* Voice Speed Selector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Velocidad de Voz
+                            </label>
+                            <select
+                              value={voiceSpeed}
+                              onChange={e => setVoiceSpeed(Number(e.target.value))}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 8px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', background: '#fff'
+                              }}
+                            >
+                              <option value={0.8}>Muy lento (0.8x)</option>
+                              <option value={0.9}>Lento (0.9x)</option>
+                              <option value={1.0}>Normal (1.0x)</option>
+                              <option value={1.05}>Un poco más rápido (1.05x)</option>
+                              <option value={1.1}>Rápido (1.1x)</option>
+                              <option value={1.15}>Muy rápido (1.15x)</option>
+                              <option value={1.2}>Súper rápido (1.2x)</option>
+                            </select>
+                          </div>
                         </div>
+
+                        {/* Custom Voice ID */}
+                        {selectedVoice === 'custom' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Voice ID Personalizado
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Ej: 2EiwWnXF... "
+                              value={customVoiceId}
+                              onChange={e => setCustomVoiceId(e.target.value)}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
+                              }}
+                            />
+                          </div>
+                        )}
 
                         {/* Action Button */}
                         <button
@@ -1911,6 +1939,7 @@ export default function StopsPage() {
                               ) : (
                                 <>
                                   <option value="PPzYpIqttlTYA83688JI">Capitán Turi (Recomendado)</option>
+                                  <option value="cQIBhnciTWugZAxX52uW">Charlee Fantasy</option>
                                   <option value="ErXwobaYiN019PkySvjV">Narrador Antoni (Profundo)</option>
                                   <option value="21m00Tcm4TlvDq8ikWAM">Narradora Rachel (Femenina)</option>
                                   <option value="JBFqnCBcaCvXMip5zpqz">Narrador George (Cálido)</option>
@@ -1920,25 +1949,48 @@ export default function StopsPage() {
                             </select>
                           </div>
 
-                          {/* Custom Voice ID */}
-                          {selectedVoiceEn === 'custom' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                                Voice ID Personalizado
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="Ej: 2EiwWnXF... "
-                                value={customVoiceIdEn}
-                                onChange={e => setCustomVoiceIdEn(e.target.value)}
-                                style={{
-                                  height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
-                                  padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
-                                }}
-                              />
-                            </div>
-                          )}
+                          {/* Voice Speed Selector */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Velocidad de Voz
+                            </label>
+                            <select
+                              value={voiceSpeedEn}
+                              onChange={e => setVoiceSpeedEn(Number(e.target.value))}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 8px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', background: '#fff'
+                              }}
+                            >
+                              <option value={0.8}>Muy lento (0.8x)</option>
+                              <option value={0.9}>Lento (0.9x)</option>
+                              <option value={1.0}>Normal (1.0x)</option>
+                              <option value={1.05}>Un poco más rápido (1.05x)</option>
+                              <option value={1.1}>Rápido (1.1x)</option>
+                              <option value={1.15}>Muy rápido (1.15x)</option>
+                              <option value={1.2}>Súper rápido (1.2x)</option>
+                            </select>
+                          </div>
                         </div>
+
+                        {/* Custom Voice ID */}
+                        {selectedVoiceEn === 'custom' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                              Voice ID Personalizado
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Ej: 2EiwWnXF... "
+                              value={customVoiceIdEn}
+                              onChange={e => setCustomVoiceIdEn(e.target.value)}
+                              style={{
+                                height: 32, borderRadius: 6, border: '1px solid var(--color-border)',
+                                padding: '0 10px', fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff'
+                              }}
+                            />
+                          </div>
+                        )}
 
                         {/* Action Button */}
                         <button

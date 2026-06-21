@@ -11,7 +11,7 @@ import {
 
 const CATEGORIES = ['Bares', 'Hoteles', 'Restaurantes', 'Museos', 'Actividades', 'Experiencias', 'Otro']
 
-// Zona Colonial center and bounds
+// Ciudad Colonial center and bounds
 const ZONA_COLONIAL = { lat: 18.4735, lng: -69.8863 }
 const ZONA_COLONIAL_BOUNDS = {
   north: 18.482,
@@ -107,10 +107,10 @@ function LocalForm({
         })
         markerRef.current = marker
 
-        // Autocomplete restricted to Zona Colonial
+        // Autocomplete restricted to Ciudad Colonial
         if (autocompleteContainerRef.current) {
           const placeAutocomplete = new PlaceAutocompleteElement()
-          placeAutocomplete.setAttribute('placeholder', 'Buscar en la Zona Colonial...')
+          placeAutocomplete.setAttribute('placeholder', 'Buscar en la Ciudad Colonial...')
           placeAutocomplete.style.width = '100%'
           placeAutocomplete.style.height = '38px'
           placeAutocomplete.style.borderRadius = '8px'

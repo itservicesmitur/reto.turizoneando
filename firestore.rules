@@ -82,6 +82,17 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // App config (welcome message, etc.) — authenticated users can read; Admins can write.
+    match /appConfig/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Notification settings & system config — Admins only.
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // Seasons — read by authenticated users, write by Admins.
     match /seasons/{seasonId} {
       allow read: if request.auth != null;

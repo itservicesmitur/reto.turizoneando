@@ -14,13 +14,13 @@ export const seedTestData = onCall(async (request) => {
   // Guard: no duplicar semilla
   const existingSeasonSnap = await db
     .collection("seasons")
-    .where("name", "==", "Temporada Demo — Zona Colonial")
+    .where("name", "==", "Temporada Demo — Ciudad Colonial")
     .limit(1)
     .get();
   if (!existingSeasonSnap.empty) {
     throw new HttpsError(
       "already-exists",
-      "Ya existen datos de prueba. Elimina la temporada 'Temporada Demo — Zona Colonial' antes de volver a cargar."
+      "Ya existen datos de prueba. Elimina la temporada 'Temporada Demo — Ciudad Colonial' antes de volver a cargar."
     );
   }
 
@@ -31,7 +31,7 @@ export const seedTestData = onCall(async (request) => {
   prizeBatch.set(prize1Ref, {
     id: prize1Ref.id,
     name: "Cena Gastronómica en Pat'e Palo",
-    description: "Cena para dos personas en el restaurante más emblemático de la Zona Colonial, con vista al Mar Caribe.",
+    description: "Cena para dos personas en el restaurante más emblemático de la Ciudad Colonial, con vista al Mar Caribe.",
     imageUrl: "",
     categoria: "Restaurantes",
     relevance: 2,
@@ -79,7 +79,7 @@ export const seedTestData = onCall(async (request) => {
 
   seasonBatch.set(seasonRef, {
     id: seasonId,
-    name: "Temporada Demo — Zona Colonial",
+    name: "Temporada Demo — Ciudad Colonial",
     status: "upcoming",
     startDate: new Date("2026-07-01T00:00:00.000Z"),
     endDate: new Date("2026-09-30T23:59:59.000Z"),
@@ -219,7 +219,7 @@ export const seedTestData = onCall(async (request) => {
           options: ["Calle El Conde", "Calle Las Damas", "Calle Arzobispo Meriño", "Av. George Washington"],
           optionsEn: ["El Conde Street", "Las Damas Street", "Archbishop Meriño Street", "George Washington Ave."],
           correctIndex: 1, difficulty: "medium", points: 20, isBonus: true,
-          explanation: "El Panteón Nacional se encuentra en la Calle Las Damas, considerada la primera calle construida en América, en pleno corazón de la Zona Colonial.",
+          explanation: "El Panteón Nacional se encuentra en la Calle Las Damas, considerada la primera calle construida en América, en pleno corazón de la Ciudad Colonial.",
           explanationEn: "The National Pantheon is located on Las Damas Street, considered the first street built in America, in the heart of the Colonial Zone.",
         },
       ],
@@ -228,7 +228,7 @@ export const seedTestData = onCall(async (request) => {
       stageId: "stage_2",
       name: "Casa de las Gárgolas",
       nameEn: "House of the Gargoyles",
-      narration: "La Casa de las Gárgolas es uno de los edificios más misteriosos de la Zona Colonial. Su fachada está decorada con figuras de piedra tallada que representan seres fantásticos, dándole un aspecto único y enigmático que atrae a visitantes de todo el mundo.",
+      narration: "La Casa de las Gárgolas es uno de los edificios más misteriosos de la Ciudad Colonial. Su fachada está decorada con figuras de piedra tallada que representan seres fantásticos, dándole un aspecto único y enigmático que atrae a visitantes de todo el mundo.",
       narrationEn: "The House of the Gargoyles is one of the most mysterious buildings in the Colonial Zone. Its facade is decorated with carved stone figures representing fantastical beings, giving it a unique and enigmatic appearance that attracts visitors from around the world.",
       lat: 18.4738, lng: -69.8857, order: 2, active: true,
       questions: [
@@ -341,17 +341,17 @@ export const seedTestData = onCall(async (request) => {
       stageId: "stage_3",
       name: "Calle El Conde",
       nameEn: "El Conde Street",
-      narration: "La Calle El Conde es la arteria principal de la Zona Colonial. Peatonal y vibrante, conecta la Puerta del Conde con el Parque Colón, pasando por tiendas, cafés y monumentos que narran siglos de historia dominicana.",
+      narration: "La Calle El Conde es la arteria principal de la Ciudad Colonial. Peatonal y vibrante, conecta la Puerta del Conde con el Parque Colón, pasando por tiendas, cafés y monumentos que narran siglos de historia dominicana.",
       narrationEn: "El Conde Street is the main artery of the Colonial Zone. Pedestrian and vibrant, it connects the El Conde Gate with Columbus Park, passing through shops, cafes, and monuments that narrate centuries of Dominican history.",
       lat: 18.4737, lng: -69.8872, order: 3, active: true,
       questions: [
         {
           text: "¿Cuál es el principal uso actual de la Calle El Conde?",
           textEn: "What is the main current use of El Conde Street?",
-          options: ["Es una calle vehicular exclusiva", "Es la principal calle peatonal y comercial de la Zona Colonial", "Es una zona residencial histórica", "Es un paseo marítimo costero"],
+          options: ["Es una calle vehicular exclusiva", "Es la principal calle peatonal y comercial de la Ciudad Colonial", "Es una zona residencial histórica", "Es un paseo marítimo costero"],
           optionsEn: ["It's an exclusive vehicular street", "It's the main pedestrian and commercial street of the Colonial Zone", "It's a historic residential area", "It's a coastal boardwalk"],
           correctIndex: 1, difficulty: "easy", points: 10, isBonus: false,
-          explanation: "La Calle El Conde es la principal arteria peatonal de la Zona Colonial, llena de comercios, restaurantes y monumentos históricos.",
+          explanation: "La Calle El Conde es la principal arteria peatonal de la Ciudad Colonial, llena de comercios, restaurantes y monumentos históricos.",
           explanationEn: "El Conde Street is the main pedestrian artery of the Colonial Zone, filled with shops, restaurants, and historical monuments.",
         },
         {
