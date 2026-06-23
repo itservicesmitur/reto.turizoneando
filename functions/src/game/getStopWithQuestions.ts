@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 
-export const getStopWithQuestions = onCall(async (request) => {
+export const getStopWithQuestions = onCall({ minInstances: 1, maxInstances: 100 }, async (request) => {
   // 1. Validate auth
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");

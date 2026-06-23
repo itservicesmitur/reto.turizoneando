@@ -1,0 +1,20 @@
+{
+  "name": "turizoneando-load-tests",
+  "version": "1.0.0",
+  "description": "k6 load testing scripts for Turizoneando",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "setup": "node generate-tokens.js && node setup-players.js && node fetch-stops.js",
+    "generate-tokens": "node generate-tokens.js",
+    "setup-players": "node setup-players.js",
+    "fetch-stops": "node fetch-stops.js",
+    "smoke": "k6 run --env ENV=prod --vus 2000 --duration 8m scenarios/04_full_journey.js",
+    "load": "k6 run --env ENV=prod scenarios/04_full_journey.js",
+    "load-legacy": "k6 run --env ENV=prod scenarios/01_player_journey.js",
+    "leaderboard": "k6 run --env ENV=prod scenarios/02_leaderboard.js",
+    "spike": "k6 run --env ENV=prod scenarios/03_spike.js",
+    "all": "bash run.sh"
+  },
+  "dependencies": {}
+}

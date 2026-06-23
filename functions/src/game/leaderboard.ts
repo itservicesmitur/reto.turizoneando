@@ -82,7 +82,7 @@ async function computeRankings(): Promise<{
   return { rankedPlayers, playerMap };
 }
 
-export const getTopTen = onCall(async (request) => {
+export const getTopTen = onCall({ minInstances: 1, maxInstances: 20 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
@@ -95,7 +95,7 @@ export const getTopTen = onCall(async (request) => {
   }
 });
 
-export const getMyPositionsRanking = onCall(async (request) => {
+export const getMyPositionsRanking = onCall({ minInstances: 1, maxInstances: 20 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }

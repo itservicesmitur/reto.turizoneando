@@ -10,7 +10,7 @@ import logoImg from '../assets/logo1.png'
 const DIGITS = 6
 
 export default function VerifyEmailPage() {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const navigate    = useNavigate()
   const lang        = i18n.language?.startsWith('en') ? 'en' : 'es'
 

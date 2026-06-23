@@ -144,7 +144,7 @@ async function resolvePlayerStatus(playerId: string, seasonId: string | undefine
 
 // ── PLAYER-FACING ─────────────────────────────────────────────────────────────
 // Called by the authenticated player to get their own progress.
-export const getPlayerStatus = onCall(async (request) => {
+export const getPlayerStatus = onCall({ minInstances: 1, maxInstances: 200 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }

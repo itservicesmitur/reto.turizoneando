@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-export const registerAttempt = onCall(async (request) => {
+export const registerAttempt = onCall({ minInstances: 1, maxInstances: 20 }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
@@ -82,7 +82,7 @@ export const registerAttempt = onCall(async (request) => {
     }
 
     if (Object.keys(playerUpdate).length > 0) {
-      await db.collection("players").doc(playerId).update(playerUpdate);
+      await db.collection("players").doc(playerId).set(playerUpdate, { merge: true });
     }
 
     return {

@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { getFirestore, Timestamp, FieldValue } from "firebase-admin/firestore";
@@ -694,7 +695,7 @@ export const sendOtpEmail = onCall({
   // Rate limit: 60s between resends
   const existing = await otpRef.get();
   if (existing.exists) {
-    const createdAt = existing.data()!.createdAt as Timestamp;
+    const createdAt = (existing.data() as { createdAt: Timestamp }).createdAt;
     const elapsed = Timestamp.now().seconds - createdAt.seconds;
     if (elapsed < 60) {
       throw new HttpsError("resource-exhausted", String(Math.ceil(60 - elapsed)));
@@ -702,7 +703,7 @@ export const sendOtpEmail = onCall({
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const now  = Timestamp.now();
+  const now = Timestamp.now();
   const expiresAt = new Timestamp(now.seconds + 10 * 60, 0);
 
   await otpRef.set({ code, email, expiresAt, attempts: 0, createdAt: now });
@@ -747,7 +748,7 @@ export const verifyOtp = onCall(async (request) => {
 
   if (!snap.exists) throw new HttpsError("not-found", "No hay código pendiente. Solicita uno nuevo.");
 
-  const data = snap.data()!;
+  const data = snap.data() as Record<string, unknown>;
   const expiresAt = data.expiresAt as Timestamp;
 
   if (Timestamp.now().seconds > expiresAt.seconds) {
@@ -870,7 +871,6 @@ export const sendAdminPrizeCodeEmail = onCall({
 // If stockCurrent crosses a threshold (10 or 5) for the first time, sends an
 // alert email to the address stored in /settings/notifications.stockAlertEmail.
 // Thresholds already notified are stored in /prizes/{id}.alertsSent to avoid duplicates.
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 
 const STOCK_ALERT_THRESHOLDS = [10, 5];
 
@@ -880,27 +880,31 @@ export const notifyLowStock = onDocumentUpdated(
     secrets: [sendgridApiKeySecret, sendgridFromEmailSecret],
   },
   async (event) => {
-    const before = event.data?.before.data();
-    const after  = event.data?.after.data();
-    if (!before || !after) return;
+    // Safely extract before/after snapshots
+    const beforeSnap = event.data?.before.data();
+    const afterSnap = event.data?.after.data();
+    const prizeRef = event.data?.after.ref;
+    if (!beforeSnap || !afterSnap || !prizeRef) return;
 
-    const prevStock: number = typeof before.stockCurrent === "number" ? before.stockCurrent : Infinity;
-    const currStock: number = typeof after.stockCurrent  === "number" ? after.stockCurrent  : 0;
+    const prevStock: number =
+      typeof beforeSnap.stockCurrent === "number" ? beforeSnap.stockCurrent : Infinity;
+    const currStock: number =
+      typeof afterSnap.stockCurrent === "number" ? afterSnap.stockCurrent : 0;
 
     // Only act when stock decreased
     if (currStock >= prevStock) return;
 
-    // Which thresholds did we just cross?
-    const crossed = STOCK_ALERT_THRESHOLDS.filter(t => prevStock > t && currStock <= t);
+    // Which thresholds did we just cross downward?
+    const crossed = STOCK_ALERT_THRESHOLDS.filter((t) => prevStock > t && currStock <= t);
     if (crossed.length === 0) return;
 
     // Which of those haven't been notified yet?
-    const alertsSent: number[] = Array.isArray(after.alertsSent) ? after.alertsSent : [];
-    const newCrossed = crossed.filter(t => !alertsSent.includes(t));
+    const alertsSent: number[] = Array.isArray(afterSnap.alertsSent) ? afterSnap.alertsSent : [];
+    const newCrossed = crossed.filter((t) => !alertsSent.includes(t));
     if (newCrossed.length === 0) return;
 
     // Mark thresholds as sent FIRST (idempotence — avoids duplicates on retry)
-    await event.data!.after.ref.update({
+    await prizeRef.update({
       alertsSent: [...alertsSent, ...newCrossed],
     });
 
@@ -913,19 +917,19 @@ export const notifyLowStock = onDocumentUpdated(
       return;
     }
 
-    const prizeName  = String(after.name      || "Premio");
-    const categoria  = String(after.categoria || "");
-    const prizeImg   = String(after.imageUrl  || "");
-    const localName  = String(after.localName || "");
-    const prizeRef   = event.data!.after.ref;
+    const prizeName = String(afterSnap.name || "Premio");
+    const categoria = String(afterSnap.categoria || "");
+    const prizeImg = String(afterSnap.imageUrl || "");
+    const localName = String(afterSnap.localName || "");
+    const prizeId = prizeRef.id;
 
     // Send one email per newly-crossed threshold (usually just one at a time)
     for (const threshold of newCrossed) {
-      const isCritical   = threshold <= 5;
-      const urgencyIcon  = isCritical ? "🔴" : "🟡";
+      const isCritical = threshold <= 5;
+      const urgencyIcon = isCritical ? "🔴" : "🟡";
       const urgencyLabel = isCritical ? "Stock crítico" : "Stock bajo";
-      const urgencyColor  = isCritical ? "#dc2626" : "#d97706";
-      const urgencyBg     = isCritical ? "rgba(220,38,38,0.07)" : "rgba(217,119,6,0.07)";
+      const urgencyColor = isCritical ? "#dc2626" : "#d97706";
+      const urgencyBg = isCritical ? "rgba(220,38,38,0.07)" : "rgba(217,119,6,0.07)";
       const urgencyBorder = isCritical ? "rgba(220,38,38,0.3)" : "rgba(217,119,6,0.3)";
 
       const subject = `${urgencyIcon} ${urgencyLabel}: ${prizeName} — quedan ${currStock} unidades`;
@@ -970,7 +974,7 @@ export const notifyLowStock = onDocumentUpdated(
           </p>
           <p style="margin:0;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:14px;">
             Este correo fue generado automáticamente por el sistema de notificaciones de Turizoneando.<br>
-            ID del premio: <code style="font-family:monospace;">${prizeRef.id}</code>
+            ID del premio: <code style="font-family:monospace;">${prizeId}</code>
           </p>
         </div>
         ${getEmailFooter()}
@@ -980,13 +984,13 @@ export const notifyLowStock = onDocumentUpdated(
         `[${isCritical ? "CRÍTICO" : "ADVERTENCIA"}] Stock bajo — ${prizeName}\n\n` +
         `Quedan ${currStock} unidades (umbral de alerta: ${threshold}).\n` +
         (localName ? `Establecimiento: ${localName}\n` : "") +
-        `\nAccede al panel de administración para reponer el stock.\nID premio: ${prizeRef.id}\n\nMITUR - Turizoneando`;
+        `\nAccede al panel de administración para reponer el stock.\nID premio: ${prizeId}\n\nMITUR - Turizoneando`;
 
       try {
         await sendRawEmail(alertEmail, subject, htmlContent, textContent);
-        console.log(`[notifyLowStock] Alert sent for prize ${prizeRef.id} at threshold ${threshold} → ${alertEmail}`);
+        console.log(`[notifyLowStock] Alert sent for prize ${prizeId} at threshold ${threshold} → ${alertEmail}`);
       } catch (emailErr: any) {
-        console.error(`[notifyLowStock] Failed to send alert for prize ${prizeRef.id}:`, emailErr);
+        console.error(`[notifyLowStock] Failed to send alert for prize ${prizeId}:`, emailErr);
       }
     }
   }
