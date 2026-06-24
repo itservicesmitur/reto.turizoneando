@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(md5)"
+      "Bash(md5)",
+      "Bash(ffmpeg -f gif -i '/Users/josuecabrera/Desktop/MY PROYECT/reto.turizoneando/public/assets/img/turiguaia.gif' -c:v libvpx-vp9 -b:v 0 -crf 28 -auto-alt-ref 0 '/Users/josuecabrera/Desktop/MY PROYECT/reto.turizoneando/public/assets/img/turiguaia.webm' -y)"
     ]
   }
 }

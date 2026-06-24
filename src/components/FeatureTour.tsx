@@ -1,11 +1,16 @@
 import React from 'react'
 import { Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from 'react-joyride'
+import { useTranslation } from 'react-i18next'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import WelcomeCard from '../features/map/quiz/WelcomeCard'
+import { useAudioPlayer } from '../features/map/quiz/useAudioPlayer'
 
 const TOUR_KEY = 'turizoneando_tour_done_users'
+const NARRATION_DURATION = 28
 
+// ─── Context para pasar datos de audio al tooltip ─────────────────────────
+interface TourAudioCtx { audioUrl: string; welcomeText: string; lang: 'es' | 'en' }
+const TourAudioContext = React.createContext<TourAudioCtx>({ audioUrl: '', welcomeText: '', lang: 'es' })
 
 // ─── Joyride steps ────────────────────────────────────────────────────────
 
@@ -64,85 +69,248 @@ const steps: Step[] = [
 // ─── Custom tooltip ────────────────────────────────────────────────────────
 
 function MapTooltip({ index, isLastStep, size, step, backProps, primaryProps, skipProps, tooltipProps }: TooltipRenderProps) {
+  const { t } = useTranslation()
+  const { audioUrl, welcomeText } = React.useContext(TourAudioContext)
+
+  const STEP_TITLES = ['', t('map.tour_stages_title'), t('map.tour_fullscreen_title'), t('map.tour_profile_title')]
+  const STEP_BODIES  = ['', t('map.tour_stages_body'),  t('map.tour_fullscreen_body'),  t('map.tour_profile_body')]
+
+  // Audio — activo solo en card 0; hook siempre se llama (reglas de hooks)
+  const { playing, progress, muted, handleToggle, handleMute } = useAudioPlayer({
+    audioUrl: index === 0 ? audioUrl : '',
+    duration: NARRATION_DURATION,
+  })
+
+  // Parar audio al salir de card 0
+  const playingRef = React.useRef(playing)
+  playingRef.current = playing
+  React.useEffect(() => {
+    if (index !== 0 && playingRef.current) handleToggle()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index])
+
+  // Texto animado (card 0)
+  const displayText = welcomeText || t('map.tour_turi_body')
+  const words = React.useMemo(() => displayText.split(' '), [displayText])
+  const litWords = Math.floor(progress * words.length)
+
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el || progress <= 0) return
+    const scrollHeight = el.scrollHeight - el.clientHeight
+    if (scrollHeight > 0) el.scrollTo({ top: progress * scrollHeight, behavior: 'smooth' })
+  }, [progress])
+
   return (
     <div
       {...tooltipProps}
       style={{
-        width: 312,
+        width: 'calc(100vw - 32px)',
+        maxWidth: 380,
         background: '#ffffff',
         borderRadius: 22,
         boxShadow: '0 16px 48px rgba(0,0,0,0.16), 0 4px 16px rgba(9,109,125,0.08)',
         overflow: 'hidden',
         fontFamily: 'system-ui, sans-serif',
+        position: 'relative',
       }}
     >
-      {/* Botón cerrar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px 0' }}>
-        <button
-          {...skipProps}
-          style={{
-            background: 'rgba(0,187,180,0.09)', border: 'none', borderRadius: 8,
-            cursor: 'pointer', color: '#096d7d', fontSize: 14,
-            width: 28, height: 28,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-          }}
-        >✕</button>
-      </div>
-
-      {/* Ícono → Título → Descripción */}
-      <div style={{ padding: '0 22px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Ícono */}
-        <div style={{
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#18d5cd 0%,#096d7d 100%)',
-          boxShadow: '0 6px 18px rgba(0,187,180,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <i className={STEP_ICONS[index]} style={{ fontSize: 24, color: '#fff' }} />
-        </div>
-
-        {/* Título en mayúsculas */}
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#096d7d', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          {step.title as React.ReactNode}
-        </h3>
-
-        {/* Descripción */}
-        {step.content}
-      </div>
-
-      {/* Separador */}
-      <div style={{ margin: '14px 22px 0', height: 1, background: 'linear-gradient(90deg,transparent,rgba(0,187,180,0.28),transparent)' }} />
-
-      {/* Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px 20px', gap: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(9,109,125,0.38)' }}>{index + 1} / {size}</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {index > 0 && (
-            <button
-              {...backProps}
-              style={{
-                background: '#f5fdfc', border: '1.5px solid rgba(0,187,180,0.22)',
-                borderRadius: 9999, color: '#096d7d',
-                fontWeight: 700, fontSize: 13,
-                padding: '10px 20px', cursor: 'pointer', lineHeight: 1,
-              }}
-            >Atrás</button>
-          )}
+      {/* Botón cerrar — solo en cards 1-3 */}
+      {index > 0 && (
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
           <button
-            {...primaryProps}
+            {...skipProps}
             style={{
-              background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)',
-              border: 'none', borderRadius: 9999,
-              color: '#ffffff', fontWeight: 800, fontSize: 13,
-              padding: '10px 22px', cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(0,187,180,0.32)',
-              lineHeight: 1, whiteSpace: 'nowrap',
+              background: 'rgba(255,255,255,0.92)', border: 'none', borderRadius: '50%',
+              cursor: 'pointer', color: '#096d7d', fontSize: 13,
+              width: 32, height: 32,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
             }}
-          >
-            {isLastStep ? '¡Ver cómo jugar!' : 'Siguiente'}
-          </button>
+          >✕</button>
         </div>
-      </div>
+      )}
+
+      {index === 0 ? (
+        /* ── Card 0: ciudad + Turi + audio narrado ── */
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+          {/* Zona imagen */}
+          <div style={{ position: 'relative', height: 210, overflow: 'hidden', padding: 8 }}>
+            <img
+              src="/assets/img/cityZone.png"
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 50%', display: 'block', borderRadius: 16 }}
+            />
+            {/* Overlay */}
+            <div style={{ position: 'absolute', inset: 8, borderRadius: 16, background: 'linear-gradient(to right, rgba(7,95,110,0.78) 0%, rgba(7,95,110,0.32) 42%, transparent 68%)', zIndex: 2, pointerEvents: 'none' }} />
+
+            {/* Turi */}
+            <div style={{ position: 'absolute', bottom: 4, left: '67%', transform: 'translateX(-50%)', width: 220, zIndex: 3 }}>
+              <video autoPlay loop muted playsInline style={{ width: '100%', display: 'block' }}>
+                <source src="/assets/img/turiguaia.webm" type="video/webm" />
+              </video>
+            </div>
+
+            {/* Mute — arriba izquierda */}
+            <button
+              onClick={handleMute}
+              style={{
+                position: 'absolute', top: 18, left: 18, zIndex: 10,
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.92)', border: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.22)',
+                color: '#096d7d', fontSize: 16,
+              }}
+            >
+              <i className={muted ? 'ri-volume-mute-fill' : 'ri-volume-up-fill'} />
+            </button>
+
+            {/* Saltar — arriba derecha (avanza solo a card 1, NO sale del tour) */}
+            <button
+              {...primaryProps}
+              style={{
+                position: 'absolute', top: 18, right: 18, zIndex: 10,
+                height: 32, paddingLeft: 12, paddingRight: 12, borderRadius: 9999,
+                background: 'rgba(255,255,255,0.92)', border: 'none',
+                display: 'flex', alignItems: 'center', gap: 5,
+                cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.22)',
+                color: '#096d7d', fontSize: 12, fontWeight: 700,
+              }}
+            >
+              {t('map.tour_skip')}
+              <i className="ri-skip-forward-line" style={{ fontSize: 13 }} />
+            </button>
+          </div>
+
+          {/* Zona blanca */}
+          <div style={{ background: '#fff', padding: '14px 18px 16px' }}>
+            {/* Burbuja con texto animado */}
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              <div style={{ position: 'absolute', top: -9, left: 24, width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '10px solid #e6f9f8' }} />
+              <div
+                ref={scrollRef}
+                style={{
+                  background: '#e6f9f8', border: '1.5px solid rgba(0,187,180,0.2)',
+                  borderRadius: 14, padding: '11px 14px',
+                  boxShadow: '0 3px 12px rgba(0,187,180,0.1)',
+                  maxHeight: 100, overflowY: 'auto', scrollbarWidth: 'none',
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65 }}>
+                  {words.map((word, i) => {
+                    const isLit = i < litWords
+                    const isCurrent = isLit && i >= litWords - 3
+                    return (
+                      <span
+                        key={i}
+                        className="transition-all duration-200"
+                        style={{
+                          fontWeight: isLit ? 700 : 400,
+                          color: isLit ? '#096d7d' : 'rgba(9,109,125,0.55)',
+                          background: isCurrent ? 'rgba(0,187,180,0.22)' : 'transparent',
+                          borderRadius: isCurrent ? 4 : 0,
+                          padding: isCurrent ? '0 2px' : '0',
+                        }}
+                      >
+                        {word}{' '}
+                      </span>
+                    )
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(9,109,125,0.38)' }}>{index + 1} / {size}</span>
+              {progress >= 1 ? (
+                <button
+                  {...primaryProps}
+                  style={{
+                    background: 'linear-gradient(135deg, #e0344b 0%, #ff9447 100%)',
+                    border: 'none', borderRadius: 9999, color: '#fff',
+                    fontWeight: 800, fontSize: 13, padding: '9px 22px',
+                    cursor: 'pointer', boxShadow: '0 4px 14px rgba(224,52,75,0.32)',
+                    lineHeight: 1, whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isLastStep ? t('map.tour_profile_btn') : t('map.tour_continue')}
+                </button>
+              ) : (
+                <button
+                  onClick={handleToggle}
+                  style={{
+                    background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)',
+                    border: 'none', borderRadius: 9999, color: '#fff',
+                    fontWeight: 800, fontSize: 13, padding: '9px 22px',
+                    cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,187,180,0.35)',
+                    lineHeight: 1, whiteSpace: 'nowrap',
+                  }}
+                >
+                  {playing ? t('map.tour_pause') : t('map.tour_listen')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── Cards 1-3 ── */
+        <div style={{ padding: '20px 22px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: 'linear-gradient(135deg,#18d5cd 0%,#096d7d 100%)',
+            boxShadow: '0 6px 18px rgba(0,187,180,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <i className={STEP_ICONS[index]} style={{ fontSize: 24, color: '#fff' }} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#096d7d', lineHeight: 1.3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {STEP_TITLES[index] || (step.title as React.ReactNode)}
+          </h3>
+          {STEP_BODIES[index]
+            ? <p style={{ margin: 0, fontSize: 13, color: 'rgba(9,109,125,0.72)', lineHeight: 1.65 }}>{STEP_BODIES[index]}</p>
+            : step.content}
+        </div>
+      )}
+
+      {/* Separador y footer — solo cards 1-3 */}
+      {index > 0 && <div style={{ margin: '14px 22px 0', height: 1, background: 'linear-gradient(90deg,transparent,rgba(0,187,180,0.28),transparent)' }} />}
+
+      {index > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px 20px', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(9,109,125,0.38)' }}>{index + 1} / {size}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {index > 0 && (
+              <button
+                {...backProps}
+                style={{
+                  background: '#f5fdfc', border: '1.5px solid rgba(0,187,180,0.22)',
+                  borderRadius: 9999, color: '#096d7d',
+                  fontWeight: 700, fontSize: 13,
+                  padding: '10px 20px', cursor: 'pointer', lineHeight: 1,
+                }}
+              >{t('map.tour_back')}</button>
+            )}
+            <button
+              {...primaryProps}
+              style={{
+                background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)',
+                border: 'none', borderRadius: 9999,
+                color: '#ffffff', fontWeight: 800, fontSize: 13,
+                padding: '10px 22px', cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0,187,180,0.32)',
+                lineHeight: 1, whiteSpace: 'nowrap',
+              }}
+            >
+              {isLastStep ? t('map.tour_profile_btn') : t('map.tour_next')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -376,35 +544,19 @@ function MiniPrizeCard() {
   )
 }
 
-// ─── Demo slides ──────────────────────────────────────────────────────────
-
-const DEMO_SLIDES = [
-  {
-    title: 'Lee la historia',
-    subtitle: 'Al tocar una parada aparece su historia. Escúchala con "NARRACIÓN" o léela antes de responder.',
-    mockUI: <MiniHistoryCard />,
-  },
-  {
-    title: 'Responde el quiz',
-    subtitle: 'Selecciona la respuesta correcta y toca "COMPROBAR". ¡Cuantas más aciertes, más puntos ganas!',
-    mockUI: <MiniQuizCard />,
-  },
-  {
-    title: 'Gira y gana',
-    subtitle: 'Al completar una etapa giras la ruleta para ganar un premio sorpresa del Desafío Cultural.',
-    mockUI: <MiniRouletteCard />,
-  },
-  {
-    title: '¡Tu premio te espera!',
-    subtitle: 'Recibirás un código único para canjearlo en los establecimientos participantes. ¡Guárdalo bien!',
-    mockUI: <MiniPrizeCard />,
-  },
-]
-
 // ─── Demo overlay ──────────────────────────────────────────────────────────
 
 function DemoOverlay({ onFinish }: { onFinish: () => void }) {
+  const { t } = useTranslation()
   const [idx, setIdx] = React.useState(0)
+
+  const DEMO_SLIDES = React.useMemo(() => [
+    { title: t('map.demo_slide1_title'), subtitle: t('map.demo_slide1_body'), mockUI: <MiniHistoryCard /> },
+    { title: t('map.demo_slide2_title'), subtitle: t('map.demo_slide2_body'), mockUI: <MiniQuizCard /> },
+    { title: t('map.demo_slide3_title'), subtitle: t('map.demo_slide3_body'), mockUI: <MiniRouletteCard /> },
+    { title: t('map.demo_slide4_title'), subtitle: t('map.demo_slide4_body'), mockUI: <MiniPrizeCard /> },
+  ], [t])
+
   const slide = DEMO_SLIDES[idx]
   const total = DEMO_SLIDES.length
   const isLast = idx === total - 1
@@ -419,7 +571,6 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
       fontFamily: 'system-ui, sans-serif',
       overflowY: 'auto',
     }}>
-      {/* Una sola card blanca que contiene todo */}
       <div style={{
         width: '100%', maxWidth: 340,
         background: '#ffffff',
@@ -427,7 +578,6 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
         overflow: 'hidden',
         boxShadow: '0 20px 60px rgba(0,0,0,0.3), 0 4px 16px rgba(9,109,125,0.1)',
       }}>
-        {/* Header: badge + cerrar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
           <span style={{
             fontSize: 9, fontWeight: 800, letterSpacing: '0.1em',
@@ -435,7 +585,7 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
             background: 'rgba(0,187,180,0.08)', border: '1px solid rgba(0,187,180,0.25)',
             borderRadius: 6, padding: '3px 8px',
           }}>
-            Demo del juego
+            {t('map.demo_label')}
           </span>
           <button
             onClick={onFinish}
@@ -448,7 +598,6 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
           >✕</button>
         </div>
 
-        {/* Título + subtítulo */}
         <div style={{ padding: '10px 18px 0' }}>
           <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 800, color: '#096d7d' }}>
             {slide.title}
@@ -458,14 +607,12 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
           </p>
         </div>
 
-        {/* Mini UI preview — zona destacada */}
         <div style={{ margin: '12px 0 0', background: 'linear-gradient(to bottom,#d8f5f3,#edfbfa)', padding: '16px 14px' }}>
           <div style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 6px 24px rgba(9,109,125,0.2)' }}>
             {slide.mockUI}
           </div>
         </div>
 
-        {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 16px 16px' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(9,109,125,0.38)' }}>{idx + 1} / {total}</span>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -478,7 +625,7 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
                   fontWeight: 700, fontSize: 13,
                   padding: '10px 18px', cursor: 'pointer', lineHeight: 1,
                 }}
-              >Atrás</button>
+              >{t('map.demo_back')}</button>
             )}
             <button
               onClick={isLast ? onFinish : () => setIdx(i => i + 1)}
@@ -492,22 +639,22 @@ function DemoOverlay({ onFinish }: { onFinish: () => void }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              {isLast ? '¡Entendido!' : 'Siguiente'}
+              {isLast ? t('map.demo_done') : t('map.demo_next')}
             </button>
           </div>
         </div>
-      </div>{/* card blanca */}
+      </div>
     </div>
   )
 }
 
 // ─── Componente principal ──────────────────────────────────────────────────
 
-type Phase = 'welcome' | 'tour' | 'demo' | 'done'
+type Phase = 'tour' | 'demo' | 'done'
 
 interface WelcomeData { text_es: string; text_en: string; audioUrl_es: string; audioUrl_en: string }
 
-interface Props { ready: boolean; userId?: string; lang?: 'es' | 'en' }
+interface Props { ready: boolean; userId?: string }
 
 function getDoneUsers(): string[] {
   try { return JSON.parse(localStorage.getItem(TOUR_KEY) ?? '[]') } catch { return [] }
@@ -520,46 +667,49 @@ function markUserDone(userId: string) {
   }
 }
 
-export default function FeatureTour({ ready, userId, lang = 'es' }: Props) {
+export default function FeatureTour({ ready, userId }: Props) {
+  const { i18n } = useTranslation()
+  const lang: 'es' | 'en' = i18n.language?.startsWith('en') ? 'en' : 'es'
   const alreadyDone = userId ? getDoneUsers().includes(userId) : false
   const [run,     setRun]     = React.useState(false)
-  const [phase,   setPhase]   = React.useState<Phase>('welcome')
+  const [phase,   setPhase]   = React.useState<Phase>('tour')
   const [welcome, setWelcome] = React.useState<WelcomeData | null>(null)
 
-  // Fetch welcome message from Firestore once
+  // Cargar texto y audio de bienvenida desde Firestore (se muestra en card 0)
   React.useEffect(() => {
     if (alreadyDone) return
     getDoc(doc(db, 'appConfig', 'welcomeMessage'))
       .then(snap => {
         if (snap.exists()) {
           const d = snap.data()
+          const bust = `_cb=${Date.now()}`
+          const addBust = (url: string) => url ? `${url}${url.includes('?') ? '&' : '?'}${bust}` : ''
           setWelcome({
             text_es:     d.text_es     || '',
             text_en:     d.text_en     || '',
-            audioUrl_es: d.audioUrl_es || '',
-            audioUrl_en: d.audioUrl_en || '',
+            audioUrl_es: addBust(d.audioUrl_es || ''),
+            audioUrl_en: addBust(d.audioUrl_en || ''),
           })
-        } else {
-          // No welcome message configured → skip straight to tour
-          setPhase('tour')
         }
       })
-      .catch(() => setPhase('tour'))
+      .catch(() => {})
   }, [alreadyDone])
 
-  // Start Joyride after welcome is dismissed
+  // No arrancar el tour hasta que userId esté definido (Firebase Auth es asíncrono)
   React.useEffect(() => {
-    if (ready && phase === 'tour') {
-      const t = setTimeout(() => setRun(true), 600)
-      return () => clearTimeout(t)
+    if (!ready || phase !== 'tour' || !userId) return
+    if (getDoneUsers().includes(userId)) {
+      setPhase('done')
+      return
     }
-  }, [ready, phase])
-
-  const handleWelcomeContinue = () => setPhase('tour')
+    const t = setTimeout(() => setRun(true), 600)
+    return () => clearTimeout(t)
+  }, [ready, phase, userId])
 
   const handleEvent = (data: EventData) => {
     const { status } = data
     if (status === STATUS.FINISHED) {
+      if (userId) markUserDone(userId)
       setRun(false)
       setPhase('demo')
     } else if (status === STATUS.SKIPPED) {
@@ -574,7 +724,7 @@ export default function FeatureTour({ ready, userId, lang = 'es' }: Props) {
     setPhase('done')
   }
 
-  if (alreadyDone || phase === 'done') return null
+  if (phase === 'done') return null
 
   const welcomeText = lang === 'en' ? (welcome?.text_en || '') : (welcome?.text_es || '')
   const audioUrl    = lang === 'en' ? (welcome?.audioUrl_en || '') : (welcome?.audioUrl_es || '')
@@ -591,24 +741,18 @@ export default function FeatureTour({ ready, userId, lang = 'es' }: Props) {
         .__floater__arrow { display: none !important; }
       `}</style>
 
-      {phase === 'welcome' && welcome && welcomeText && (
-        <WelcomeCard
-          text={welcomeText}
-          audioUrl={audioUrl || undefined}
-          onContinue={handleWelcomeContinue}
-        />
-      )}
-
-      {phase === 'tour' && (
-        <Joyride
-          steps={steps}
-          run={run}
-          continuous
-          tooltipComponent={MapTooltip}
-          options={{ zIndex: 10000, overlayColor: 'rgba(0,0,0,0.48)', skipBeacon: true, skipScroll: true, arrowColor: 'transparent' }}
-          onEvent={handleEvent}
-        />
-      )}
+      <TourAudioContext.Provider value={{ audioUrl, welcomeText, lang }}>
+        {phase === 'tour' && (
+          <Joyride
+            steps={steps}
+            run={run}
+            continuous
+            tooltipComponent={MapTooltip}
+            options={{ zIndex: 10000, overlayColor: 'rgba(0,0,0,0.48)', skipBeacon: true, skipScroll: true, arrowColor: 'transparent' }}
+            onEvent={handleEvent}
+          />
+        )}
+      </TourAudioContext.Provider>
 
       {phase === 'demo' && <DemoOverlay onFinish={handleDemoFinish} />}
     </>

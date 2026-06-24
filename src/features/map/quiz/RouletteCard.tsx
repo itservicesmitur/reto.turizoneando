@@ -673,7 +673,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
           >
             {/* Emoji con bounce */}
             <div style={{ fontSize: 58, lineHeight: 1, animation: 'emptyBounce 0.65s cubic-bezier(0.36,0.07,0.19,0.97) 0.1s both' }}>
-              😔
+              💪
             </div>
 
             {/* Título */}
@@ -682,13 +682,13 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
               style={{
                 fontFamily: 'Outfit, Inter, system-ui, sans-serif',
                 fontSize: 26,
-                color: '#e0344b',
-                textShadow: '0 2px 12px rgba(0,0,0,0.7), 0 0 28px rgba(224,52,75,0.35)',
+                color: '#00bbb4',
+                textShadow: '0 2px 12px rgba(0,0,0,0.7), 0 0 28px rgba(0,187,180,0.35)',
                 letterSpacing: '-0.01em',
                 animation: 'emptySlideUp 0.45s ease 0.28s both',
               }}
             >
-              ¡Sin premio!
+              {t('map.no_prize_title')}
             </p>
 
             {/* Subtítulo */}
@@ -697,12 +697,14 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
               style={{
                 fontFamily: 'Outfit, Inter, system-ui, sans-serif',
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.58)',
+                color: 'rgba(255,255,255,0.68)',
                 letterSpacing: '0.02em',
+                lineHeight: 1.55,
+                maxWidth: 220,
                 animation: 'emptySlideUp 0.45s ease 0.42s both',
               }}
             >
-              Mejor suerte la próxima vez
+              {t('map.no_prize_subtitle')}
             </p>
 
             {/* Botón */}
@@ -731,7 +733,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
               }}
             >
               <i className="ri-arrow-right-circle-fill text-xl" />
-              Continuar
+              {t('map.no_prize_btn')}
             </button>
           </div>
           </div>

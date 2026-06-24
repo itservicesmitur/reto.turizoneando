@@ -279,7 +279,9 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   const [seasonName, setSeasonName] = useState('')
   const [currentSeasonId, setCurrentSeasonId] = useState('')
   const [geoLimit, setGeoLimit] = useState(false)
+  const [geoLimitRadius, setGeoLimitRadius] = useState(VALIDATION_RADIUS_DEFAULT_M)
   const [tooFarAlert, setTooFarAlert] = useState(false)
+  const [noQuestionsAlert, setNoQuestionsAlert] = useState(false)
   // Posición del usuario para el badge de distancia en la tarjeta de parada
   const [userPosition, setUserPosition] = useState<{ lat: number; lng: number } | null>(null)
 
@@ -312,6 +314,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         setSeasonName(activeSeasonName)
         setCurrentSeasonId(activeSeasonId)
         setGeoLimit(activeSeasonDoc.data().geoLimit === true)
+        setGeoLimitRadius(typeof activeSeasonDoc.data().geoLimitRadius === 'number' ? activeSeasonDoc.data().geoLimitRadius : VALIDATION_RADIUS_DEFAULT_M)
 
         // ── PASO 2: Stages de la temporada ───────────────────────
         // /seasons/{id}/stages: allow read if request.auth != null  → siempre OK
@@ -437,12 +440,32 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     const unsub = onSnapshot(doc(db, 'seasons', currentSeasonId), snap => {
       if (snap.exists()) {
         setGeoLimit(snap.data().geoLimit === true)
+        setGeoLimitRadius(typeof snap.data().geoLimitRadius === 'number' ? snap.data().geoLimitRadius : VALIDATION_RADIUS_DEFAULT_M)
       }
     })
     return unsub
   }, [currentSeasonId])
 
+  // Listener en tiempo real: usa query de colección para detectar activación y desactivación.
+  // Los listeners individuales por doc fallan porque las security rules lanzan permission-denied
+  // cuando active pasa a false, matando el listener y bloqueando futuras reactivaciones.
+  useEffect(() => {
+    if (firestoreStops.length === 0) return
+    const unsub = onSnapshot(
+      query(collection(db, 'stops'), where('active', '==', true)),
+      (snap) => {
+        const nowActiveIds = new Set(snap.docs.map(d => d.id))
+        setDeactivatedStopIds(firestoreStops.filter(s => !nowActiveIds.has(s.id)).map(s => s.id))
+      },
+      () => {} // silencioso en errores de red
+    )
+    return unsub
+  }, [firestoreStops])
+
   const [completedStops, setCompletedStops] = useState<boolean[]>([])
+  const [deactivatedStopIds, setDeactivatedStopIds] = useState<string[]>([])
+  const deactivatedStopIdSet = useMemo(() => new Set(deactivatedStopIds), [deactivatedStopIds])
+
   const [lockedAlert, setLockedAlert] = useState<
     { type: 'stage'; blockedStageIdx: number } |
     { type: 'stop'; availableStopName: string } |
@@ -451,14 +474,14 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   const activeStageIndex = useMemo(() => {
     for (let s = 0; s < stageGroups.length; s++) {
-      if (!stageGroups[s].every(i => completedStops[i])) return s
+      if (!stageGroups[s].every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))) return s
     }
     return Math.max(stageGroups.length - 1, 0)
-  }, [completedStops, stageGroups])
+  }, [completedStops, stageGroups, deactivatedStopIdSet, firestoreStops])
 
   const allCompleted = useMemo(() =>
-    stageGroups.length > 0 && stageGroups.every(g => g.every(i => completedStops[i]))
-  , [stageGroups, completedStops])
+    stageGroups.length > 0 && stageGroups.every(g => g.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? '')))
+  , [stageGroups, completedStops, deactivatedStopIdSet, firestoreStops])
 
   const introTarget = useMemo(() => {
     if (!monuments || monuments.length === 0 || stageGroups.length === 0) return undefined
@@ -489,30 +512,25 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     stopId:   activeStopId,
   })
 
-  // IDs de paradas desactivadas en tiempo real (para ocultarlas del mapa sin recargar)
-  const [deactivatedStopIds, setDeactivatedStopIds] = useState<string[]>([])
-
-  // Cuando una parada o etapa se desactiva, cerrar el quiz (pero NO limpiar selectedMonument
-  // aquí — eso mataría el listener del stop y causaría una race condition donde el bloqueo
-  // se limpia antes de que el usuario lo vea)
+  // Cuando una parada se desactiva: cerrar quiz y card silenciosamente (el listener de colección
+  // ya la quitó del mapa). Cuando una etapa se desactiva: cerrar quiz pero mostrar el bloqueo.
   useEffect(() => {
     if (statusBlock?.type === 'stop_deactivated') {
       setQuizFlow({ step: 'idle' })
-      if (activeStopId) {
-        setDeactivatedStopIds(prev => prev.includes(activeStopId) ? prev : [...prev, activeStopId])
-      }
+      setSelectedMonument(null)
+      dismissBlock()
     } else if (statusBlock?.type === 'stage_deactivated') {
       setQuizFlow({ step: 'idle' })
     }
-  }, [statusBlock, activeStopId])
+  }, [statusBlock, dismissBlock])
 
   const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
     return stageGroups.map((group, idx) => {
-      const allDone = group.length > 0 && group.every(i => completedStops[i])
+      const allDone = group.length > 0 && group.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))
       const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
       return { roman: ROMAN[idx] ?? String(idx + 1), status }
     })
-  }, [completedStops, activeStageIndex, stageGroups])
+  }, [completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
 
   const { t, i18n } = useTranslation()
 
@@ -539,13 +557,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     if (selectedStopIndex < 0) return -1
     const stageStops = stageGroups[activeStageIndex] ?? []
     for (const idx of stageStops) {
-      if (idx > selectedStopIndex && !completedStops[idx]) return idx
+      if (idx > selectedStopIndex && !completedStops[idx] && !deactivatedStopIdSet.has(firestoreStops[idx]?.id ?? '')) return idx
     }
     for (const idx of stageStops) {
-      if (idx !== selectedStopIndex && !completedStops[idx]) return idx
+      if (idx !== selectedStopIndex && !completedStops[idx] && !deactivatedStopIdSet.has(firestoreStops[idx]?.id ?? '')) return idx
     }
     return -1
-  }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops])
+  }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops, deactivatedStopIdSet, firestoreStops])
 
   // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
   const handleLogout = () => signOut(auth).then(() => navigate('/'))
@@ -571,11 +589,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   const selectedMonumentIsAvailable = useMemo(() => {
     if (!selectedMonument || selectedStopIndex < 0 || completedStops[selectedStopIndex]) return false
+    const stopId = selectedMonument.stopId
+    if (stopId && deactivatedStopIdSet.has(stopId)) return false
     const stageIdx = stageGroups.findIndex(g => g.includes(selectedStopIndex))
     if (stageIdx < 0) return false
-    const prevStagesDone = stageIdx === 0 || stageGroups.slice(0, stageIdx).every(g => g.every(i => completedStops[i]))
+    const prevStagesDone = stageIdx === 0 || stageGroups.slice(0, stageIdx).every(g => g.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? '')))
     return prevStagesDone && stageIdx === activeStageIndex
-  }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups])
+  }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
 
   // ── Polling de posición del usuario mientras una parada está seleccionada ────
   useEffect(() => {
@@ -600,8 +620,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     if (!selectedMonumentIsAvailable) return false
     if (!geoLimit) return true                              // geo OFF → siempre puede
     if (distanceToSelected === null) return false           // sin posición → no puede
-    return distanceToSelected <= VALIDATION_RADIUS_DEFAULT_M
-  }, [selectedMonumentIsAvailable, geoLimit, distanceToSelected])
+    return distanceToSelected <= geoLimitRadius
+  }, [selectedMonumentIsAvailable, geoLimit, distanceToSelected, geoLimitRadius])
 
 
   const handleStartQuiz = useCallback(async () => {
@@ -612,7 +632,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       const userPos = mapControlsRef.current?.getUserPosition()
       if (!userPos) { setShowLocationGate(true); return }
       const distM = haversineM(userPos, { lat: selectedMonument.lat, lng: selectedMonument.lng })
-      if (distM > VALIDATION_RADIUS_DEFAULT_M) { setTooFarAlert(true); return }
+      if (distM > geoLimitRadius) { setTooFarAlert(true); return }
     }
 
     const stopId = selectedMonument.stopId
@@ -648,11 +668,22 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           pointsAwarded: (q as QuestionData & { isBonus?: boolean; pointsAwarded?: number }).pointsAwarded,
         }))
       }
-    } catch {
-      // si Firestore falla, questions queda vacío
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code
+      if (code === 'permission-denied' && stopId) {
+        setDeactivatedStopIds(prev => prev.includes(stopId) ? prev : [...prev, stopId])
+        setSelectedMonument(null)
+      } else {
+        setNoQuestionsAlert(true)
+      }
+      return
     }
 
-    if (questions.length === 0) return
+    if (questions.length === 0) {
+      if (stopId) setDeactivatedStopIds(prev => prev.includes(stopId) ? prev : [...prev, stopId])
+      setSelectedMonument(null)
+      return
+    }
 
     const quizData: QuizStopData = {
       stopId,
@@ -683,7 +714,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
     const stageIdx = stageGroups.findIndex(g => g.includes(stopIndex))
     const stageGroup = stageGroups[stageIdx] ?? []
-    const completesStage = stageGroup.length > 0 && stageGroup.every(i => i === stopIndex || completedStops[i])
+    const completesStage = stageGroup.length > 0 && stageGroup.every(i => i === stopIndex || completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))
     if (completesStage) {
       const isLastStage = stageIdx === stageGroups.length - 1
       const stageId = firestoreStops[stopIndex]?.stageId ?? ''
@@ -692,7 +723,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     } else {
       setQuizFlow({ step: 'levelup', stopIndex, monument, earnedPoints, mode: 'complete', quizData, retryCount })
     }
-  }, [stageGroups, completedStops, firestoreStops, stageIdToPrizeId])
+  }, [stageGroups, completedStops, firestoreStops, stageIdToPrizeId, deactivatedStopIdSet])
 
   const handleStopComplete = useCallback((stopIndex: number) => {
     setCompletedStops(prev => {
@@ -1057,7 +1088,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                         {canStartChallenge
                           ? t('map.start_challenge')
                           : distanceToSelected !== null
-                            ? `${Math.round(distanceToSelected)} m · necesitas ${VALIDATION_RADIUS_DEFAULT_M} m`
+                            ? `${Math.round(distanceToSelected)} m · necesitas ${geoLimitRadius} m`
                             : 'Obteniendo ubicación…'}
                       </span>
                     </button>
@@ -1247,7 +1278,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                             <i className="ri-map-pin-range-line text-xs" style={{ color: '#ff9447' }} />
                             <span className="text-[11px] font-bold" style={{ color: '#b45309' }}>
                               {distanceToSelected !== null
-                                ? `${Math.round(distanceToSelected)} m de distancia · necesitas ${VALIDATION_RADIUS_DEFAULT_M} m`
+                                ? `${Math.round(distanceToSelected)} m de distancia · necesitas ${geoLimitRadius} m`
                                 : 'Obteniendo tu ubicación…'}
                             </span>
                           </div>
@@ -1780,10 +1811,53 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                 </h3>
               </div>
               <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
-                Debes estar a menos de <strong>{VALIDATION_RADIUS_DEFAULT_M} metros</strong> de la parada para poder iniciar el reto.
+                Debes estar a menos de <strong>{geoLimitRadius} metros</strong> de la parada para poder iniciar el reto.
               </p>
               <button
                 onClick={() => setTooFarAlert(false)}
+                className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sin preguntas configuradas ─────────────────────────────── */}
+      {noQuestionsAlert && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setNoQuestionsAlert(false)}
+        >
+          <div
+            className="lock-alert-pop w-full max-w-[320px] rounded-3xl overflow-hidden"
+            style={{ background: '#ffffff', boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(9,109,125,0.12)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg,#e0344b,#ff9447)' }} />
+            <div className="flex flex-col items-center gap-3 px-6 py-6 text-center">
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ background: 'linear-gradient(135deg,#ff9447 0%,#e0344b 100%)', boxShadow: '0 8px 24px rgba(224,52,75,0.3)' }}
+              >
+                <i className="ri-tools-fill text-3xl text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black tracking-widest uppercase mb-1" style={{ color: '#e0344b' }}>
+                  Parada en preparación
+                </p>
+                <h3 className="text-lg font-black" style={{ color: '#096d7d' }}>
+                  ¡Casi lista!
+                </h3>
+              </div>
+              <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
+                Esta parada aún no tiene preguntas configuradas. Vuelve pronto, ¡estará lista muy pronto!
+              </p>
+              <button
+                onClick={() => setNoQuestionsAlert(false)}
                 className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
                 style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
               >

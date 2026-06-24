@@ -57,6 +57,7 @@ export default function SeasonsPage() {
   const [formStartDate, setFormStartDate] = useState('')
   const [formEndDate, setFormEndDate] = useState('')
   const [formGeoLimit, setFormGeoLimit] = useState(false)
+  const [formGeoLimitRadius, setFormGeoLimitRadius] = useState<number | ''>(100)
   const [formStages, setFormStages] = useState<FormStageState[]>([
     { pointsCount: 0, prizes: [{ prizeId: '' }] },
     { pointsCount: 0, prizes: [{ prizeId: '' }] },
@@ -181,6 +182,7 @@ export default function SeasonsPage() {
     setFormStartDate('')
     setFormEndDate('')
     setFormGeoLimit(false)
+    setFormGeoLimitRadius(100)
     setFormStages([
       { pointsCount: 0, prizes: [{ prizeId: '' }] },
       { pointsCount: 0, prizes: [{ prizeId: '' }] },
@@ -206,6 +208,7 @@ export default function SeasonsPage() {
     setFormStartDate(formatDateForInput(season.startDate))
     setFormEndDate(formatDateForInput(season.endDate))
     setFormGeoLimit(season.geoLimit === true)
+    setFormGeoLimitRadius(typeof season.geoLimitRadius === 'number' ? season.geoLimitRadius : 100)
     if (season.stages && season.stages.length > 0) {
       setFormStages(season.stages.map(s => ({
         id: s.id,
@@ -359,6 +362,13 @@ export default function SeasonsPage() {
       return false
     }
 
+    if (formGeoLimit) {
+      if (formGeoLimitRadius === '' || formGeoLimitRadius < 10 || formGeoLimitRadius > 2000) {
+        setFormError('El radio de validación es obligatorio cuando el Geo Limit está activo (entre 10 y 2000 metros).')
+        return false
+      }
+    }
+
     if (formStages.length < 1) {
       setFormError('La temporada debe tener al menos 1 etapa.')
       return false
@@ -400,6 +410,7 @@ export default function SeasonsPage() {
         startDate: formStartDate,
         endDate: formEndDate,
         geoLimit: formGeoLimit,
+        geoLimitRadius: formGeoLimit ? Number(formGeoLimitRadius) : undefined,
         stages: formStages.map(s => ({
           pointsCount: Number(s.pointsCount),
           prizes: s.prizes.map(p => ({ prizeId: p.prizeId }))
@@ -437,6 +448,7 @@ export default function SeasonsPage() {
         startDate: formStartDate,
         endDate: formEndDate,
         geoLimit: formGeoLimit,
+        geoLimitRadius: formGeoLimit ? Number(formGeoLimitRadius) : undefined,
         stages: formStages.map(s => ({
           id: s.id || '',
           pointsCount: Number(s.pointsCount),
@@ -1430,35 +1442,74 @@ export default function SeasonsPage() {
                 </div>
               </div>
 
-              {/* Geo Limit toggle */}
-              <div
-                onClick={() => setFormGeoLimit(v => !v)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderRadius: 10,
-                  border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
-                  background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
-                  cursor: 'pointer', transition: 'all 150ms ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+              {/* Geo Limit toggle + radio */}
+              <div>
+                <div
+                  onClick={() => setFormGeoLimit(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', borderRadius: formGeoLimit ? '10px 10px 0 0' : 10,
+                    border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
+                    borderBottom: formGeoLimit ? 'none' : `1.5px solid var(--color-border)`,
+                    background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
+                    cursor: 'pointer', transition: 'all 150ms ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+                    </div>
+                  </div>
+                  <div style={{
+                    width: 40, height: 22, borderRadius: 11,
+                    background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
+                    position: 'relative', transition: 'background 200ms ease', flexShrink: 0
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
+                      width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                      transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
                   </div>
                 </div>
-                <div style={{
-                  width: 40, height: 22, borderRadius: 11,
-                  background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
-                  position: 'relative', transition: 'background 200ms ease', flexShrink: 0
-                }}>
+
+                {formGeoLimit && (
                   <div style={{
-                    position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
-                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                    transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                  }} />
-                </div>
+                    padding: '12px 16px', borderRadius: '0 0 10px 10px',
+                    border: '1.5px solid var(--color-navy)', borderTop: '1px solid rgba(27,43,110,0.15)',
+                    background: 'rgba(27,43,110,0.02)'
+                  }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--color-navy)', marginBottom: 4 }}>
+                      Radio de validación (metros)
+                    </label>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
+                      Distancia máxima a la que el jugador debe estar de la parada para poder iniciar el reto. Si está más lejos de este valor, el botón estará bloqueado.
+                    </p>
+                    <input
+                      type="number"
+                      min={10}
+                      max={2000}
+                      value={formGeoLimitRadius}
+                      onChange={e => setFormGeoLimitRadius(e.target.value === '' ? '' : Math.min(2000, Math.max(0, Number(e.target.value))))}
+                      placeholder="Ej: 100"
+                      style={{
+                        width: '100%', height: 38, borderRadius: 8, fontSize: 14,
+                        padding: '0 12px', fontFamily: 'var(--font-body)', outline: 'none',
+                        border: (formGeoLimitRadius === '' || Number(formGeoLimitRadius) < 10)
+                          ? '1.5px solid var(--color-error)'
+                          : '1.5px solid var(--color-border)',
+                        background: '#fff',
+                      }}
+                    />
+                    {(formGeoLimitRadius === '' || Number(formGeoLimitRadius) < 10) && (
+                      <p style={{ fontSize: 11, color: 'var(--color-error)', marginTop: 4 }}>
+                        Requerido. Mínimo 10 metros, máximo 2000 metros.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Stages config — variable count */}
@@ -1883,35 +1934,74 @@ export default function SeasonsPage() {
                 </div>
               </div>
 
-              {/* Geo Limit toggle */}
-              <div
-                onClick={() => setFormGeoLimit(v => !v)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderRadius: 10,
-                  border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
-                  background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
-                  cursor: 'pointer', transition: 'all 150ms ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+              {/* Geo Limit toggle + radio */}
+              <div>
+                <div
+                  onClick={() => setFormGeoLimit(v => !v)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', borderRadius: formGeoLimit ? '10px 10px 0 0' : 10,
+                    border: `1.5px solid ${formGeoLimit ? 'var(--color-navy)' : 'var(--color-border)'}`,
+                    borderBottom: formGeoLimit ? 'none' : `1.5px solid var(--color-border)`,
+                    background: formGeoLimit ? 'rgba(27,43,110,0.04)' : '#f8f9fb',
+                    cursor: 'pointer', transition: 'all 150ms ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <i className="ri-map-pin-range-line" style={{ fontSize: 18, color: formGeoLimit ? 'var(--color-navy)' : 'var(--color-gray-mid)' }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)' }}>Límite de Ubicación (Geo Limit)</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Restringe la participación por ubicación geográfica</div>
+                    </div>
+                  </div>
+                  <div style={{
+                    width: 40, height: 22, borderRadius: 11,
+                    background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
+                    position: 'relative', transition: 'background 200ms ease', flexShrink: 0
+                  }}>
+                    <div style={{
+                      position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
+                      width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                      transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
                   </div>
                 </div>
-                <div style={{
-                  width: 40, height: 22, borderRadius: 11,
-                  background: formGeoLimit ? 'var(--color-navy)' : '#d1d5db',
-                  position: 'relative', transition: 'background 200ms ease', flexShrink: 0
-                }}>
+
+                {formGeoLimit && (
                   <div style={{
-                    position: 'absolute', top: 3, left: formGeoLimit ? 21 : 3,
-                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                    transition: 'left 200ms ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                  }} />
-                </div>
+                    padding: '12px 16px', borderRadius: '0 0 10px 10px',
+                    border: '1.5px solid var(--color-navy)', borderTop: '1px solid rgba(27,43,110,0.15)',
+                    background: 'rgba(27,43,110,0.02)'
+                  }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--color-navy)', marginBottom: 4 }}>
+                      Radio de validación (metros)
+                    </label>
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 8, lineHeight: 1.5 }}>
+                      Distancia máxima a la que el jugador debe estar de la parada para poder iniciar el reto. Si está más lejos de este valor, el botón estará bloqueado.
+                    </p>
+                    <input
+                      type="number"
+                      min={10}
+                      max={2000}
+                      value={formGeoLimitRadius}
+                      onChange={e => setFormGeoLimitRadius(e.target.value === '' ? '' : Math.min(2000, Math.max(0, Number(e.target.value))))}
+                      placeholder="Ej: 100"
+                      style={{
+                        width: '100%', height: 38, borderRadius: 8, fontSize: 14,
+                        padding: '0 12px', fontFamily: 'var(--font-body)', outline: 'none',
+                        border: (formGeoLimitRadius === '' || Number(formGeoLimitRadius) < 10)
+                          ? '1.5px solid var(--color-error)'
+                          : '1.5px solid var(--color-border)',
+                        background: '#fff',
+                      }}
+                    />
+                    {(formGeoLimitRadius === '' || Number(formGeoLimitRadius) < 10) && (
+                      <p style={{ fontSize: 11, color: 'var(--color-error)', marginTop: 4 }}>
+                        Requerido. Mínimo 10 metros, máximo 2000 metros.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Stages config — variable count */}

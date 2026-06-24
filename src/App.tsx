@@ -53,7 +53,9 @@ const ProviderDashboard = lazyLoad(() => import('./pages/provider/ProviderDashbo
 const PublicValidationPage = lazyLoad(() => import('./pages/PublicValidationPage'))
 const ResetPasswordPage  = lazyLoad(() => import('./pages/ResetPasswordPage'))
 const VerifyEmailPage   = lazyLoad(() => import('./pages/VerifyEmailPage'))
-
+const EmailPreview = import.meta.env.DEV
+  ? lazyLoad(() => import('./pages/dev/EmailPreview'))
+  : null
 
 const router = createBrowserRouter([
   // ── Public landing ─────────────────────────────────────────────
@@ -268,6 +270,11 @@ const router = createBrowserRouter([
       },
     ],
   },
+
+  // ── Dev only ────────────────────────────────────────────────────
+  ...(import.meta.env.DEV && EmailPreview ? [
+    { path: '/email-preview', element: <Suspense fallback={null}><EmailPreview /></Suspense> },
+  ] : []),
 
   // ── Fallback ────────────────────────────────────────────────────
   { path: '*', element: <Navigate to="/" replace /> },

@@ -33,7 +33,7 @@ export const createSeason = onCall(async (request) => {
       throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
     }
 
-    const { name, status, startDate, endDate, geoLimit, stages } = request.data;
+    const { name, status, startDate, endDate, geoLimit, geoLimitRadius, stages } = request.data;
 
     // Validation
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -41,6 +41,11 @@ export const createSeason = onCall(async (request) => {
     }
     if (status !== "active" && status !== "upcoming" && status !== "archived") {
       throw new HttpsError("invalid-argument", "Status must be 'active', 'upcoming', or 'archived'.");
+    }
+    if (geoLimit === true) {
+      if (typeof geoLimitRadius !== "number" || isNaN(geoLimitRadius) || geoLimitRadius < 10 || geoLimitRadius > 2000) {
+        throw new HttpsError("invalid-argument", "El radio de validación debe ser un número entre 10 y 2000 metros cuando el Geo Limit está activo.");
+      }
     }
 
     const startTS = parseTimestamp(startDate);
@@ -96,6 +101,7 @@ export const createSeason = onCall(async (request) => {
         startDate: startTS,
         endDate: endTS,
         geoLimit: geoLimit === true,
+        geoLimitRadius: geoLimit === true ? Number(geoLimitRadius) : null,
         prizeIds: allPrizeIds,
         createdAt: FieldValue.serverTimestamp(),
         createdBy: uid,
@@ -139,7 +145,7 @@ export const updateSeason = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Access denied: Administrator privileges required.");
   }
 
-  const { id, name, status, startDate, endDate, geoLimit, stages } = request.data;
+  const { id, name, status, startDate, endDate, geoLimit, geoLimitRadius, stages } = request.data;
 
   if (!id || typeof id !== "string") {
     throw new HttpsError("invalid-argument", "Season ID is required.");
@@ -149,6 +155,11 @@ export const updateSeason = onCall(async (request) => {
   }
   if (status !== "active" && status !== "upcoming" && status !== "archived") {
     throw new HttpsError("invalid-argument", "Status must be 'active', 'upcoming', or 'archived'.");
+  }
+  if (geoLimit === true) {
+    if (typeof geoLimitRadius !== "number" || isNaN(geoLimitRadius) || geoLimitRadius < 10 || geoLimitRadius > 2000) {
+      throw new HttpsError("invalid-argument", "El radio de validación debe ser un número entre 10 y 2000 metros cuando el Geo Limit está activo.");
+    }
   }
 
   const startTS = parseTimestamp(startDate);
@@ -216,6 +227,7 @@ export const updateSeason = onCall(async (request) => {
         startDate: startTS,
         endDate: endTS,
         geoLimit: geoLimit === true,
+        geoLimitRadius: geoLimit === true ? Number(geoLimitRadius) : null,
         prizeIds: allPrizeIds,
       });
 

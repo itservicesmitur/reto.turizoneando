@@ -3,30 +3,28 @@ import { useTranslation } from 'react-i18next'
 interface Props { onBack: () => void }
 
 const RULES_ES = [
-  'Visita cada parada del Desafío Cultural.',
-  'Escucha la narración histórica completa de cada parada.',
-  'Responde las preguntas del quiz para completar la parada.',
-  'Las paradas deben completarse en orden dentro de cada etapa.',
-  'Para avanzar de etapa, completa todas las paradas de la etapa actual.',
-  'Los premios se validan según disponibilidad y rango de edad del participante.',
-  'Un registro por correo electrónico. No se permiten cuentas duplicadas.',
-  'Los premios canjeados no son reembolsables ni transferibles.',
+  'Debes aceptar los permisos de geolocalización.',
+  'Es necesario estar a 12 metros o menos del punto para que la trivia se active.',
+  'Escucha cuidadosamente los desafíos narrados en cada ubicación.',
+  'Responde correctamente a las preguntas para ganar.',
+  'Los premios se reclaman de manera presencial en los comercios afiliados.',
+  'Solo necesitas registrar tu correo electrónico una vez para jugar de forma ilimitada.',
 ]
 
 const RULES_EN = [
-  'Visit each stop of the Cultural Challenge.',
-  'Listen to the complete historical narration at each stop.',
-  'Answer the quiz questions to complete the stop.',
-  'Stops must be completed in order within each stage.',
-  'To advance to the next stage, complete all stops in the current stage.',
-  "Prizes are validated based on availability and the participant's age range.",
-  'One registration per email address. Duplicate accounts are not allowed.',
-  'Redeemed prizes are non-refundable and non-transferable.',
+  'Allow location access to play.',
+  'Get within 12 meters of the spot to unlock the trivia.',
+  'Pay close attention to the audio challenges at each location.',
+  'Answer correctly to earn rewards.',
+  'Pick up your prizes in person at participating stores.',
+  'Sign up with your email once for unlimited gameplay.',
 ]
 
 export default function RallyRules({ onBack }: Props) {
   const { i18n } = useTranslation()
-  const rules = i18n.language === 'en' ? RULES_EN : RULES_ES
+  const isEn = i18n.language === 'en'
+  const rules = isEn ? RULES_EN : RULES_ES
+  const title = isEn ? 'Rules of the Challenge' : 'Condiciones de participación'
 
   return (
     <div
@@ -43,9 +41,7 @@ export default function RallyRules({ onBack }: Props) {
           >
             <i className="ri-arrow-left-line text-xl text-white" />
           </button>
-          <span className="font-black text-sm text-white tracking-widest uppercase">
-            Desafío Cultural
-          </span>
+          <div className="w-10" />
           <div className="w-10" />
         </div>
 
@@ -61,7 +57,10 @@ export default function RallyRules({ onBack }: Props) {
           >
             <i className="ri-book-2-line text-4xl text-white" />
           </div>
-          <p className="text-xs font-bold mt-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          <p className="text-base font-black mt-2 text-white text-center leading-tight px-4">
+            {title}
+          </p>
+          <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>
             Ciudad Colonial, Santo Domingo
           </p>
         </div>

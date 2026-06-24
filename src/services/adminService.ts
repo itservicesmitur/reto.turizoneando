@@ -329,6 +329,7 @@ export interface SeasonData {
   startDate: string
   endDate: string
   geoLimit: boolean
+  geoLimitRadius?: number
   createdAt: string | null
   createdBy?: string
   stages: StageData[]
@@ -456,6 +457,7 @@ export interface CreateSeasonInput {
   startDate: string
   endDate: string
   geoLimit: boolean
+  geoLimitRadius?: number
   stages: CreateStageInput[]
 }
 
@@ -472,6 +474,7 @@ export interface UpdateSeasonInput {
   startDate: string
   endDate: string
   geoLimit: boolean
+  geoLimitRadius?: number
   stages: UpdateStageInput[]
 }
 
@@ -562,6 +565,7 @@ export async function fetchSeasons(): Promise<SeasonData[]> {
       startDate: startDateStr,
       endDate: endDateStr,
       geoLimit: sData.geoLimit === true,
+      geoLimitRadius: typeof sData.geoLimitRadius === 'number' ? sData.geoLimitRadius : undefined,
       createdAt: createdAtStr,
       createdBy: sData.createdBy || '',
       stages,

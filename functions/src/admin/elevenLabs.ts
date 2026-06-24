@@ -190,10 +190,8 @@ function adjustAudioSpeed(audioBuf: Buffer, speed: number): Promise<Buffer> {
           const buf = fs.readFileSync(outputPath);
           [inputPath, outputPath].forEach((f) => {
             try {
-              fs.unlinkSync(f);
-            } catch {
-              // ignore
-            }
+ fs.unlinkSync(f);
+} catch {/* ignore */}
           });
           resolve(buf);
         } catch (readErr) {
@@ -203,10 +201,8 @@ function adjustAudioSpeed(audioBuf: Buffer, speed: number): Promise<Buffer> {
       .on("error", (err) => {
         [inputPath, outputPath].forEach((f) => {
           try {
-            fs.unlinkSync(f);
-          } catch {
-            // ignore
-          }
+ fs.unlinkSync(f);
+} catch {/* ignore */}
         });
         reject(err);
       })

@@ -2,10 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import logoImg    from '../assets/logo1.png'
-import mascotaImg from '../assets/mascota.png'
-import mascot3    from '../assets/png/3.png'
-import mascot5    from '../assets/png/5.png'
-import mascot7    from '../assets/png/7.png'
 
 // ── Animated counter ───────────────────────────────────────────────
 function Counter({ to, suffix = '', run }: { to: number; suffix?: string; run: boolean }) {
@@ -30,7 +26,7 @@ const STEPS = {
     { icon: 'ri-user-add-line',     title: 'Regístrate',           desc: 'Ingresa tu nombre, edad y correo. Recibes confirmación automática.' },
     { icon: 'ri-translate-2',       title: 'Elige tu idioma',       desc: 'Español o inglés. Todo se adapta: preguntas, narraciones y correos.' },
     { icon: 'ri-treasure-map-line', title: 'Explora el mapa',       desc: 'Ve todas las paradas. Mira cuáles completaste y cuáles te faltan.' },
-    { icon: 'ri-radar-line',         title: 'Elige el stage cercano', desc: 'En el mapa verás las paradas disponibles. Selecciona la más cercana a tu ubicación.' },
+    { icon: 'ri-radar-line',         title: 'Elige el stage cercano', desc: 'Todos los participantes iniciarán su aventura de manera unificada en el Primer punto o desafío.' },
     { icon: 'ri-headphone-line',    title: 'Escucha la historia',    desc: 'Narración al estilo cronista colonial en tu idioma elegido.' },
     { icon: 'ri-question-line',     title: 'Responde el reto',       desc: 'Preguntas educativas sobre el sitio + datos curiosos entre cada una.' },
     { icon: 'ri-gift-2-line',       title: 'Gira la ruleta',         desc: 'Al completar una etapa, giras la ruleta. El sistema verifica tu edad.' },
@@ -40,7 +36,7 @@ const STEPS = {
     { icon: 'ri-user-add-line',     title: 'Register',              desc: 'Enter your name, age and email. You receive automatic confirmation.' },
     { icon: 'ri-translate-2',       title: 'Choose language',        desc: 'Spanish or English. Everything adapts: questions, narrations, emails.' },
     { icon: 'ri-treasure-map-line', title: 'Explore the map',        desc: 'See all the stops. Check which ones you\'ve completed and which are left.' },
-    { icon: 'ri-radar-line',         title: 'Choose nearby stage',    desc: 'On the map you\'ll see available stops. Select the one closest to your location.' },
+    { icon: 'ri-radar-line',         title: 'Choose nearby stage',    desc: 'All participants will begin their adventure together at the First stop or challenge.' },
     { icon: 'ri-headphone-line',    title: 'Listen to the story',    desc: 'Narration in colonial chronicler style in your chosen language.' },
     { icon: 'ri-question-line',     title: 'Answer the challenge',   desc: 'Educational questions about the site + fun facts between each one.' },
     { icon: 'ri-gift-2-line',       title: 'Spin the prize wheel',   desc: 'After completing a stage, spin the wheel. The system checks your age.' },
@@ -51,14 +47,14 @@ const STEPS = {
 // ── Stop data ──────────────────────────────────────────────────────
 const STOPS = {
   es: [
-    { icon: '🏛️', cat: 'Museos',              places: 'Alcázar de Colón · Casas Reales · Memorial de la Resistencia Dominicana' },
-    { icon: '⛪',  cat: 'Templos e iglesias',   places: 'Catedral Primada de América · Convento de los Dominicos · Ruinas de San Francisco' },
-    { icon: '🌿',  cat: 'Parques y monumentos', places: 'Parque Colón · Parque Duarte · Monumento Fray Antón de Montesinos' },
+    { icon: '🏛️', cat: 'Museos',              places: 'Alcázar de Colón · Casas Reales · Panteón de la Patria · Museo Fortaleza de Santo Domingo (Ozama)' },
+    { icon: '⛪',  cat: 'Templos e iglesias',   places: 'Catedral Primada de América · Iglesia de Nuestra Señora de la Altagracia · Iglesia y Convento Regina Angelorum · Plaza Tirso de Molina — Iglesia Las Mercedes · Parque Duarte — Iglesia de los Dominicos' },
+    { icon: '🌿',  cat: 'Parques y monumentos', places: 'Las Escalinatas de la Calle El Conde · Calle Pellerano Alfau (De los Nichos) · Calle Las Damas · Plaza María de Toledo · El Reloj de Sol · La Puerta de San Diego · Plaza de España (Plaza de la Hispanidad) · Ruinas de San Nicolás de Bari · Plaza Tirso de Molina — Iglesia Las Mercedes · Calle El Conde — Edificio Saviñón · Parque Duarte — Iglesia de los Dominicos' },
   ],
   en: [
-    { icon: '🏛️', cat: 'Museums',              places: 'Alcázar de Colón · Casas Reales · Memorial de la Resistencia Dominicana' },
-    { icon: '⛪',  cat: 'Temples & Churches',   places: 'Cathedral Primada · Convento de los Dominicos · Ruinas de San Francisco' },
-    { icon: '🌿',  cat: 'Parks & Monuments',    places: 'Parque Colón · Parque Duarte · Monument Fray Antón de Montesinos' },
+    { icon: '🏛️', cat: 'Museums',              places: 'Alcázar de Colón · Casas Reales · Pantheon of the Homeland · Fort Santo Domingo Museum (Ozama)' },
+    { icon: '⛪',  cat: 'Temples & Churches',   places: 'Cathedral Primada of America · Church of Our Lady of Altagracia · Church & Convent Regina Angelorum · Plaza Tirso de Molina — Las Mercedes Church · Parque Duarte — Church of the Dominicans' },
+    { icon: '🌿',  cat: 'Parks & Monuments',    places: 'Las Escalinatas de la Calle El Conde · Calle Pellerano Alfau (De los Nichos) · Calle Las Damas · Plaza María de Toledo · El Reloj de Sol · La Puerta de San Diego · Plaza de España (Plaza de la Hispanidad) · Ruinas de San Nicolás de Bari · Plaza Tirso de Molina — Las Mercedes Church · Calle El Conde — Edificio Saviñón · Parque Duarte — Church of the Dominicans' },
   ],
 }
 
@@ -231,16 +227,15 @@ export default function LandingPage() {
             boxShadow: '0 8px 40px 0 rgba(0,0,0,0.35), 0 0 0 1px rgba(0,187,180,0.1)',
             position: 'relative',
             zIndex: 3,
-            overflow: 'hidden',
           }}>
             {/* Gradient top accent bar */}
-            <div style={{ width: '100%', height: 3, background: 'linear-gradient(90deg, #ff9447 0%, #00bbb4 50%, #e0344b 100%)', flexShrink: 0 }} />
+            <div style={{ width: '100%', height: 3, background: 'linear-gradient(90deg, #ff9447 0%, #00bbb4 50%, #e0344b 100%)', flexShrink: 0, borderRadius: '24px 24px 0 0' }} />
 
-            <div className="lp-hero-inner" style={{ padding: '24px 28px 0', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <div className="lp-hero-inner" style={{ padding: '32px 28px 0', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <div className="lp-r" style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               background: 'rgba(0,187,180,0.14)', border: '1px solid rgba(0,187,180,0.32)',
-              borderRadius: 20, padding: '6px 14px', marginBottom: 22,
+              borderRadius: 20, padding: '6px 14px', marginBottom: 14,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', flexShrink: 0, animation: 'liveBlip 1.5s ease-in-out infinite' }} />
               <i className="ri-map-pin-line" style={{ color: 'var(--color-primary)', fontSize: 13 }} />
@@ -249,7 +244,7 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <div className="lp-r" style={{ margin: '0 0 4px', width: '100%', maxWidth: 'min(360px, 100%)', overflow: 'hidden' }}>
+            <div className="lp-r" style={{ margin: '0', width: 'calc(100% + 44px)', maxWidth: 'min(400px, calc(100% + 44px))', overflow: 'hidden', marginLeft: '-44px' }}>
               <img
                 src="/assets/img/logoSoloLetras.png"
                 alt="Turizoneando"
@@ -257,8 +252,8 @@ export default function LandingPage() {
                   width: '100%',
                   height: 'auto',
                   display: 'block',
-                  marginTop: '-20%',
-                  marginBottom: '-20%',
+                  marginTop: '-23%',
+                  marginBottom: '-24%',
                   filter: 'brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.2))'
                 }}
               />
@@ -267,7 +262,7 @@ export default function LandingPage() {
             <h2 className="lp-r lp-hero-title-gradient" style={{
               fontFamily: 'var(--font-body)', fontSize: 'clamp(18px, 4vw, 24px)',
               color: '#ffc060', textTransform: 'uppercase', fontWeight: 900,
-              lineHeight: 1.2, textAlign: 'left', marginTop: '10px', marginBottom: '14px', letterSpacing: '-0.5px',
+              lineHeight: 1.2, textAlign: 'left', marginTop: '14px', marginBottom: '12px', letterSpacing: '-0.5px',
               textShadow: '0 2px 6px rgba(0,0,0,0.35)',
             }}>
               {t('landing.hero_subtitle')}
@@ -275,7 +270,7 @@ export default function LandingPage() {
 
             <p className="lp-r" style={{
               color: '#f2f4f8', fontSize: 'clamp(14px, 3vw, 16px)',
-              margin: '0 0 28px', lineHeight: 1.6, maxWidth: '440px',
+              margin: '0 0 24px', lineHeight: 1.6, maxWidth: '440px',
               textAlign: 'left', fontWeight: 600, opacity: 0.95,
               textShadow: '0 1px 3px rgba(0,0,0,0.2)'
             }}>
@@ -284,51 +279,34 @@ export default function LandingPage() {
                 : 'You are about to embark on an adventure through the oldest streets of the New World. Each challenge hides a secret that only the most attentive will discover.'}
             </p>
 
-            <div className="lp-r" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', transitionDelay: '0.26s', alignItems: 'center' }}>
+            <div className="lp-r lp-hero-btns" style={{ transitionDelay: '0.26s' }}>
               <Link to="/register"
-                className="lp-cta-btn"
+                className="lp-cta-btn lp-hero-btn"
                 style={{
                   background: 'linear-gradient(135deg, #ffa826 0%, #ffc060 100%)', color: '#fff',
-                  padding: '12px 32px', borderRadius: 24, fontWeight: 900, fontSize: 15,
-                  textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '12px 22px', borderRadius: 24, fontWeight: 800, fontSize: 13,
+                  textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
                   boxShadow: '0 6px 20px rgba(255,168,38,0.35)',
                   textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.2)',
                   letterSpacing: '0.5px'
                 }}
               >
-                <i className="ri-rocket-line" style={{ fontSize: 18 }} />
+                <i className="ri-rocket-line" style={{ fontSize: 15 }} />
                 {t('landing.hero_cta')}
               </Link>
-              <Link to="/login" style={{
+              <Link to="/login" className="lp-hero-btn" style={{
                 background: 'rgba(255,255,255,0.15)', color: '#fff',
                 border: '1px solid rgba(255,255,255,0.25)',
-                padding: '12px 28px', borderRadius: 24, fontWeight: 800, fontSize: 15,
-                textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '12px 22px', borderRadius: 24, fontWeight: 800, fontSize: 13,
+                textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                textTransform: 'uppercase', letterSpacing: '0.5px',
               }}>
                 {t('landing.hero_login')}
-                <i className="ri-arrow-right-line" />
+                <i className="ri-arrow-right-line" style={{ fontSize: 15 }} />
               </Link>
             </div>
 
-            {/* Mini stats strip */}
-            <div className="lp-r" style={{ display: 'flex', width: '100%', marginTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 16, transitionDelay: '0.38s' }}>
-              {[
-                { n: '9+', label: lang === 'es' ? 'Paradas' : 'Stops',      icon: 'ri-map-pin-fill' },
-                { n: '3',  label: lang === 'es' ? 'Etapas'  : 'Stages',     icon: 'ri-flag-fill'    },
-                { n: '19', label: lang === 'es' ? 'Retos'   : 'Challenges', icon: 'ri-question-fill' },
-              ].map((stat, i) => (
-                <div key={i} style={{
-                  flex: 1, textAlign: 'center',
-                  borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                  padding: '0 8px',
-                }}>
-                  <i className={stat.icon} style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', display: 'block', marginBottom: 3 }} />
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: '#ffc060', lineHeight: 1 }}>{stat.n}</div>
-                  <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.45)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 3 }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
             </div>{/* end padding wrapper */}
           </div>{/* end lp-hero-content */}
 
@@ -343,7 +321,7 @@ export default function LandingPage() {
             <div className="lp-orbit-wrap lp-orbit-2">
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 10px rgba(0,187,180,0.8)' }} />
             </div>
-            <img src={mascotaImg} alt="" className="lp-mascot-float" />
+            <img src="/assets/img/turiguiaSinFondo.png" alt="" className="lp-mascot-float" />
           </div>
         </div>
 
@@ -445,8 +423,8 @@ export default function LandingPage() {
             <div className="lp-rr lp-mascot-col" style={{ transitionDelay: '0.1s' }}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,187,180,0.2) 0%, transparent 70%)', animation: 'pulseGlow 3s ease-in-out infinite' }} />
-                <img src={mascot3} alt="" style={{
-                  width: 'min(200px, 55vw)', height: 'auto',
+                <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
+                  width: 'min(280px, 65vw)', height: 'auto',
                   filter: 'drop-shadow(0 12px 36px rgba(0,0,0,0.45))',
                   display: 'block', margin: '0 auto', position: 'relative',
                   animation: 'float 4.5s ease-in-out infinite',
@@ -508,7 +486,7 @@ export default function LandingPage() {
           </div>
 
           <div className="lp-r" style={{ textAlign: 'center', marginTop: 44, transitionDelay: '0.2s' }}>
-            <img src={mascot7} alt="" style={{
+            <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
               width: 'min(150px, 38vw)', height: 'auto',
               filter: 'drop-shadow(0 8px 20px rgba(9,109,125,0.2))',
               animation: 'float 4s ease-in-out infinite',
@@ -622,7 +600,7 @@ export default function LandingPage() {
           }}>
             <div style={{ position: 'absolute', inset: 0, opacity: 0.04, backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, position: 'relative', justifyContent: 'center' }}>
-              {['Alcázar de Colón', 'Casas Reales', 'Memorial Resistencia', 'Catedral Primada', 'Convento Dominicos', 'Ruinas San Francisco', 'Parque Colón', 'Parque Duarte', 'Monumento Montesinos'].map((place, i) => (
+              {['Alcázar de Colón', 'Casas Reales', 'Panteón de la Patria', 'Fortaleza Ozama', 'Catedral Primada', 'Altagracia', 'Regina Angelorum', 'Escalinatas El Conde', 'Calle Pellerano Alfau', 'Calle Las Damas', 'Plaza Mª de Toledo', 'Reloj de Sol', 'Puerta de San Diego', 'Plaza de España', 'Ruinas San Nicolás', 'Plaza Tirso de Molina — Las Mercedes', 'Calle El Conde — Saviñón', 'Parque Duarte — Dominicos'].map((place, i) => (
                 <div key={i} className="lp-stop-pin" style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
@@ -635,7 +613,7 @@ export default function LandingPage() {
               ))}
             </div>
             <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'center', margin: '16px 0 0', letterSpacing: 0.5 }}>
-              {lang === 'es' ? '9 paradas activas · Zona Colonial, Santo Domingo' : '9 active stops · Colonial Zone, Santo Domingo'}
+              {lang === 'es' ? '18 paradas · Zona Colonial, Santo Domingo' : '18 stops · Colonial Zone, Santo Domingo'}
             </p>
           </div>
 
@@ -686,24 +664,18 @@ export default function LandingPage() {
         {/* Logos at the bottom of the section */}
         <div style={{
           position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 4,
-          display: 'flex', alignItems: 'center', gap: '20px', opacity: 0.95, width: 'max-content'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 18H20C20 18 19 14 17 12C15 10 13 10 12 10C11 10 9 10 7 12C5 14 4 18 4 18Z" fill="#fff" />
-              <path d="M12 2V10" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-              <path d="M12 4L17 8H12" fill="#fff" />
-            </svg>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '8px', fontWeight: 900, color: '#fff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>Ministerio de Turismo</span>
-              <span style={{ fontSize: '7px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.5px', lineHeight: 1.1 }}>República Dominicana</span>
-            </div>
-          </div>
-          <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.25)' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 900, color: '#fff', letterSpacing: '0.8px' }}>DO</span>
-            <span style={{ fontSize: '7px', color: '#fff', opacity: 0.85, textTransform: 'uppercase', fontWeight: 700, width: '55px', lineHeight: 1.1 }}>República Dominicana</span>
-          </div>
+          <img
+            src="/assets/img/LogoMultiple.png"
+            alt="Ministerio de Turismo · República Dominicana"
+            style={{
+              height: 220,
+              width: 'auto',
+              display: 'block',
+              filter: 'brightness(0) invert(1)',
+              opacity: 0.9,
+            }}
+          />
         </div>
 
         <div style={{
@@ -721,7 +693,7 @@ export default function LandingPage() {
         }}>
           {/* Mascot in CTA */}
           <div className="lp-r" style={{ position: 'relative', zIndex: 3, marginBottom: 20 }}>
-            <img src={mascot5} alt="" style={{
+            <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
               width: 'min(150px, 35vw)', height: 'auto',
               filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.25))',
               display: 'inline-block',
@@ -852,9 +824,53 @@ export default function LandingPage() {
         }
         .lp-rr.lp-on { opacity: 1; transform: none; }
 
+        /* ── Hero buttons ───────────────────────── */
+        .lp-hero-btns {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: stretch;
+          width: 100%;
+        }
+        .lp-hero-btn {
+          justify-content: center !important;
+          white-space: nowrap;
+          box-sizing: border-box;
+        }
+        @media (min-width: 760px) {
+          .lp-hero-btns {
+            flex-direction: row;
+            align-items: center;
+            width: auto;
+            flex-wrap: wrap;
+          }
+          .lp-hero-btn {
+            justify-content: flex-start !important;
+          }
+        }
+
         /* ── Nav wordmark (hidden on mobile) ───── */
         .lp-nav-wordmark {
           display: none;
+        }
+
+        /* ── Hero entrance animations ───────────── */
+        @keyframes heroCardIn {
+          from { opacity: 0; transform: translateX(-40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes heroMascotIn {
+          from { opacity: 0; transform: translateY(60px) scale(0.9); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .lp-hero-content {
+          animation: heroCardIn 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .lp-hero-mascot-col {
+          animation: heroMascotIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+        }
+        .lp-mascot-float {
+          animation: float 4.2s ease-in-out infinite, heroMascotIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
         }
 
         /* ── Hero logo ───────────────────────── */
@@ -1061,7 +1077,8 @@ export default function LandingPage() {
             bottom: auto;
             width: 340px;
             flex-shrink: 0;
-            align-self: flex-end;
+            align-self: center;
+            margin-top: 80px;
           }
           .lp-what-grid {
             grid-template-columns: 1fr 1fr;
