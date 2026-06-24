@@ -429,6 +429,7 @@ export default function LevelUpCard({
             ? 'lu-chest-pop .85s cubic-bezier(.34,1.56,.64,1) forwards, lu-chest-idle 5s ease-in-out infinite 0.85s'
             : 'none',
           transition: 'opacity 0.2s ease-in-out',
+          background: 'transparent',
         }}
       >
         {phase !== 'in' && (
@@ -447,12 +448,12 @@ export default function LevelUpCard({
         )}
 
         {frozenSrc ? (
-          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <div style={{ position: 'relative', width: '100%', height: '100%', background: 'transparent' }}>
             <img
               src={frozenSrc}
               alt="cofre"
               onLoad={() => setChestLoaded(true)}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: 'transparent' }}
             />
             <div style={{
               position: 'absolute', top: '52%', left: '50%',
@@ -482,7 +483,7 @@ export default function LevelUpCard({
           <video
             autoPlay loop muted playsInline
             onLoadedData={() => setChestLoaded(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: 'transparent' }}
           >
             <source src="/assets/img/COFRE.webm" type="video/webm" />
           </video>

@@ -47,7 +47,12 @@ export function buildMarkerHTML(
       if (!completedStops.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStageIndex = s; break }
     }
   }
-  const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex
+  // Sequential within stage: all previous stops must be completed
+  const posInStage = stageGroups[safeStageIdx]?.indexOf(index) ?? 0
+  const prevStopsInStageDone = posInStage <= 0
+    || (stageGroups[safeStageIdx]?.slice(0, posInStage).every(i => completedStops[i]) ?? true)
+
+  const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex && prevStopsInStageDone
 
   if (isCompleted) {
     return `
@@ -93,24 +98,24 @@ export function buildMarkerHTML(
   }
 
   return `
-    <div class="gmap-pin-wrapper" style="opacity:0.5;">
+    <div class="gmap-pin-wrapper">
       <div class="gmap-pin-head">
-        <div class="gmap-pin-circle" style="border-color:#9ca3af;box-shadow:0 4px 10px rgba(0,0,0,0.12);">
-          <img src="${monumento.imagen}" alt="${monumento.nombre}" />
+        <div class="gmap-pin-circle" style="border-color:rgba(9,109,125,0.7);box-shadow:0 4px 10px rgba(9,109,125,0.2);">
+          <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.25) brightness(0.95);" />
         </div>
-        <div class="gmap-lock-badge">
+        <div class="gmap-lock-badge" style="background:rgba(9,109,125,0.7);">
           <svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
         </div>
       </div>
-      <div class="gmap-pin-tip" style="border-top-color:#9ca3af;"></div>
+      <div class="gmap-pin-tip" style="border-top-color:rgba(9,109,125,0.7);"></div>
     </div>
     <div class="gmap-info-card">
-      <div class="gmap-info-left" style="color:#9ca3af;">
+      <div class="gmap-info-left" style="color:rgba(9,109,125,0.7);">
         <i class="ri-lock-2-fill"></i>
         <span class="gmap-info-badge">BLOQUEADA</span>
       </div>
       <div class="gmap-info-divider"></div>
-      <span class="gmap-info-name" style="color:#9ca3af;">Parada ${indexWithinStage + 1}</span>
+      <span class="gmap-info-name" style="color:rgba(9,109,125,0.7);">Parada ${indexWithinStage + 1}</span>
     </div>
   `
 }

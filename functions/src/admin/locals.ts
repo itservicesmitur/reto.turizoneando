@@ -72,26 +72,40 @@ export const createLocal = onCall(async (request) => {
 
 // ── UPDATE LOCAL ──────────────────────────────────────────────────────────
 export const updateLocal = onCall(async (request) => {
-  requireAdmin(request);
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+
+  const isAdmin = (request.auth.token.role as string | undefined)?.toLowerCase() === "admin";
+  const providerLocalId = request.auth.token.localId as string | undefined;
 
   const { id, name, description, address, lat, lng, phone, email, imageUrl, category, active } = request.data;
   if (!id || typeof id !== "string") throw new HttpsError("invalid-argument", "Local ID is required.");
   if (!name || typeof name !== "string" || !name.trim()) throw new HttpsError("invalid-argument", "Local name is required.");
 
+  // Providers can only update their own local
+  if (!isAdmin && providerLocalId !== id) {
+    throw new HttpsError("permission-denied", "No tienes permiso para editar este local.");
+  }
+
   const db = getFirestore();
   try {
-    await db.collection("locals").doc(id).update({
+    const updateData: Record<string, any> = {
       name: name.trim(),
       description: (description || "").trim(),
       address: (address || "").trim(),
       lat: typeof lat === "number" ? lat : null,
       lng: typeof lng === "number" ? lng : null,
       phone: (phone || "").trim(),
-      email: (email || "").trim().toLowerCase(),
       imageUrl: (imageUrl || "").trim(),
       category: (category || "").trim(),
-      active: active !== false,
-    });
+    };
+
+    // Only admins can change active status and email
+    if (isAdmin) {
+      updateData.active = active !== false;
+      updateData.email = (email || "").trim().toLowerCase();
+    }
+
+    await db.collection("locals").doc(id).update(updateData);
     return { success: true };
   } catch (error: any) {
     if (error instanceof HttpsError) throw error;

@@ -107,14 +107,6 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
     }
   }
 
-  // Clear current image
-  const handleRemove = () => {
-    onChange('')
-    setManualUrl('')
-    setError(null)
-    setProgress(0)
-  }
-
   // Manual URL apply
   const handleManualUrlApply = () => {
     onChange(manualUrl.trim())
@@ -200,6 +192,13 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
           padding: 12,
           gap: 16
         }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            style={{ display: 'none' }}
+          />
           <img
             src={value}
             alt="Preview"
@@ -212,48 +211,55 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
               background: '#fff'
             }}
             onError={(e) => {
-              // Fallback image in case URL is broken
               e.currentTarget.src = 'https://placehold.co/80?text=Error'
             }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--color-text)',
-              marginBottom: 4,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {value.split('/').pop()?.split('?')[0] || 'imagen_subida.jpg'}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Enlace: {value}
-            </div>
+            {uploading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-navy)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} />
+                  Subiendo ({progress}%)
+                </div>
+                <div style={{ width: '100%', height: 5, borderRadius: 3, background: 'rgba(27,43,110,0.1)', overflow: 'hidden' }}>
+                  <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, var(--color-navy) 0%, var(--color-teal) 100%)', borderRadius: 3, transition: 'width 150ms ease-out' }} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {value.split('/').pop()?.split('?')[0] || 'imagen_subida.jpg'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Enlace: {value}
+                </div>
+              </>
+            )}
           </div>
           <button
             type="button"
-            onClick={handleRemove}
+            onClick={triggerFileSelect}
+            disabled={uploading}
             style={{
               width: 36,
               height: 36,
               borderRadius: '50%',
-              background: 'rgba(230,51,41,0.08)',
+              background: 'rgba(27,43,110,0.07)',
               border: 'none',
-              color: 'var(--color-red)',
-              cursor: 'pointer',
+              color: 'var(--color-navy)',
+              cursor: uploading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 18,
-              transition: 'background 150ms ease'
+              fontSize: 17,
+              transition: 'background 150ms ease',
+              opacity: uploading ? 0.5 : 1,
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(230,51,41,0.15)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(230,51,41,0.08)'}
-            title="Eliminar imagen"
+            onMouseEnter={e => { if (!uploading) e.currentTarget.style.background = 'rgba(27,43,110,0.14)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(27,43,110,0.07)' }}
+            title="Cambiar imagen"
           >
-            <i className="ri-delete-bin-line" />
+            <i className="ri-pencil-line" />
           </button>
         </div>
       ) : (

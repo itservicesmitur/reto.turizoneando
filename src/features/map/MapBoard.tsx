@@ -664,12 +664,25 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                   if (!current.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStage = s; break }
                 }
               }
-              const isAvailable = !isCompleted && prevStagesDone && stageIdx === activeStage
+              // Check sequential order within the stage
+              const stageGroup = gsCurrent[stageIdx] ?? []
+              const posInStage = stageGroup.indexOf(index)
+              const prevStopsInStageDone = posInStage <= 0
+                || stageGroup.slice(0, posInStage).every(i => current[i])
+
+              const isAvailable = !isCompleted && prevStagesDone && stageIdx === activeStage && prevStopsInStageDone
 
               if (isAvailable || isCompleted) {
                 onSelectMonument(monumento)
-              } else {
+              } else if (!prevStagesDone || stageIdx !== activeStage) {
                 onLockedStopClickRef.current?.({ stageIdx, isStageBlocked: true, availableStopName: '' })
+              } else {
+                // Stop is in active stage but previous stop not done yet
+                const firstIncompleteIdx = stageGroup.find(i => !current[i])
+                const firstIncompleteName = firstIncompleteIdx !== undefined
+                  ? (monumentsRef.current[firstIncompleteIdx]?.nombre ?? '')
+                  : ''
+                onLockedStopClickRef.current?.({ stageIdx, isStageBlocked: false, availableStopName: firstIncompleteName })
               }
             })
 

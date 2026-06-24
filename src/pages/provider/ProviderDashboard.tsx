@@ -1,8 +1,218 @@
-import { useEffect, useState, useMemo, type FormEvent } from 'react'
+import { useEffect, useRef, useState, useMemo, type FormEvent } from 'react'
 import { signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../../config/firebase'
-import { fetchProviderCodes, validatePrizeCode, type PrizeCodeData } from '../../services/adminService'
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import { fetchProviderCodes, validatePrizeCode, fetchLocals, updateLocal, type PrizeCodeData } from '../../services/adminService'
+import ImageUpload from '../../components/ImageUpload'
+
+const CATEGORIES = ['Bares', 'Hoteles', 'Restaurantes', 'Museos', 'Actividades', 'Experiencias', 'Otro']
+const ZONA_COLONIAL = { lat: 18.4735, lng: -69.8863 }
+const ZONA_COLONIAL_BOUNDS = { north: 18.482, south: 18.464, east: -69.876, west: -69.897 }
+
+let mapsInitialized = false
+
+const inputStyle: React.CSSProperties = {
+  height: 40, borderRadius: 8, border: '1.5px solid var(--color-border)',
+  padding: '0 12px', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box',
+}
+
+function field(label: string, children: React.ReactNode) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>{label}</label>
+      {children}
+    </div>
+  )
+}
+
+type EditForm = {
+  name: string; description: string; address: string; phone: string
+  email: string; imageUrl: string; category: string
+  lat: number | null; lng: number | null
+}
+
+type LocalPin = { id: string; name: string; lat: number | null; lng: number | null; imageUrl: string; category: string }
+
+function EditLocalForm({
+  form, setForm, onSubmit, formError, formLoading, onCancel, otherLocals, currentLocalId,
+}: {
+  form: EditForm
+  setForm: React.Dispatch<React.SetStateAction<EditForm>>
+  onSubmit: (e: FormEvent) => void
+  formError: string | null
+  formLoading: boolean
+  onCancel: () => void
+  otherLocals: LocalPin[]
+  currentLocalId: string
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const markerRef = useRef<any>(null)
+  const autocompleteContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let active = true
+    if (!mapRef.current) return
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    if (!apiKey) return
+
+    if (!mapsInitialized) {
+      setOptions({ key: apiKey, v: 'weekly' })
+      mapsInitialized = true
+    }
+
+    const initialLatLng = { lat: form.lat ?? ZONA_COLONIAL.lat, lng: form.lng ?? ZONA_COLONIAL.lng }
+
+    Promise.all([importLibrary('maps'), importLibrary('marker'), importLibrary('places')])
+      .then(([{ Map }, { AdvancedMarkerElement }, placesLib]) => {
+        if (!active || !mapRef.current) return
+        const { PlaceAutocompleteElement } = placesLib as any
+
+        const map = new Map(mapRef.current, {
+          center: initialLatLng,
+          zoom: 17,
+          mapId: import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || undefined,
+          restriction: { latLngBounds: ZONA_COLONIAL_BOUNDS, strictBounds: false },
+        })
+        mapInstanceRef.current = map
+
+        const marker = new AdvancedMarkerElement({ map, position: initialLatLng, gmpDraggable: true })
+        markerRef.current = marker
+
+        if (autocompleteContainerRef.current) {
+          const placeAutocomplete = new PlaceAutocompleteElement()
+          placeAutocomplete.setAttribute('placeholder', 'Buscar dirección...')
+          placeAutocomplete.style.width = '100%'
+          placeAutocomplete.style.height = '40px'
+          placeAutocomplete.style.borderRadius = '8px'
+          placeAutocomplete.style.border = '1.5px solid var(--color-border)'
+          placeAutocomplete.style.backgroundColor = '#ffffff'
+          placeAutocomplete.style.setProperty('--gmp-mat-color-surface', '#ffffff')
+          placeAutocomplete.style.setProperty('color-scheme', 'light')
+          placeAutocomplete.includedRegionCodes = ['do']
+          placeAutocomplete.locationBias = ZONA_COLONIAL_BOUNDS
+
+          autocompleteContainerRef.current.innerHTML = ''
+          autocompleteContainerRef.current.appendChild(placeAutocomplete)
+
+          const handlePlaceSelect = async (place: any) => {
+            if (!place) return
+            try {
+              await place.fetchFields({ fields: ['location', 'formattedAddress'] })
+              const location = place.location
+              if (location) {
+                const newLat = typeof location.lat === 'function' ? location.lat() : location.lat
+                const newLng = typeof location.lng === 'function' ? location.lng() : location.lng
+                const formattedAddress = place.formattedAddress || ''
+                setForm(f => ({ ...f, lat: newLat, lng: newLng, address: formattedAddress || f.address }))
+                const coords = { lat: newLat, lng: newLng }
+                marker.position = coords
+                map.panTo(coords)
+                map.setZoom(18)
+              }
+            } catch (err) { console.error(err) }
+          }
+
+          const onSelect = (e: any) => {
+            const pred = e.placePrediction || e.detail?.placePrediction || e.target?.placePrediction
+            if (pred) { handlePlaceSelect(pred.toPlace()); return }
+            const place = e.target?.place || e.detail?.place || e.place
+            if (place) handlePlaceSelect(place)
+          }
+          placeAutocomplete.addEventListener('gmp-select', onSelect)
+          placeAutocomplete.addEventListener('gmp-placeselect', onSelect)
+        }
+
+        map.addListener('click', (e: any) => {
+          if (e.latLng) {
+            setForm(f => ({ ...f, lat: e.latLng.lat(), lng: e.latLng.lng() }))
+            marker.position = e.latLng
+          }
+        })
+
+        marker.addListener('dragend', () => {
+          if (marker.position) {
+            const latVal = typeof marker.position.lat === 'function' ? marker.position.lat() : marker.position.lat
+            const lngVal = typeof marker.position.lng === 'function' ? marker.position.lng() : marker.position.lng
+            setForm(f => ({ ...f, lat: latVal, lng: lngVal }))
+          }
+        })
+
+        // Marcadores de otros locales
+        otherLocals.forEach(local => {
+          if (!local.lat || !local.lng || local.id === currentLocalId) return
+          const el = document.createElement('div')
+          el.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:default;'
+          el.innerHTML = `
+            <div style="background:#fff;border:2px solid #096d7d;border-radius:50%;width:32px;height:32px;overflow:hidden;box-shadow:0 2px 8px rgba(9,109,125,0.35);">
+              ${local.imageUrl
+                ? `<img src="${local.imageUrl}" style="width:100%;height:100%;object-fit:cover;" />`
+                : `<div style="width:100%;height:100%;background:#e8f5f6;display:flex;align-items:center;justify-content:center;font-size:14px;">🏪</div>`
+              }
+            </div>
+            <div style="background:#096d7d;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-top:2px;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis;">${local.name}</div>
+            <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #096d7d;margin-top:1px;"></div>
+          `
+          new AdvancedMarkerElement({ map, position: { lat: local.lat, lng: local.lng }, content: el, title: local.name })
+        })
+      })
+      .catch(console.error)
+
+    return () => { active = false; mapInstanceRef.current = null; markerRef.current = null }
+  }, [])
+
+  return (
+    <form onSubmit={onSubmit} style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {formError && (
+        <div style={{ padding: '10px 14px', background: 'rgba(230,51,41,0.06)', border: '1px solid rgba(230,51,41,0.2)', color: 'var(--color-red)', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <i className="ri-error-warning-line" />{formError}
+        </div>
+      )}
+
+      {field('Nombre *', <input required style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />)}
+      {field('Descripción', <textarea rows={3} style={{ ...inputStyle, height: 'auto', padding: '8px 12px', resize: 'vertical' as const }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />)}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {field('Teléfono', <input style={inputStyle} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />)}
+        {field('Email', <input type="email" style={{ ...inputStyle, background: 'var(--color-gray-light)', color: 'var(--color-text-muted)', cursor: 'not-allowed' }} value={form.email} readOnly />)}
+      </div>
+
+      {field('Categoría', (
+        <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+          <option value="">-- Sin categoría --</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      ))}
+
+      {/* Mapa */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-muted)' }}>Ubicación en el mapa</label>
+        <div ref={autocompleteContainerRef} style={{ width: '100%' }} />
+        <div ref={mapRef} style={{ width: '100%', height: 240, borderRadius: 10, border: '1.5px solid var(--color-border)', overflow: 'hidden' }} />
+        <p style={{ margin: 0, fontSize: 11, color: 'var(--color-text-muted)' }}>
+          Busca tu dirección o haz clic en el mapa para ajustar la ubicación.
+        </p>
+      </div>
+
+      {field('Imagen', (
+        <ImageUpload value={form.imageUrl} storagePath="locals" onChange={(url: string) => setForm(f => ({ ...f, imageUrl: url }))} />
+      ))}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+        <button type="button" onClick={onCancel}
+          style={{ height: 40, padding: '0 16px', borderRadius: 8, background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          Cancelar
+        </button>
+        <button type="submit" disabled={formLoading}
+          style={{ height: 40, padding: '0 20px', borderRadius: 8, background: 'var(--color-navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: formLoading ? 'not-allowed' : 'pointer', opacity: formLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {formLoading && <i className="ri-loader-4-line ri-spin" />}
+          {formLoading ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </form>
+  )
+}
 
 export default function ProviderDashboard() {
   const navigate = useNavigate()
@@ -14,6 +224,15 @@ export default function ProviderDashboard() {
   // Provider info from token
   const [providerName, setProviderName] = useState('')
   const [localName, setLocalName] = useState('')
+  const [localId, setLocalId] = useState('')
+
+  // Edit local modal
+  const [showEditLocal, setShowEditLocal] = useState(false)
+  const [editLocalForm, setEditLocalForm] = useState<EditForm>({ name: '', description: '', address: '', phone: '', email: '', imageUrl: '', category: '', lat: null, lng: null })
+  const [editLocalLoading, setEditLocalLoading] = useState(false)
+  const [editLocalFetching, setEditLocalFetching] = useState(false)
+  const [editLocalError, setEditLocalError] = useState<string | null>(null)
+  const [allLocals, setAllLocals] = useState<LocalPin[]>([])
 
   // DataTable
   const [search, setSearch] = useState('')
@@ -46,6 +265,7 @@ export default function ProviderDashboard() {
         setProviderName(user.displayName || user.email || '')
         const { claims } = await user.getIdTokenResult()
         setLocalName((claims.localName as string) || '')
+        setLocalId((claims.localId as string) || '')
       }
       await load()
     }
@@ -115,6 +335,64 @@ export default function ProviderDashboard() {
     return new Date(iso).toLocaleDateString('es-DO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
+  async function openEditLocal() {
+    setEditLocalError(null)
+    setEditLocalForm({ name: localName, description: '', address: '', phone: '', email: '', imageUrl: '', category: '', lat: null, lng: null })
+    setShowEditLocal(true)
+    setEditLocalFetching(true)
+    try {
+      const locals = await fetchLocals()
+      setAllLocals(locals.map(l => ({ id: l.id, name: l.name, lat: l.lat, lng: l.lng, imageUrl: l.imageUrl, category: l.category })))
+      const local = locals.find(l => l.id === localId)
+      if (local) {
+        setEditLocalForm({
+          name: local.name,
+          description: local.description,
+          address: local.address,
+          phone: local.phone,
+          email: local.email,
+          imageUrl: local.imageUrl,
+          category: local.category,
+          lat: local.lat ?? null,
+          lng: local.lng ?? null,
+        })
+      }
+    } catch {
+      // use partial pre-fill
+    } finally {
+      setEditLocalFetching(false)
+    }
+  }
+
+  async function handleSaveLocal(e: FormEvent) {
+    e.preventDefault()
+    if (!localId) { setEditLocalError('No se encontró el ID del local.'); return }
+    if (!editLocalForm.name.trim()) { setEditLocalError('El nombre es obligatorio.'); return }
+    setEditLocalError(null)
+    try {
+      setEditLocalLoading(true)
+      await updateLocal(localId, {
+        name: editLocalForm.name.trim(),
+        description: editLocalForm.description.trim(),
+        address: editLocalForm.address.trim(),
+        phone: editLocalForm.phone.trim(),
+        email: editLocalForm.email.trim(),
+        imageUrl: editLocalForm.imageUrl.trim(),
+        category: editLocalForm.category,
+        active: true,
+        lat: editLocalForm.lat,
+        lng: editLocalForm.lng,
+      })
+      setLocalName(editLocalForm.name.trim())
+      setShowEditLocal(false)
+      showToast('Información actualizada correctamente.')
+    } catch (err) {
+      setEditLocalError(err instanceof Error ? err.message : 'Error al guardar los cambios.')
+    } finally {
+      setEditLocalLoading(false)
+    }
+  }
+
   async function handleLogout() {
     await signOut(auth)
     navigate('/admin/login')
@@ -141,11 +419,18 @@ export default function ProviderDashboard() {
 
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 28, margin: '0 0 4px' }}>
-            {localName ? `Panel — ${localName}` : 'Panel de Validación'}
-          </h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>Valida los códigos de premios de tus clientes.</p>
+        <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 28, margin: '0 0 4px' }}>
+              {localName ? `Panel — ${localName}` : 'Panel de Validación'}
+            </h1>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0 }}>Valida los códigos de premios de tus clientes.</p>
+          </div>
+          <button onClick={openEditLocal}
+            style={{ height: 38, padding: '0 16px', borderRadius: 10, background: 'var(--color-navy)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0, boxShadow: '0 4px 14px rgba(27,43,110,0.25)' }}>
+            <i className="ri-edit-line" style={{ fontSize: 15 }} />
+            Editar info
+          </button>
         </div>
 
         {/* Stats */}
@@ -377,6 +662,45 @@ export default function ProviderDashboard() {
                   Confirmar Canje
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Local Modal */}
+      {showEditLocal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(13,21,38,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div style={{ background: 'var(--color-surface)', borderRadius: 16, width: '100%', maxWidth: 680, boxShadow: 'var(--shadow-pop)', overflow: 'hidden', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-navy)', fontSize: 18, margin: '0 0 2px' }}>Editar información del local</h3>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-muted)' }}>Actualiza los datos de tu establecimiento.</p>
+              </div>
+              <button onClick={() => setShowEditLocal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-mid)', padding: 4 }}>
+                <i className="ri-close-line" style={{ fontSize: 20 }} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {editLocalFetching ? (
+                <div style={{ padding: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <i className="ri-loader-4-line ri-spin" style={{ fontSize: 28, color: 'var(--color-navy)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Cargando información...</span>
+                </div>
+              ) : (
+                <EditLocalForm
+                  form={editLocalForm}
+                  setForm={setEditLocalForm}
+                  onSubmit={handleSaveLocal}
+                  formError={editLocalError}
+                  formLoading={editLocalLoading}
+                  onCancel={() => setShowEditLocal(false)}
+                  otherLocals={allLocals}
+                  currentLocalId={localId}
+                />
+              )}
             </div>
           </div>
         </div>

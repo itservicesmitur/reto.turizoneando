@@ -594,7 +594,13 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     const stageIdx = stageGroups.findIndex(g => g.includes(selectedStopIndex))
     if (stageIdx < 0) return false
     const prevStagesDone = stageIdx === 0 || stageGroups.slice(0, stageIdx).every(g => g.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? '')))
-    return prevStagesDone && stageIdx === activeStageIndex
+    if (!prevStagesDone || stageIdx !== activeStageIndex) return false
+    // Sequential within stage: all previous stops must be done
+    const stageGroup = stageGroups[stageIdx]
+    const posInStage = stageGroup.indexOf(selectedStopIndex)
+    const prevStopsInStageDone = posInStage <= 0
+      || stageGroup.slice(0, posInStage).every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))
+    return prevStopsInStageDone
   }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
 
   // ── Polling de posición del usuario mientras una parada está seleccionada ────
@@ -1174,12 +1180,17 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           className={`absolute ${isFullscreen || browserChromeHidden ? 'bottom-4' : 'bottom-20'} left-1/2 z-20 w-[calc(100%-2rem)] max-w-[380px] -translate-x-1/2 rounded-3xl bg-white border border-gray-100 shadow-2xl flex flex-col animate-fade-in overflow-hidden p-1.5 max-h-[calc(100dvh-5rem)]`}
         >
           {/* ── Imagen ── */}
-          <div className="relative h-36 w-full shrink-0">
+          <div className="relative h-44 w-full shrink-0">
             <img
               key={selectedMonument.nombre}
               src={selectedMonument.imagen}
               alt={selectedMonument.nombre}
               className="h-full w-full object-cover animate-fade-in rounded-3xl"
+            />
+            {/* Overlay gradiente de abajo hacia arriba */}
+            <div
+              className="absolute inset-0 rounded-3xl"
+              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)' }}
             />
             {/* Badge de estado – top-left */}
             {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
@@ -1190,10 +1201,19 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             ) : (
               <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
                 {selectedMonumentIsAvailable ? (
-                  <>
-                    <i className="ri-map-pin-2-fill text-sm" style={{ color: '#096d7d' }} />
-                    <span className="text-[10px] font-bold" style={{ color: '#096d7d' }}>Disponible</span>
-                  </>
+                  geoLimit && !canStartChallenge ? (
+                    <>
+                      <i className="ri-map-pin-2-fill text-sm" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} />
+                      <span className="text-[10px] font-bold" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        {`Necesitas estar a ${geoLimitRadius} m`}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-map-pin-2-fill text-sm" style={{ color: '#096d7d' }} />
+                      <span className="text-[10px] font-bold" style={{ color: '#096d7d' }}>Disponible</span>
+                    </>
+                  )
                 ) : (
                   <>
                     <i className="ri-lock-fill text-sm text-gray-400" />
@@ -1210,17 +1230,28 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             >
               <i className="ri-close-line text-lg text-gray-500" />
             </button>
+            {/* Nombre sobre el overlay – bottom-left */}
+            {!(selectedStopIndex >= 0 && completedStops[selectedStopIndex]) && (
+              <div className="absolute bottom-3 left-4 right-12 flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.7)' }}>Parada</span>
+                <p className="text-sm font-extrabold uppercase tracking-wide leading-snug text-white drop-shadow-md">
+                  {selectedMonument.nombre}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ── Contenido ── */}
-          <div className="px-3 pt-2.5 pb-3 space-y-2 overflow-y-auto flex-1">
+          <div className="px-3 pt-2 pb-2.5 space-y-1.5 overflow-y-auto flex-1">
 
             {/* FASE IDLE */}
             {navPhase === 'idle' && (
               <div className="space-y-3 mt-1.5">
-                <p className={`text-[11px] text-gray-500 leading-relaxed text-justify hyphens-auto${historyExpanded ? '' : ' line-clamp-4'}`} lang="es">
-                  {selectedMonument.descripcion ?? ''}
-                </p>
+                {selectedStopIndex >= 0 && completedStops[selectedStopIndex] && (
+                  <p className={`text-[11px] text-gray-500 leading-relaxed text-justify hyphens-auto${historyExpanded ? '' : ' line-clamp-4'}`} lang="es">
+                    {selectedMonument.descripcion ?? ''}
+                  </p>
+                )}
                 {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
                   !historyExpanded && (
                     <button
@@ -1269,20 +1300,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                           </span>
                         </button>
 
-                        {/* Badge de distancia cuando geoLimit está activo y el usuario está lejos */}
-                        {geoLimit && !canStartChallenge && (
-                          <div
-                            className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full mx-auto animate-fade-in"
-                            style={{ background: 'rgba(255,148,71,0.12)', border: '1px solid rgba(255,148,71,0.35)' }}
-                          >
-                            <i className="ri-map-pin-range-line text-xs" style={{ color: '#ff9447' }} />
-                            <span className="text-[11px] font-bold" style={{ color: '#b45309' }}>
-                              {distanceToSelected !== null
-                                ? `${Math.round(distanceToSelected)} m de distancia · necesitas ${geoLimitRadius} m`
-                                : 'Obteniendo tu ubicación…'}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     )}
                   </>
