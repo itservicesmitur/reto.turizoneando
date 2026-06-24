@@ -44,6 +44,12 @@
 
 /* ── Global CSS variables (layout + safe areas) ───────────── */
 :root {
+  --color-primary: #00bbb4;
+  --color-primary-dark: #096d7d;
+  --color-cream: #e5dcc6;
+  --color-accent-red: #e0344b;
+  --color-accent-orange: #ff9447;
+ 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
