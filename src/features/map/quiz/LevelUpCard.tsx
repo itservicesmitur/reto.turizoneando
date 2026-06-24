@@ -57,7 +57,7 @@ export default function LevelUpCard({
     if (!chestLoaded) return
     const t1 = setTimeout(() => setPhase('open'), 3000)
     const t2 = setTimeout(() => setPhase('coins'), 3750)
-    const t3 = setTimeout(() => { setFrozenSrc('/assets/img/COFRE_OPEN.png') }, 8100)
+    const t3 = setTimeout(() => { setFrozenSrc('/assets/img/COFRE_OPEN.webp') }, 8100)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [chestLoaded])
 
@@ -74,7 +74,7 @@ export default function LevelUpCard({
       if (prog < 1) {
         rafRef.current = requestAnimationFrame(tick)
       } else {
-        setFrozenSrc('/assets/img/COFRE_OPEN.png')
+        setFrozenSrc('/assets/img/COFRE_OPEN.webp')
       }
     }
     const d2 = setTimeout(() => { rafRef.current = requestAnimationFrame(tick) }, 100)
@@ -352,10 +352,10 @@ export default function LevelUpCard({
                       ['--sy' as string]: c.sy,
                       animation: `lu-coin-fly .85s cubic-bezier(.4,0,1,1) ${c.delay} infinite`,
                     }}>
-                      <img src="/assets/img/coin_only.png" className="w-5 h-5 object-contain" />
+                      <img src="/assets/img/coin_only.webp" className="w-5 h-5 object-contain" />
                     </div>
                   ))}
-                  <img src="/assets/img/coins.png" className="w-full h-full object-contain" alt="Coins" />
+                  <img src="/assets/img/coins.webp" className="w-full h-full object-contain" alt="Coins" />
                 </div>
                 <div className="flex flex-col justify-center">
                   <span className="font-black text-2xl tracking-tight" style={{ color: '#096d7d' }}>+{display}</span>

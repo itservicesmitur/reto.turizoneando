@@ -12,7 +12,7 @@ import {
 const TEMPLATES = [
   { id: 'otp',           label: 'OTP Verificación',     html: () => buildOtpEmail() },
   { id: 'reset',         label: 'Reset Contraseña',      html: () => buildResetPasswordEmail() },
-  { id: 'claim',         label: 'Premio Ganado',         html: () => buildClaimPrizeEmail('Antonio de la Cruz', 'Cena para 2 en La Atarazana', 'Restaurantes', 'RT-48291', '/assets/img/fondoGrid3.jpeg') },
+  { id: 'claim',         label: 'Premio Ganado',         html: () => buildClaimPrizeEmail('Antonio de la Cruz', 'Cena para 2 en La Atarazana', 'Restaurantes', 'RT-48291', '/assets/img/fondoGrid3.webp') },
   { id: 'multi',         label: 'Múltiples Premios',     html: () => buildMultiplePrizesEmail() },
   { id: 'custom',        label: 'Mensaje Admin',         html: () => buildCustomEmail() },
   { id: 'stock',         label: 'Alerta Stock Crítico',  html: () => buildLowStockEmail('Cena para 2 en La Atarazana', 'Restaurantes', 'La Atarazana', 4, 5) },

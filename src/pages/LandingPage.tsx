@@ -145,7 +145,7 @@ export default function LandingPage() {
             <img src={logoImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <img
-            src="/assets/img/logoSoloLetras.png"
+            src="/assets/img/logoSoloLetras.webp"
             alt="Turizoneando"
             className="lp-nav-wordmark"
             style={{ height: 90, width: 'auto', marginTop: -30, marginBottom: -30, filter: 'brightness(0) invert(1)' }}
@@ -188,9 +188,9 @@ export default function LandingPage() {
           <div style={{ position: 'absolute', top: '45%', right: '6%', width: 280, height: 280, borderRadius: '50%', background: 'rgba(224,52,75,0.13)', filter: 'blur(32px)', animation: 'blobDrift 10s ease-in-out infinite alternate' }} />
           <div style={{ position: 'absolute', bottom: '-8%', left: '28%', width: 460, height: 220, borderRadius: '50%', background: 'rgba(255,148,71,0.09)', filter: 'blur(52px)', animation: 'blobDrift 14s ease-in-out infinite alternate' }} />
           {/* Palm leaves – left */}
-          <img src="/assets/img/palm_leaves_shadow.png" alt="" style={{ position: 'absolute', top: 0, left: -10, height: '72%', width: 'auto', opacity: 0.55, objectFit: 'contain', objectPosition: 'top left', mixBlendMode: 'multiply' }} />
+          <img src="/assets/img/palm_leaves_shadow.webp" alt="" style={{ position: 'absolute', top: 0, left: -10, height: '72%', width: 'auto', opacity: 0.55, objectFit: 'contain', objectPosition: 'top left', mixBlendMode: 'multiply' }} />
           {/* Palm leaves – right (mirrored) */}
-          <img src="/assets/img/palm_leaves_shadow.png" alt="" style={{ position: 'absolute', top: 0, right: -10, height: '58%', width: 'auto', opacity: 0.35, objectFit: 'contain', objectPosition: 'top right', transform: 'scaleX(-1)', mixBlendMode: 'multiply' }} />
+          <img src="/assets/img/palm_leaves_shadow.webp" alt="" style={{ position: 'absolute', top: 0, right: -10, height: '58%', width: 'auto', opacity: 0.35, objectFit: 'contain', objectPosition: 'top right', transform: 'scaleX(-1)', mixBlendMode: 'multiply' }} />
           {/* Grid overlay */}
           <div style={{ position: 'absolute', inset: 0, opacity: 0.03, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
           {/* Edge vignette */}
@@ -246,7 +246,7 @@ export default function LandingPage() {
 
             <div className="lp-r" style={{ margin: '0', width: 'calc(100% + 44px)', maxWidth: 'min(400px, calc(100% + 44px))', overflow: 'hidden', marginLeft: '-44px' }}>
               <img
-                src="/assets/img/logoSoloLetras.png"
+                src="/assets/img/logoSoloLetras.webp"
                 alt="Turizoneando"
                 style={{
                   width: '100%',
@@ -321,7 +321,7 @@ export default function LandingPage() {
             <div className="lp-orbit-wrap lp-orbit-2">
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 10px rgba(0,187,180,0.8)' }} />
             </div>
-            <img src="/assets/img/turiguiaSinFondo.png" alt="" className="lp-mascot-float" />
+            <img src="/assets/img/turiguiaSinFondo.webp" alt="" className="lp-mascot-float" />
           </div>
         </div>
 
@@ -423,7 +423,7 @@ export default function LandingPage() {
             <div className="lp-rr lp-mascot-col" style={{ transitionDelay: '0.1s' }}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
                 <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,187,180,0.2) 0%, transparent 70%)', animation: 'pulseGlow 3s ease-in-out infinite' }} />
-                <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
+                <img src="/assets/img/turiguiaSinFondo.webp" alt="" style={{
                   width: 'min(280px, 65vw)', height: 'auto',
                   filter: 'drop-shadow(0 12px 36px rgba(0,0,0,0.45))',
                   display: 'block', margin: '0 auto', position: 'relative',
@@ -486,7 +486,7 @@ export default function LandingPage() {
           </div>
 
           <div className="lp-r" style={{ textAlign: 'center', marginTop: 44, transitionDelay: '0.2s' }}>
-            <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
+            <img src="/assets/img/turiguiaSinFondo.webp" alt="" style={{
               width: 'min(150px, 38vw)', height: 'auto',
               filter: 'drop-shadow(0 8px 20px rgba(9,109,125,0.2))',
               animation: 'float 4s ease-in-out infinite',
@@ -666,7 +666,7 @@ export default function LandingPage() {
           position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 4,
         }}>
           <img
-            src="/assets/img/LogoMultiple.png"
+            src="/assets/img/LogoMultiple.webp"
             alt="Ministerio de Turismo · República Dominicana"
             style={{
               height: 220,
@@ -693,7 +693,7 @@ export default function LandingPage() {
         }}>
           {/* Mascot in CTA */}
           <div className="lp-r" style={{ position: 'relative', zIndex: 3, marginBottom: 20 }}>
-            <img src="/assets/img/turiguiaSinFondo.png" alt="" style={{
+            <img src="/assets/img/turiguiaSinFondo.webp" alt="" style={{
               width: 'min(150px, 35vw)', height: 'auto',
               filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.25))',
               display: 'inline-block',
@@ -881,14 +881,14 @@ export default function LandingPage() {
 
         /* ── Section Backgrounds ────────────────── */
         .lp-hero-bg-section {
-          background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.25) 0%, rgba(6, 63, 74, 0.6) 100%), url('/assets/img/hero_bg_mobile.png');
+          background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.25) 0%, rgba(6, 63, 74, 0.6) 100%), url('/assets/img/hero_bg_mobile.webp');
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
         }
         @media (min-width: 760px) {
           .lp-hero-bg-section {
-            background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.15) 0%, rgba(6, 63, 74, 0.55) 100%), url('/assets/img/hero_bg_desktop.png');
+            background-image: linear-gradient(to bottom, rgba(46, 171, 173, 0.15) 0%, rgba(6, 63, 74, 0.55) 100%), url('/assets/img/hero_bg_desktop.webp');
           }
         }
 

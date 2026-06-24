@@ -58,7 +58,7 @@ export default function WelcomeCard({ text, audioUrl, onContinue }: Props) {
         {/* ── Zona imagen ── */}
         <div style={{ position: 'relative', height: 210, overflow: 'hidden', padding: 8 }}>
           <img
-            src="/assets/img/cityZone.png"
+            src="/assets/img/cityZone.webp"
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 50%', display: 'block', borderRadius: 16 }}
           />

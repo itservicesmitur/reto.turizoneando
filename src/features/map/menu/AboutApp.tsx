@@ -32,9 +32,9 @@ export default function AboutApp({ onBack }: Props) {
             className="h-auro w-60 rounded-full overflow-hidden"
             // style={{ border: '6px solid #ffffff', filter: 'drop-shadow(0 10px 28px rgba(0,0,0,0.35))' }}
           >
-            <img src="/assets/img/logoConFondo.png" alt="Turizoneando" className="w-full h-full object-cover" />
+            <img src="/assets/img/logoConFondo.webp" alt="Turizoneando" className="w-full h-full object-cover" />
           </div>
-          <img src="/assets/img/logoSoloLetras.png" alt="Turizoneando" className="h-40 -mt-22 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src="/assets/img/logoSoloLetras.webp" alt="Turizoneando" className="h-40 -mt-22 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
           <p className="text-[10px] font-bold -mt-18 uppercase tracking-widest" style={{ color: 'rgba(229,220,198,0.75)' }}>
             {t('map.app_version')}
           </p>

@@ -301,7 +301,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
               <span className="text-[13px] font-bold" style={{ color: '#096d7d' }}>{stageNum}</span>
             </div>
             <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,148,71,0.4), transparent)' }} />
-            <img src="/assets/img/logoSinFondo.png" className="w-20 h-auto object-contain" />
+            <img src="/assets/img/logoSinFondo.webp" className="w-20 h-auto object-contain" />
           </div>
         </div>
       </div>

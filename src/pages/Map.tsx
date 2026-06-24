@@ -883,7 +883,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           <div className="relative flex flex-col items-center gap-6 max-w-xs">
             {/* Logo principal */}
             <img
-              src="/assets/img/logo1.png"
+              src="/assets/img/logo1.webp"
               alt="Logo Turizoneando"
               className="h-22 md:h-28 object-contain animate-skull"
               style={{ filter: 'sepia(0.6) saturate(1.3) contrast(1.05) brightness(0.95) drop-shadow(0 6px 16px rgba(252,211,77,0.25))' }}
@@ -925,7 +925,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             className="mb-6 h-auto w-70  overflow-hidden select-none"
           >
             <img
-              src="/assets/img/logoConFondo.png"
+              src="/assets/img/logoConFondo.webp"
               alt="Logo Turizoneando"
               className="w-full h-full object-cover"
             />
@@ -933,7 +933,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
           {/* Nombre app */}
           <img
-            src="/assets/img/logoSoloLetras.png"
+            src="/assets/img/logoSoloLetras.webp"
             alt="Turizoneando"
             className="h-40 object-contain -mt-25 "
             style={{ filter: 'brightness(0) invert(1)' }}
