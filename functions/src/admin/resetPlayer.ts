@@ -16,27 +16,33 @@ export const resetPlayer = onCall(async (request) => {
   }
 
   const db = getFirestore();
+  const playerRef = db.collection("players").doc(playerId);
 
-  // Delete all attempts in batches of 500
-  const attemptsRef = db.collection("players").doc(playerId).collection("attempts");
-  let deleted = 0;
-  let snap = await attemptsRef.limit(500).get();
+  const deleteSubcollection = async (name: string): Promise<number> => {
+    const colRef = playerRef.collection(name);
+    let count = 0;
+    let snap = await colRef.limit(500).get();
+    while (!snap.empty) {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      count += snap.docs.length;
+      snap = await colRef.limit(500).get();
+    }
+    return count;
+  };
 
-  while (!snap.empty) {
-    const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-    deleted += snap.docs.length;
-    snap = await attemptsRef.limit(500).get();
-  }
+  const [attemptsDeleted, seasonsDeleted] = await Promise.all([
+    deleteSubcollection("attempts"),
+    deleteSubcollection("seasons"),
+  ]);
 
-  // Reset player progress fields
-  await db.collection("players").doc(playerId).update({
+  await playerRef.update({
     score: 0,
     mapProgress: {},
     currentNodeId: null,
     completedStopsCount: 0,
   });
 
-  return { success: true, attemptsDeleted: deleted };
+  return { success: true, attemptsDeleted, seasonsDeleted };
 });

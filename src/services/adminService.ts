@@ -71,13 +71,13 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
   }
 }
 
-export async function resetPlayerProgress(uid: string): Promise<{ attemptsDeleted: number }> {
-  const fn = httpsCallable<{ playerId: string }, { success: boolean; attemptsDeleted: number }>(
+export async function resetPlayerProgress(uid: string): Promise<{ attemptsDeleted: number; seasonsDeleted: number }> {
+  const fn = httpsCallable<{ playerId: string }, { success: boolean; attemptsDeleted: number; seasonsDeleted: number }>(
     functions,
     'resetPlayer'
   )
   const response = await fn({ playerId: uid })
-  return { attemptsDeleted: response.data.attemptsDeleted }
+  return { attemptsDeleted: response.data.attemptsDeleted, seasonsDeleted: response.data.seasonsDeleted }
 }
 
 export async function updatePlayerBannedStatus(uid: string, banned: boolean): Promise<void> {
@@ -901,6 +901,10 @@ export async function deleteStop(stopId: string): Promise<void> {
   }
 
   await batch.commit()
+}
+
+export async function toggleStopActive(stopId: string, active: boolean): Promise<void> {
+  await updateDoc(doc(db, 'stops', stopId), { active })
 }
 
 export interface PrizeCodeData {

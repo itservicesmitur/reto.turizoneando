@@ -15,6 +15,9 @@ interface ClaimRawResult {
   prizeName?: string
   prizeImageUrl?: string
   prizeCategory?: string
+  localName?: string
+  localAddress?: string
+  localPhone?: string
 }
 
 export interface PrizeInfo {
@@ -66,5 +69,8 @@ export async function claimPrizeAndNotify(params: ClaimInput): Promise<ClaimedPr
     prizeImageUrl: d.prizeImageUrl ?? '',
     prizeCategory: d.prizeCategory ?? '',
     description:   '',
+    localName:     d.localName     ?? '',
+    localAddress:  d.localAddress  ?? '',
+    localPhone:    d.localPhone    ?? '',
   }
 }

@@ -7,6 +7,7 @@ import {
   createStop,
   updateStop,
   deleteStop,
+  toggleStopActive,
   fetchSeasons,
   fetchElevenLabsVoices,
   generateElevenLabsAudio,
@@ -655,6 +656,16 @@ export default function StopsPage() {
     }
   }
 
+  // Handle Toggle Active
+  async function handleToggleActive(stop: StopData) {
+    try {
+      await toggleStopActive(stop.id, !stop.active)
+      load()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al cambiar estado')
+    }
+  }
+
   // Handle Delete Stop
   async function handleDelete(stop: StopData) {
     if (!window.confirm(t('stopsManagement.confirmDelete'))) {
@@ -1195,6 +1206,26 @@ export default function StopsPage() {
                           >
                             <i className="ri-pencil-line" />
                             Editar
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(stop)}
+                            title={stop.active ? 'Desactivar parada' : 'Activar parada'}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: 6,
+                              background: stop.active ? 'rgba(234,179,8,0.08)' : 'rgba(34,197,94,0.08)',
+                              border: stop.active ? '1px solid rgba(234,179,8,0.3)' : '1px solid rgba(34,197,94,0.3)',
+                              color: stop.active ? '#b45309' : '#15803d',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <i className={stop.active ? 'ri-eye-off-line' : 'ri-eye-line'} />
+                            {stop.active ? 'Desactivar' : 'Activar'}
                           </button>
                           <button
                             onClick={() => handleDelete(stop)}

@@ -75,7 +75,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
       >
         {/* Imagen */}
         <img
-          src={monumentImage}
+          src={monumentImage || undefined}
           alt={monumentName}
           className="shrink-0 w-full object-cover rounded-3xl p-2 "
           style={{ height: 200 }}

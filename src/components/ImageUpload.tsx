@@ -9,6 +9,14 @@ interface ImageUploadProps {
   label?: string
 }
 
+interface CropConfig {
+  aspectRatio: number
+  outputWidth: number
+  outputHeight: number
+  cropWidth: number
+  cropHeight: number
+}
+
 export default function ImageUpload({ value, onChange, storagePath, label }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -17,7 +25,39 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
   const [manualMode, setManualMode] = useState(false)
   const [manualUrl, setManualUrl] = useState(value)
 
+  // Cropper State
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState('')
+  const [originalFile, setOriginalFile] = useState<File | null>(null)
+  const [zoom, setZoom] = useState(1.0)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [imgDimensions, setImgDimensions] = useState({
+    width: 0,
+    height: 0,
+    naturalWidth: 0,
+    naturalHeight: 0
+  })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Config based on path
+  const getCropConfig = (path: typeof storagePath): CropConfig => {
+    switch (path) {
+      case 'prizes':
+        return { aspectRatio: 1, outputWidth: 600, outputHeight: 600, cropWidth: 280, cropHeight: 280 }
+      case 'admins':
+        return { aspectRatio: 1, outputWidth: 400, outputHeight: 400, cropWidth: 280, cropHeight: 280 }
+      case 'stops':
+      case 'locals':
+      default:
+        return { aspectRatio: 4 / 3, outputWidth: 800, outputHeight: 600, cropWidth: 320, cropHeight: 240 }
+    }
+  }
+
+  const config = getCropConfig(storagePath)
 
   // Drag over handler
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -36,7 +76,7 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
     setIsDragOver(false)
     const files = e.dataTransfer.files
     if (files && files.length > 0) {
-      handleUpload(files[0])
+      initiateCropFlow(files[0])
     }
   }
 
@@ -44,12 +84,12 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files && files.length > 0) {
-      handleUpload(files[0])
+      initiateCropFlow(files[0])
     }
   }
 
-  // Direct upload logic
-  const handleUpload = (file: File) => {
+  // Initiate crop modal flow
+  const initiateCropFlow = (file: File) => {
     setError(null)
 
     // Validate type
@@ -65,7 +105,18 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
       return
     }
 
-    // Clean name
+    setOriginalFile(file)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string)
+      setCropModalOpen(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Actual upload logic
+  const startUpload = (file: File) => {
+    setError(null)
     const extension = file.name.split('.').pop() || 'jpg'
     const uniqueFilename = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${extension}`
     const storageRef = ref(storage, `${storagePath}/${uniqueFilename}`)
@@ -111,6 +162,135 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
   const handleManualUrlApply = () => {
     onChange(manualUrl.trim())
     setManualMode(false)
+  }
+
+  // Image load details inside crop viewport
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const natW = img.naturalWidth
+    const natH = img.naturalHeight
+
+    let baseW = 0
+    let baseH = 0
+
+    if (natW / natH > config.cropWidth / config.cropHeight) {
+      baseH = config.cropHeight
+      baseW = config.cropHeight * (natW / natH)
+    } else {
+      baseW = config.cropWidth
+      baseH = config.cropWidth * (natH / natW)
+    }
+
+    setImgDimensions({
+      width: baseW,
+      height: baseH,
+      naturalWidth: natW,
+      naturalHeight: natH
+    })
+
+    setZoom(1.0)
+    setOffset({ x: 0, y: 0 })
+  }
+
+  // Constraint math
+  const constrainOffset = (x: number, y: number, currentZoom: number) => {
+    if (!imgDimensions.width || !imgDimensions.height) return { x: 0, y: 0 }
+
+    const wZoom = imgDimensions.width * currentZoom
+    const hZoom = imgDimensions.height * currentZoom
+
+    const xMax = Math.max(0, (wZoom - config.cropWidth) / 2)
+    const yMax = Math.max(0, (hZoom - config.cropHeight) / 2)
+
+    return {
+      x: Math.min(xMax, Math.max(-xMax, x)),
+      y: Math.min(yMax, Math.max(-yMax, y))
+    }
+  }
+
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y })
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    const newX = e.clientX - dragStart.x
+    const newY = e.clientY - dragStart.y
+    setOffset(constrainOffset(newX, newY, zoom))
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  // Touch handlers for mobile devices
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return
+    setIsDragging(true)
+    const touch = e.touches[0]
+    setDragStart({ x: touch.clientX - offset.x, y: touch.clientY - offset.y })
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return
+    const touch = e.touches[0]
+    const newX = touch.clientX - dragStart.x
+    const newY = touch.clientY - dragStart.y
+    setOffset(constrainOffset(newX, newY, zoom))
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
+  const handleZoomChange = (newZoom: number) => {
+    setZoom(newZoom)
+    setOffset(prev => constrainOffset(prev.x, prev.y, newZoom))
+  }
+
+  // Apply Crop
+  const handleCropApply = () => {
+    if (!imgDimensions.naturalWidth || !imgDimensions.naturalHeight || !originalFile) return
+
+    const img = new Image()
+    img.src = cropImageSrc
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = config.outputWidth
+      canvas.height = config.outputHeight
+      const ctx = canvas.getContext('2d')
+
+      if (ctx) {
+        const scaleFactor = config.outputWidth / config.cropWidth
+
+        const wZoom = imgDimensions.width * zoom
+        const hZoom = imgDimensions.height * zoom
+
+        const wDraw = wZoom * scaleFactor
+        const hDraw = hZoom * scaleFactor
+
+        const xDraw = ((config.cropWidth - wZoom) / 2 + offset.x) * scaleFactor
+        const yDraw = ((config.cropHeight - hZoom) / 2 + offset.y) * scaleFactor
+
+        // Clean background
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, config.outputWidth, config.outputHeight)
+
+        ctx.drawImage(img, xDraw, yDraw, wDraw, hDraw)
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const filename = originalFile.name.replace(/\.[^/.]+$/, '') + '_cropped.jpg'
+            const croppedFile = new File([blob], filename, { type: 'image/jpeg' })
+            setCropModalOpen(false)
+            startUpload(croppedFile)
+          }
+        }, 'image/jpeg', 0.75)
+      }
+    }
   }
 
   return (
@@ -355,6 +535,184 @@ export default function ImageUpload({ value, onChange, storagePath, label }: Ima
           {error}
         </div>
       )}
+
+      {/* ── CROP INTERACTIVE MODAL ── */}
+      {cropModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(3, 31, 38, 0.75)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: 24,
+            width: '90%',
+            maxWidth: 440,
+            padding: 24,
+            boxShadow: '0 24px 64px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--color-navy)', fontFamily: 'var(--font-display)' }}>
+                  Ajustar Imagen
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: 11, color: 'var(--color-text-muted)' }}>
+                  Arrastra para posicionar y usa la barra inferior para hacer zoom
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCropModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-gray-mid)',
+                  fontSize: 22,
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <i className="ri-close-line" />
+              </button>
+            </div>
+
+            {/* Viewport Frame */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              background: '#f4f5f7',
+              borderRadius: 16,
+              padding: 20,
+              border: '1px solid var(--color-border)'
+            }}>
+              <div
+                ref={containerRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{
+                  width: config.cropWidth,
+                  height: config.cropHeight,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: storagePath === 'admins' ? '50%' : 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 0 0 2px var(--color-navy)',
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  userSelect: 'none',
+                  background: '#ffffff'
+                }}
+              >
+                <img
+                  src={cropImageSrc}
+                  alt="Crop Target"
+                  onLoad={handleImageLoad}
+                  style={{
+                    position: 'absolute',
+                    width: imgDimensions.width || '100%',
+                    height: imgDimensions.height || '100%',
+                    left: imgDimensions.width ? (config.cropWidth - imgDimensions.width) / 2 : 0,
+                    top: imgDimensions.height ? (config.cropHeight - imgDimensions.height) / 2 : 0,
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    display: cropImageSrc ? 'block' : 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Zoom Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <i className="ri-zoom-out-line" style={{ color: 'var(--color-gray-mid)', fontSize: 16 }} />
+              <input
+                type="range"
+                min="1.0"
+                max="3.0"
+                step="0.01"
+                value={zoom}
+                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                style={{
+                  flex: 1,
+                  height: 6,
+                  borderRadius: 3,
+                  background: 'var(--color-border)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  accentColor: 'var(--color-navy)'
+                }}
+              />
+              <i className="ri-zoom-in-line" style={{ color: 'var(--color-navy)', fontSize: 16 }} />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setCropModalOpen(false)}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderRadius: 12,
+                  border: '1.5px solid var(--color-border)',
+                  background: '#ffffff',
+                  color: 'var(--color-text-muted)',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCropApply}
+                style={{
+                  flex: 2,
+                  height: 44,
+                  borderRadius: 12,
+                  border: 'none',
+                  background: 'var(--color-navy)',
+                  color: '#ffffff',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(27,43,110,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }}
+              >
+                <i className="ri-crop-line" />
+                Recortar y Subir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin-circle { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   )
 }

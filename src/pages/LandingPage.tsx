@@ -1091,6 +1091,39 @@ export default function LandingPage() {
           .lp-hero-content { max-width: 560px; }
         }
       `}</style>
+
+
+  {/* ── Footer visual ── */}
+  <section className="relative w-full overflow-hidden bg-primary">
+    
+
+    {/* Desktop */}
+    <img
+      src="/assets/img/footerVector.webp"
+      alt=""
+      className="hidden md:block w-full h-auto"
+    />
+
+    {/* Mobile — object-bottom recorta el área blanca del tope */}
+    <div className="block md:hidden w-full h-[460px] overflow-hidden">
+      <img
+        src="/assets/img/footerMobile.webp"
+        alt=""
+        className="w-full h-full object-cover object-bottom"
+      />
+    </div>
+
+    {/* Logo al nivel del piso */}
+    <div className="absolute bottom-5 left-0 right-0 flex justify-center items-end px-8">
+      <img
+        src="/assets/img/LogoMultiple.webp"
+        alt="República Dominicana · Cluster Turístico Santo Domingo"
+        className="w-44 md:w-64 h-auto brightness-0 invert opacity-90"
+      />
+    </div>
+
+  </section>
+
     </div>
   )
 }

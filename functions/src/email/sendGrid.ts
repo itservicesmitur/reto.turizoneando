@@ -11,6 +11,8 @@ const sendgridFromEmailSecret = defineSecret("SENDGRID_FROM_EMAIL");
 // Logo must be a public URL — never use hostOrigin (could be localhost in dev)
 const LOGO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2FlogoNuevo.png?alt=media&token=911d069f-8f5f-4be5-9da3-0c17431dbab1';
 const BG_HERO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2FfondoGrid2.jpeg?alt=media&token=aa9c6e17-6d5d-4198-bae3-dafdb3bac4d2';
+const DOMINICAN_LOGO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fdominican_2.png?alt=media&token=94f82a14-2363-4019-a549-dda291fa972b';
+const CLUSTER_LOGO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fcluster_2.png?alt=media&token=54d01e86-158f-4567-9af4-9a5c7b30e9f2';
 
 // Helper function to send email via SendGrid
 async function sendRawEmail(
@@ -54,11 +56,13 @@ function buildClaimPrizeEmailHtml(
   displayName: string,
   prizeName: string,
   code: string,
-  prizeImageUrl: string
+  prizeImageUrl: string,
+  localName?: string,
+  localAddress?: string,
+  localPhone?: string,
 ): string {
-  const cardBg = prizeImageUrl
-    ? `background-image:url('${prizeImageUrl}');background-size:cover;background-position:center;background-color:#0f766e;`
-    : `background-color:#0f766e;`;
+  const cardBg = `background-image:url('${BG_HERO_URL}');background-size:cover;background-position:center;background-color:#0f766e;`;
+  const avatarUrl = prizeImageUrl || LOGO_URL;
   const year = new Date().getFullYear();
 
   const step = (n: number, text: string) => `
@@ -81,10 +85,6 @@ function buildClaimPrizeEmailHtml(
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -122,16 +122,25 @@ function buildClaimPrizeEmailHtml(
             <!-- Prize Card -->
             <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.22);margin-bottom:32px;">
               <tr>
-                <td height="290" style="${cardBg}">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="height:290px;">
+                <td style="${cardBg}">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:rgba(15, 23, 42, 0.68);">
                     <tr>
-                      <td height="290" style="background:linear-gradient(to bottom,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.38) 45%,rgba(0,0,0,0.72) 100%);padding:24px;text-align:center;vertical-align:bottom;">
-                        <p style="margin:0 0 6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.25em;color:#ffffff;">Premio ganado</p>
-                        <h3 style="margin:0 0 18px;font-size:18px;font-weight:500;color:#ffffff;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;">${prizeName}</h3>
+                      <td style="padding:32px 24px;text-align:center;vertical-align:middle;">
+                        <!-- Circular Avatar -->
+                        <table cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 16px;">
+                          <tr>
+                            <td style="padding:3px;background-color:rgba(255,255,255,0.25);border-radius:50%;">
+                              <img src="${avatarUrl}" width="100" height="100" alt="Premio" style="display:block;width:100px;height:100px;border-radius:50%;border:4px solid #ffffff;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.35);" />
+                            </td>
+                          </tr>
+                        </table>
+
+                        <p style="margin:0 0 6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.25em;color:#ffffff;opacity:0.85;">Premio ganado</p>
+                        <h3 style="margin:0 0 18px;font-size:18px;font-weight:700;color:#ffffff;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;text-shadow:0 2px 4px rgba(0,0,0,0.4);">${prizeName}</h3>
                         <table cellpadding="0" cellspacing="0" align="center">
                           <tr>
-                            <td style="border:2px solid rgba(255,255,255,0.5);background-color:rgba(16,185,129,0.25);border-radius:8px;padding:10px 36px;text-align:center;">
-                              <span style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:900;color:#ffffff;letter-spacing:3px;">${code}</span>
+                            <td style="border:2px solid rgba(255,255,255,0.6);background-color:rgba(20,184,166,0.3);border-radius:8px;padding:10px 36px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                              <span style="font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:900;color:#ffffff;letter-spacing:3px;">${code}</span>
                             </td>
                           </tr>
                         </table>
@@ -143,56 +152,38 @@ function buildClaimPrizeEmailHtml(
               </tr>
             </table>
 
+            <!-- Local info -->
+            ${(localName || localAddress || localPhone) ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;margin-bottom:28px;">
+              <tr><td style="padding:20px 22px;">
+                <p style="margin:0 0 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#0d9488;">📍 Dónde canjear tu premio</p>
+                ${localName ? `<p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#134e4a;">${localName}</p>` : ''}
+                ${localAddress ? `<p style="margin:0 0 5px;font-size:13px;color:#475569;display:flex;align-items:center;gap:4px;">📌 ${localAddress}</p>` : ''}
+                ${localPhone ? `<p style="margin:0;font-size:13px;color:#475569;">📞 ${localPhone}</p>` : ''}
+              </td></tr>
+            </table>` : ''}
+
             <!-- Steps -->
             <h3 style="margin:0 0 16px;font-size:16px;font-weight:600;color:#58bea9;font-family:'Plus Jakarta Sans',sans-serif;">¿Cómo canjear tu premio?</h3>
-            ${step(1, 'Dirígete al establecimiento participante correspondiente a tu premio.')}
+            ${step(1, localName ? `Dirígete a <strong style="color:#334155;">${localName}</strong>${localAddress ? ` (${localAddress})` : ''}.` : 'Dirígete al establecimiento participante correspondiente a tu premio.')}
             ${step(2, 'Muestra este correo o tu código en la aplicación al personal.')}
             ${step(3, 'El establecimiento validará tu código y te entregará tu recompensa.')}
             ${step(4, 'Este código es válido para un único canje. Consérvalo de forma privada.')}
 
-            <!-- MITUR footer -->
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:20px;">
-                    <tr>
-                      <td style="padding:18px 20px;">
-                        <table width="100%" cellpadding="0" cellspacing="0">
-                          <tr>
-                            <td class="mitur-info" style="vertical-align:middle;">
-                              <table cellpadding="0" cellspacing="0">
-                                <tr>
-                                  <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                                    <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                                  </td>
-                                  <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                                    <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                                    <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                                  </td>
-                                </tr>
-                              </table>
-                            </td>
-                            <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                              <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                              </a>
-                              <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                              </a>
-                              <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                              </a>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
                   <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
                   <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
                     <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
                   </p>
-                  <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+                  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+                    <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                      <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                      <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                    </td>
+                  </tr></table>
+                  <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
                     © ${year} Turizoneando. Todos los derechos reservados.
                   </p>
                 </td>
@@ -212,7 +203,7 @@ function buildClaimPrizeEmailHtml(
 // ── MULTIPLE PRIZES EMAIL TEMPLATE (nuevo diseño) ────────────────────────
 function buildMultiplePrizesEmailHtml(
   displayName: string,
-  codes: Array<{ prizeName: string; prizeCategory: string; code: string; prizeImageUrl: string }>
+  codes: Array<{ prizeName: string; prizeCategory: string; code: string; prizeImageUrl: string; localName?: string; localAddress?: string; localPhone?: string }>
 ): string {
   const year = new Date().getFullYear();
 
@@ -228,10 +219,19 @@ function buildMultiplePrizesEmailHtml(
     const imgCell = c.prizeImageUrl
       ? `<img src="${c.prizeImageUrl}" width="96" height="96" alt="${c.prizeName}" style="display:block;border-radius:8px;width:96px;height:96px;object-fit:cover;" />`
       : `<div style="width:96px;height:96px;background-color:#ccfbf1;border-radius:8px;"></div>`;
+    const localBlock = (c.localName || c.localAddress || c.localPhone) ? `
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;margin-top:10px;">
+        <tr><td style="padding:10px 12px;">
+          <p style="margin:0 0 4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#0d9488;">📍 Dónde canjear</p>
+          ${c.localName ? `<p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#134e4a;">${c.localName}</p>` : ''}
+          ${c.localAddress ? `<p style="margin:0 0 2px;font-size:11px;color:#475569;">📌 ${c.localAddress}</p>` : ''}
+          ${c.localPhone ? `<p style="margin:0;font-size:11px;color:#475569;">📞 ${c.localPhone}</p>` : ''}
+        </td></tr>
+      </table>` : '';
     return `
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:rgba(20,184,166,0.05);border:1px solid rgba(20,184,166,0.1);border-radius:12px;margin-bottom:12px;">
         <tr><td style="padding:8px;">
-          <table cellpadding="0" cellspacing="0">
+          <table cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td style="width:96px;vertical-align:top;">${imgCell}</td>
               <td style="padding-left:12px;vertical-align:top;">
@@ -242,6 +242,7 @@ function buildMultiplePrizesEmailHtml(
               </td>
             </tr>
           </table>
+          ${localBlock}
         </td></tr>
       </table>`;
   }).join("");
@@ -258,10 +259,6 @@ function buildMultiplePrizesEmailHtml(
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -292,39 +289,17 @@ function buildMultiplePrizesEmailHtml(
         ${step(4, "Cada código es válido para un único canje. Consérvalo de forma privada.")}
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:20px;">
-              <tr><td style="padding:18px 20px;">
-                <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                  <td class="mitur-info" style="vertical-align:middle;">
-                    <table cellpadding="0" cellspacing="0"><tr>
-                      <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                        <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                      </td>
-                      <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                        <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                      </td>
-                    </tr></table>
-                  </td>
-                  <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                    </a>
-                  </td>
-                </tr></table>
-              </td></tr>
-            </table>
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
-            <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
               © ${year} Turizoneando. Todos los derechos reservados.
             </p>
           </td>
@@ -385,10 +360,6 @@ export const sendAdminCustomEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -418,39 +389,17 @@ export const sendAdminCustomEmail = onCall({
         <!-- MITUR footer -->
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;margin-bottom:20px;">
-              <tr><td style="padding:18px 20px;">
-                <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                  <td class="mitur-info" style="vertical-align:middle;">
-                    <table cellpadding="0" cellspacing="0"><tr>
-                      <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                        <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                      </td>
-                      <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                        <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                      </td>
-                    </tr></table>
-                  </td>
-                  <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                    </a>
-                  </td>
-                </tr></table>
-              </td></tr>
-            </table>
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
-            <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
               © ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
             </p>
           </td>
@@ -530,10 +479,6 @@ export const sendAdminPasswordResetEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -578,39 +523,17 @@ export const sendAdminPasswordResetEmail = onCall({
         <!-- MITUR footer -->
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;margin-bottom:20px;">
-              <tr><td style="padding:18px 20px;">
-                <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                  <td class="mitur-info" style="vertical-align:middle;">
-                    <table cellpadding="0" cellspacing="0"><tr>
-                      <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                        <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                      </td>
-                      <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                        <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                      </td>
-                    </tr></table>
-                  </td>
-                  <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                    </a>
-                  </td>
-                </tr></table>
-              </td></tr>
-            </table>
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
-            <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
               © ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
             </p>
           </td>
@@ -683,6 +606,9 @@ export const sendPlayerPrizeCodes = onCall({
         prizeName: d.prizeName || "Premio",
         prizeCategory: d.prizeCategory || "",
         prizeImageUrl: d.prizeImageUrl || "",
+        localName: d.localName || "",
+        localAddress: d.localAddress || "",
+        localPhone: d.localPhone || "",
         stageId: d.stageId || "",
         seasonId: d.seasonId || "",
         status: d.status || "active",
@@ -757,6 +683,9 @@ export const claimPrizeAndNotify = onCall({
     prizeName: string;
     prizeCategory: string;
     prizeImageUrl: string;
+    localName: string;
+    localAddress: string;
+    localPhone: string;
   };
 
   let claimed: ClaimResult | null = null;
@@ -775,6 +704,7 @@ export const claimPrizeAndNotify = onCall({
         const [stageSnap, prizeSnap, playerSeasonSnap, playerSnap, codeSnap] = await Promise.all([
           tx.get(stageRef), tx.get(prizeRef), tx.get(playerSeasonRef), tx.get(playerRef), tx.get(prizeCodeRef)
         ]);
+
 
         if (!stageSnap.exists) throw new HttpsError("not-found", "Stage not found for this season.");
         const stagePrizes: any[] = stageSnap.data()?.prizes || [];
@@ -803,6 +733,23 @@ export const claimPrizeAndNotify = onCall({
         const now = Timestamp.now();
         const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
 
+        // Fetch local info outside transaction scope but use it here
+        const localId: string = prizeData.localId || "";
+        let localName = prizeData.localName || "";
+        let localAddress = "";
+        let localPhone = "";
+        if (localId) {
+          try {
+            const localSnap = await db.collection("locals").doc(localId).get();
+            if (localSnap.exists) {
+              const ld = localSnap.data() ?? {};
+              localName = ld.name || localName;
+              localAddress = ld.address || "";
+              localPhone = ld.phone || "";
+            }
+          } catch (_) { /* non-critical */ }
+        }
+
         tx.update(prizeRef, { stockCurrent: FieldValue.increment(-1) });
         tx.set(prizeCodeRef, {
           code,
@@ -815,6 +762,10 @@ export const claimPrizeAndNotify = onCall({
           prizeName: prizeData.name || "",
           prizeCategory: prizeData.categoria || "",
           prizeImageUrl: prizeData.imageUrl || "",
+          localId,
+          localName,
+          localAddress,
+          localPhone,
           status: "active",
           createdAt: now,
           expiresAt,
@@ -838,7 +789,10 @@ export const claimPrizeAndNotify = onCall({
           playerDisplayName: playerData.displayName || "Ganador",
           prizeName: prizeData.name || "Premio",
           prizeCategory: prizeData.categoria || "",
-          prizeImageUrl: prizeData.imageUrl || ""
+          prizeImageUrl: prizeData.imageUrl || "",
+          localName,
+          localAddress,
+          localPhone,
         } as ClaimResult;
       });
 
@@ -866,7 +820,10 @@ export const claimPrizeAndNotify = onCall({
         claimed.playerDisplayName,
         claimed.prizeName,
         claimed.code,
-        claimed.prizeImageUrl
+        claimed.prizeImageUrl,
+        claimed.localName,
+        claimed.localAddress,
+        claimed.localPhone,
       );
 
       const textContent = `¡Felicidades ${claimed.playerDisplayName}!\n\nGanaste: ${claimed.prizeName}${claimed.prizeCategory ? ` (${claimed.prizeCategory})` : ""}\nCódigo: ${claimed.code}\nValidar en: ${validationUrl}\n\nMITUR - Turizoneando`;
@@ -882,7 +839,15 @@ export const claimPrizeAndNotify = onCall({
     }
   }
 
-  return { success: true, code: claimed.code, wonAt: claimed.wonAt, emailSent };
+  return {
+    success: true,
+    code: claimed.code,
+    wonAt: claimed.wonAt,
+    emailSent,
+    localName: claimed.localName,
+    localAddress: claimed.localAddress,
+    localPhone: claimed.localPhone,
+  };
 });
 
 // ── SEND OTP VERIFICATION EMAIL ───────────────────────────────────────────
@@ -926,10 +891,6 @@ export const sendOtpEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -974,39 +935,17 @@ export const sendOtpEmail = onCall({
         <!-- MITUR footer -->
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;margin-bottom:20px;">
-              <tr><td style="padding:18px 20px;">
-                <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                  <td class="mitur-info" style="vertical-align:middle;">
-                    <table cellpadding="0" cellspacing="0"><tr>
-                      <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                        <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                      </td>
-                      <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                        <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                      </td>
-                    </tr></table>
-                  </td>
-                  <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                    </a>
-                  </td>
-                </tr></table>
-              </td></tr>
-            </table>
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
-            <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
               © ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
             </p>
           </td>
@@ -1107,6 +1046,9 @@ export const sendAdminPrizeCodeEmail = onCall({
     const prizeCategory = cData.prizeCategory || "Establecimiento";
     const prizeImageUrl = cData.prizeImageUrl || "";
     const uniqueCode = cData.code || code.trim().toUpperCase();
+    const localName = cData.localName || "";
+    const localAddress = cData.localAddress || "";
+    const localPhone = cData.localPhone || "";
 
     if (!playerEmail) {
       throw new HttpsError("failed-precondition", "No player email is associated with this code.");
@@ -1121,7 +1063,10 @@ export const sendAdminPrizeCodeEmail = onCall({
       playerDisplayName,
       prizeName,
       uniqueCode,
-      prizeImageUrl
+      prizeImageUrl,
+      localName,
+      localAddress,
+      localPhone,
     );
 
     const textContent = `¡Felicidades ${playerDisplayName}!\n\nGanaste: ${prizeName} (${prizeCategory}) en Turizoneando.\n\nTu código único de canje es: ${uniqueCode}\n\nCanjéalo ingresando a: ${validationUrl}\n\nMITUR`;
@@ -1221,10 +1166,6 @@ const localName = String(afterSnap.localName || "");
     @media only screen and (max-width:600px){
       .stock-left{display:block !important;width:100% !important;margin-bottom:16px !important;}
       .stock-right{display:block !important;width:100% !important;}
-      .mitur-info{display:block !important;width:100% !important;text-align:center !important;padding-bottom:12px !important;}
-      .mitur-icons{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;white-space:normal !important;}
-      .mitur-icon-td{display:block !important;width:100% !important;text-align:center !important;padding-bottom:8px !important;}
-      .mitur-text-td{display:block !important;width:100% !important;text-align:center !important;padding-left:0 !important;}
     }
   </style>
 </head>
@@ -1285,39 +1226,17 @@ const localName = String(afterSnap.localName || "");
         <!-- MITUR footer -->
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;margin-bottom:20px;">
-              <tr><td style="padding:18px 20px;">
-                <table width="100%" cellpadding="0" cellspacing="0"><tr>
-                  <td class="mitur-info" style="vertical-align:middle;">
-                    <table cellpadding="0" cellspacing="0"><tr>
-                      <td class="mitur-icon-td" style="text-align:center;vertical-align:middle;">
-                        <span style="display:inline-block;width:44px;height:44px;background-color:rgba(88,190,169,0.1);border-radius:50%;text-align:center;line-height:44px;font-size:22px;">🏛️</span>
-                      </td>
-                      <td class="mitur-text-td" style="padding-left:12px;vertical-align:middle;">
-                        <p style="margin:0;font-size:11px;font-weight:700;color:#334155;">Ministerio de Turismo (MITUR)</p>
-                        <p style="margin:3px 0 0;font-size:10px;color:#64748b;line-height:1.5;">Dirección de Fomento Turístico de la Ciudad Colonial, Santo Domingo, RD</p>
-                      </td>
-                    </tr></table>
-                  </td>
-                  <td class="mitur-icons" style="text-align:right;vertical-align:middle;padding-left:12px;white-space:nowrap;">
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Ffacebook.png?alt=media&token=858e51ff-4bda-4f00-a71f-1a0205e2a94e" width="20" height="20" alt="Facebook" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fistagram.png?alt=media&token=fb568a1f-d124-4ed8-b6c8-33fdddc6790b" width="20" height="20" alt="Instagram" style="display:block;margin:6px auto 0;" />
-                    </a>
-                    <a href="#" style="display:inline-block;width:32px;height:32px;background:#ffffff;border:1px solid #e2e8f0;border-radius:50%;text-decoration:none;margin-left:5px;">
-                      <img src="https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fweb.png?alt=media&token=11561e2e-9f20-48b8-90a0-eb7062c9927c" width="20" height="20" alt="Web" style="display:block;margin:6px auto 0;" />
-                    </a>
-                  </td>
-                </tr></table>
-              </td></tr>
-            </table>
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
-            <p style="margin:14px 0 0;text-align:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:14px;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
               © ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
             </p>
           </td>

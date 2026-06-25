@@ -141,11 +141,11 @@ export default function PlayerDetailPage() {
     if (!playerId) return
     try {
       setResetLoading(true)
-      const { attemptsDeleted } = await resetPlayerProgress(playerId)
+      const { attemptsDeleted, seasonsDeleted } = await resetPlayerProgress(playerId)
       setPlayer(prev => prev ? { ...prev, score: 0, mapProgress: {}, currentNodeId: null } : null)
       setAttempts([])
       setResetConfirm(false)
-      setResetSuccess(`Jugador reiniciado correctamente. ${attemptsDeleted} intento(s) eliminado(s).`)
+      setResetSuccess(`Jugador reiniciado correctamente. ${attemptsDeleted} intento(s) y ${seasonsDeleted} premio(s) eliminado(s).`)
       setTimeout(() => setResetSuccess(null), 5000)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al reiniciar el jugador')

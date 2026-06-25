@@ -22,5 +22,8 @@ export interface ClaimedPrize {
   prizeImageUrl: string
   prizeCategory: string
   description: string
+  localName?: string
+  localAddress?: string
+  localPhone?: string
 }
 

@@ -89,7 +89,25 @@ export const getPrizeById = onCall(async (request) => {
   }
 });
 
-// Player-facing: returns prizes available for a specific stage, filtered by player's age.
+// Devuelve los niveles de relevancia elegibles según la etapa y el score acumulado.
+// Etapa 1 max ~60 pts | Etapa 2 acumulado ~110 | Etapa 3 acumulado ~160
+// Con fallback: si no hay stock en el rango deseado se baja al rango inmediatamente inferior.
+function getEligibleRelevances(stageNum: number, score: number): number[] {
+  if (stageNum === 1) {
+    return score >= 40 ? [1, 2] : [1];
+  }
+  if (stageNum === 2) {
+    if (score >= 80) return [2, 3];
+    if (score >= 40) return [1, 2];
+    return [1];
+  }
+  // stage 3+
+  if (score >= 120) return [3];
+  if (score >= 60)  return [2, 3];
+  return [1, 2];
+}
+
+// Player-facing: returns prizes available for a specific stage, filtered by player age and score-based relevance.
 // Accepts: { seasonId, stageId } — playerId is resolved from request.auth.uid.
 export const getPrizesForStage = onCall(async (request) => {
   if (!request.auth) {
@@ -105,12 +123,13 @@ export const getPrizesForStage = onCall(async (request) => {
   const db = getFirestore();
 
   try {
-    // 1. Determine if player is 18+
+    // 1. Player data: age + cumulative score
     const playerSnap = await db.collection("players").doc(uid).get();
     if (!playerSnap.exists) throw new HttpsError("not-found", "Player not found.");
     const playerData = playerSnap.data() ?? {};
-    const ageNum = parseInt(playerData.ageRange || "0", 10);
+    const ageNum  = parseInt(playerData.ageRange || "0", 10);
     const isAdult = !isNaN(ageNum) && ageNum >= 18;
+    const score   = typeof playerData.score === "number" ? playerData.score : 0;
 
     // 2. Get the prize list for this stage
     const stageSnap = await db
@@ -128,8 +147,8 @@ export const getPrizesForStage = onCall(async (request) => {
       prizeIds.map(id => db.collection("prizes").doc(id).get())
     );
 
-    // 4. Build list, filtering by requiresAdult vs player age
-    const prizes = prizeDocs
+    // 4. Build list, filtering by stock and adult flag
+    const allPrizes = prizeDocs
       .filter(doc => doc.exists)
       .map(doc => {
         const d = doc.data() ?? {};
@@ -145,8 +164,18 @@ export const getPrizesForStage = onCall(async (request) => {
           requiresAdult: d.requiresAdult === true,
         };
       })
-      .filter(prize => prize.stockCurrent > 0 && (!prize.requiresAdult || isAdult))
+      .filter(prize => prize.stockCurrent > 0 && (!prize.requiresAdult || isAdult));
+
+    // 5. Filter by score-based relevance — with cascading fallback
+    const stageNum = parseInt(stageId.trim().replace("stage_", "")) || 1;
+    const eligibleLevels = getEligibleRelevances(stageNum, score);
+
+    let prizes = allPrizes
+      .filter(p => eligibleLevels.includes(p.relevance))
       .sort((a, b) => b.relevance - a.relevance);
+
+    // Fallback: if no prizes match the earned tier, return any available prize
+    if (prizes.length === 0) prizes = allPrizes.sort((a, b) => b.relevance - a.relevance);
 
     return { prizes };
   } catch (error: any) {
@@ -234,6 +263,13 @@ export const claimPrize = onCall(async (request) => {
         );
         if (alreadyClaimed) {
           throw new HttpsError("already-exists", "Ya reclamaste el premio de esta etapa.");
+        }
+
+        // Regla "no consecutivo": no se puede ganar en dos etapas seguidas.
+        const stageNum = parseInt(stageId.replace("stage_", "")) || 1;
+        const prevStageId = stageNum > 1 ? `stage_${stageNum - 1}` : null;
+        if (prevStageId !== null && prizesWon.some((p: any) => p.stageId === prevStageId)) {
+          throw new HttpsError("failed-precondition", "No puedes ganar premios en etapas consecutivas.");
         }
 
         // Colisión de código — reintentar fuera de la transacción

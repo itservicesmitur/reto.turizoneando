@@ -69,12 +69,13 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const [claimResult, setClaimResult] = useState<ClaimedPrize | null>(null)
   const [prizes, setPrizes]           = useState<PrizeInfo[]>([])
   const [landedSeg, setLandedSeg]     = useState(stopIndex % 8)
-  const [prizeWinCount, setPrizeWinCount] = useState(0)
-  const [playerScore, setPlayerScore]     = useState(0)
+  const [wonInPrevStage, setWonInPrevStage] = useState(false)
+  const [playerScore, setPlayerScore]       = useState(0)
   const rafRef         = useRef<number | null>(null)
   const segIdxRef      = useRef<number>(stopIndex % 8)
   const claimPrizeIdRef = useRef<string>('')
   const prizesRef      = useRef<PrizeInfo[]>([])
+  const audioCtxRef    = useRef<AudioContext | null>(null)
 
   useEffect(() => {
     getPrizesForStage({ seasonId, stageId })
@@ -85,19 +86,126 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   useEffect(() => {
     const user = auth.currentUser
     if (!user) return
+    const stageNum = parseInt(stageId.replace('stage_', '')) || 1
+    const prevStageId = stageNum > 1 ? `stage_${stageNum - 1}` : null
     Promise.all([
       getDoc(doc(db, 'players', user.uid)),
       getDoc(doc(db, 'players', user.uid, 'seasons', seasonId)),
     ]).then(([playerSnap, seasonSnap]) => {
       const score = playerSnap.data()?.score
       setPlayerScore(typeof score === 'number' ? score : 0)
-      setPrizeWinCount((seasonSnap.data()?.prizesWon ?? []).length)
+      const prizesWon: { stageId: string }[] = seasonSnap.data()?.prizesWon ?? []
+      const prevWon = prevStageId !== null && prizesWon.some(p => p.stageId === prevStageId)
+      setWonInPrevStage(prevWon)
     }).catch(() => {})
   }, [seasonId])
 
   useEffect(() => {
-    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      audioCtxRef.current?.close()
+    }
   }, [])
+
+  const playSpinSounds = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      const now = ctx.currentTime
+
+      const tick = (when: number, vol: number, freq = 340) => {
+        const osc  = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.type = 'triangle'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0, when)
+        gain.gain.linearRampToValueAtTime(vol, when + 0.005)
+        gain.gain.exponentialRampToValueAtTime(0.001, when + 0.055)
+        osc.start(when)
+        osc.stop(when + 0.07)
+      }
+
+      // Fase 1 (4s): 8 rotaciones × 8 segmentos = 64 clicks a velocidad constante
+      const PHASE1_S = 4.0
+      for (let i = 0; i < 64; i++) {
+        tick(now + (i * PHASE1_S) / 64, 0.10)
+      }
+
+      // Fase 2 (1.4s): deceleración — los clicks se van espaciando con easeOutQuart
+      const PHASE2_S = 1.4
+      const p2Start  = now + PHASE1_S
+      const P2_TICKS = 16
+      for (let i = 0; i < P2_TICKS; i++) {
+        const progress = i / (P2_TICKS - 1)
+        const eased    = 1 - Math.pow(1 - progress, 2.5)
+        tick(p2Start + eased * PHASE2_S, 0.13 - progress * 0.06)
+      }
+
+      // Golpe final al detenerse
+      const land = now + PHASE1_S + PHASE2_S
+      const oscLand  = ctx.createOscillator()
+      const gainLand = ctx.createGain()
+      oscLand.connect(gainLand)
+      gainLand.connect(ctx.destination)
+      oscLand.type = 'triangle'
+      oscLand.frequency.value = 180
+      gainLand.gain.setValueAtTime(0, land)
+      gainLand.gain.linearRampToValueAtTime(0.28, land + 0.010)
+      gainLand.gain.exponentialRampToValueAtTime(0.001, land + 0.35)
+      oscLand.start(land)
+      oscLand.stop(land + 0.40)
+    } catch { /* AudioContext not available */ }
+  }
+
+  const playWinSound = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      const now = ctx.currentTime
+
+      const note = (freq: number, when: number, dur: number, vol: number, type: OscillatorType = 'triangle') => {
+        const osc  = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.type = type
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0, when)
+        gain.gain.linearRampToValueAtTime(vol, when + 0.012)
+        gain.gain.setValueAtTime(vol * 0.7, when + dur * 0.4)
+        gain.gain.exponentialRampToValueAtTime(0.001, when + dur)
+        osc.start(when)
+        osc.stop(when + dur + 0.02)
+      }
+
+      // Fanfarria ascendente: Do–Mi–Sol–Do (acorde de Do Mayor en C5/E5/G5/C6)
+      note(523.25, now + 0.00, 0.18, 0.22)          // C5
+      note(659.25, now + 0.13, 0.18, 0.22)          // E5
+      note(783.99, now + 0.26, 0.18, 0.22)          // G5
+      note(1046.50, now + 0.39, 0.38, 0.28)         // C6 — nota final más larga
+
+      // Shimmer suave de fondo (sine) para brillar
+      note(2093.00, now + 0.39, 0.55, 0.10, 'sine') // C7 suave
+      note(1567.98, now + 0.50, 0.45, 0.08, 'sine') // G6
+
+      // Brillo extra: una chispa corta al inicio
+      note(1318.51, now + 0.00, 0.08, 0.08, 'sine') // E6 flash
+    } catch { /* AudioContext not available */ }
+  }
+
+  useEffect(() => {
+    if (spinDone && claimResult && claimResult.prizeId !== EMPTY_PRIZE_ID) {
+      playWinSound()
+    }
+  }, [spinDone, claimResult])
 
   const segments = useMemo(() => {
     const fallback = [
@@ -106,7 +214,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
       t('map.roulette_sword'), t('map.roulette_gem'),
     ]
     return ROULETTE_EMOJIS.map((emoji, i) => {
-      if (EMPTY_SEG_INDICES.includes(i)) return { emoji: '😔', label: 'VACÍO', prizeId: EMPTY_PRIZE_ID }
+      if (EMPTY_SEG_INDICES.includes(i)) return { emoji: '😔', label: 'Sigue intentando', prizeId: EMPTY_PRIZE_ID }
       if (prizes.length === 0) return { emoji, label: fallback[i] ?? '', prizeId: '' }
       const prize = prizes[i % prizes.length]
       const name  = prize.name
@@ -121,9 +229,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
 
   // La navegación al premio ya NO es automática — el usuario debe pulsar "Reclamar Premio"
 
-  const stageNum      = parseInt(stageId.replace('stage_', '')) || Math.floor(stopIndex / 4) + 1
-  const stopInStage   = (stopIndex % 4) + 1
-  const isLastInStage = (stopIndex % 4) === 3
+  const stageNum = parseInt(stageId.replace('stage_', '')) || 1
 
   const emptyPrize = (): ClaimedPrize => ({
     code: EMPTY_PRIZE_ID, prizeId: EMPTY_PRIZE_ID, prizeName: '', prizeImageUrl: '', prizeCategory: '', description: '',
@@ -146,11 +252,12 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const handleSpin = () => {
     if (spinning || spinDone) return
     setSpinning(true)
+    playSpinSounds()
 
-    // El resultado se decide antes de girar
-    // Si ya ganó 1 premio → siempre vacío
-    // Si no → probabilidad según score: score 0 = 40%, score 200+ = 85%
-    const limitReached = prizeWinCount >= 1
+    // El resultado se decide antes de girar.
+    // Regla "no consecutivo": si ganó en la etapa anterior → siempre vacío.
+    // De lo contrario → probabilidad según score: score 0 = 40%, score 200+ = 85%.
+    const limitReached = wonInPrevStage
     let randomSlot: number
     if (limitReached) {
       randomSlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
@@ -386,9 +493,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
           style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
         >
           <span className="text-xs font-black tracking-widest uppercase text-white" style={{ opacity: 0.85 }}>
-            {isLastInStage
-              ? t('map.stage_completed_final', { n: stageNum })
-              : t('map.stage_completed', { n: stopInStage })}
+            {t('map.stage_completed_final', { n: stageNum })}
           </span>
         </div>
 
@@ -410,7 +515,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
         </h1>
 
         <p className="text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
-          {isLastInStage ? t('map.roulette_msg_final') : t('map.roulette_msg_normal')}
+          {t('map.roulette_msg_final')}
         </p>
       </div>
 
@@ -653,9 +758,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
               }}
             >
               <span className="text-xs font-black tracking-widest uppercase text-white" style={{ opacity: 0.85 }}>
-                {isLastInStage
-                  ? t('map.stage_completed_final', { n: stageNum })
-                  : t('map.stage_completed', { n: stopInStage })}
+                {t('map.stage_completed_final', { n: stageNum })}
               </span>
             </div>
 

@@ -391,9 +391,8 @@ export function buildClaimPrizeEmail(
 ): string {
   const LOGO = '/assets/img/logoNuevo.png'
   const BG_HERO = '/assets/img/fondoGrid2.jpeg'
-  const cardBg = prizeImageUrl
-    ? `background-image:url('${prizeImageUrl}');background-size:cover;background-position:center;background-color:#0f766e;`
-    : `background-color:#0f766e;`
+  const cardBg = `background-image:url('${BG_HERO}');background-size:cover;background-position:center;background-color:#0f766e;`
+  const avatarUrl = prizeImageUrl || LOGO
   const year = new Date().getFullYear()
 
   const step = (n: number, text: string) => `
@@ -460,16 +459,25 @@ export function buildClaimPrizeEmail(
             <!-- Prize Card -->
             <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:16px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,0.22);margin-bottom:32px;">
               <tr>
-                <td height="290" style="${cardBg}">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="height:290px;">
+                <td style="${cardBg}">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:rgba(15, 23, 42, 0.68);">
                     <tr>
-                      <td height="290" style="background:linear-gradient(to bottom,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.38) 45%,rgba(0,0,0,0.72) 100%);padding:24px;text-align:center;vertical-align:bottom;">
-                        <p style="margin:0 0 6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.25em;color:#ffffff;">Premio ganado</p>
-                        <h3 style="margin:0 0 18px;font-size:18px;font-weight:500;color:#ffffff;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;">${prizeName}</h3>
+                      <td style="padding:32px 24px;text-align:center;vertical-align:middle;">
+                        <!-- Circular Avatar -->
+                        <table cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 16px;">
+                          <tr>
+                            <td style="padding:3px;background-color:rgba(255,255,255,0.25);border-radius:50%;">
+                              <img src="${avatarUrl}" width="100" height="100" alt="Premio" style="display:block;width:100px;height:100px;border-radius:50%;border:4px solid #ffffff;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.35);" />
+                            </td>
+                          </tr>
+                        </table>
+
+                        <p style="margin:0 0 6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.25em;color:#ffffff;opacity:0.85;">Premio ganado</p>
+                        <h3 style="margin:0 0 18px;font-size:18px;font-weight:700;color:#ffffff;line-height:1.3;font-family:'Plus Jakarta Sans',sans-serif;text-shadow:0 2px 4px rgba(0,0,0,0.4);">${prizeName}</h3>
                         <table cellpadding="0" cellspacing="0" align="center">
                           <tr>
-                            <td style="border:2px solid rgba(255,255,255,0.5);background-color:rgba(16,185,129,0.25);border-radius:8px;padding:10px 36px;text-align:center;">
-                              <span style="font-family:'Courier New',Courier,monospace;font-size:38px;font-weight:900;color:#ffffff;letter-spacing:3px;">${code}</span>
+                            <td style="border:2px solid rgba(255,255,255,0.6);background-color:rgba(20,184,166,0.3);border-radius:8px;padding:10px 36px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                              <span style="font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:900;color:#ffffff;letter-spacing:3px;">${code}</span>
                             </td>
                           </tr>
                         </table>

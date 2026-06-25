@@ -505,45 +505,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   // ── ID de la parada actualmente abierta (solo cuando hay una seleccionada) ──
   const activeStopId = selectedMonument?.stopId
 
-  // ── Middleware en tiempo real ─────────────────────────────────────────────
-  const { block: statusBlock, dismiss: dismissBlock } = useRealtimeStatus({
-    seasonId: currentSeasonId,
-    stageId:  activeStageId,
-    stopId:   activeStopId,
-  })
-
-  // Cuando una parada se desactiva: cerrar quiz y card silenciosamente (el listener de colección
-  // ya la quitó del mapa). Cuando una etapa se desactiva: cerrar quiz pero mostrar el bloqueo.
-  useEffect(() => {
-    if (statusBlock?.type === 'stop_deactivated') {
-      setQuizFlow({ step: 'idle' })
-      setSelectedMonument(null)
-      dismissBlock()
-    } else if (statusBlock?.type === 'stage_deactivated') {
-      setQuizFlow({ step: 'idle' })
-    }
-  }, [statusBlock, dismissBlock])
-
-  const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
-    return stageGroups.map((group, idx) => {
-      const allDone = group.length > 0 && group.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))
-      const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
-      return { roman: ROMAN[idx] ?? String(idx + 1), status }
-    })
-  }, [completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
-
-  const { t, i18n } = useTranslation()
-
-  // ── Menu pantalla completa ────────────────────────────────────
-  const [soundEnabled, setSoundEnabled] = useState(true)
-
-  const openMenu = useCallback(() => {
-    setMenuBtnAnimating(true)
-    setShowMenu(true)
-    setMenuView('main')
-    setTimeout(() => setMenuBtnAnimating(false), 450)
-  }, [])
-
   // ── Quiz flow ────────────────────────────────────────────────
   const [quizFlow, setQuizFlow] = useState<QuizStep>({ step: 'idle' })
 
@@ -564,6 +525,55 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
     return -1
   }, [selectedStopIndex, stageGroups, activeStageIndex, completedStops, deactivatedStopIdSet, firestoreStops])
+
+  // ── Middleware en tiempo real ─────────────────────────────────────────────
+  const { block: statusBlock, dismiss: dismissBlock } = useRealtimeStatus({
+    seasonId: currentSeasonId,
+    stageId:  activeStageId,
+    stopId:   activeStopId,
+  })
+
+  // Cuando una parada se desactiva: cerrar quiz y navegar automáticamente a la siguiente disponible.
+  // nextAvailableStopIndex ya excluye la parada actual (por índice) y las desactivadas.
+  // Cuando una etapa se desactiva: cerrar quiz pero mostrar el bloqueo.
+  useEffect(() => {
+    if (statusBlock?.type === 'stop_deactivated') {
+      setQuizFlow({ step: 'idle' })
+      dismissBlock()
+      const nextIdx = nextAvailableStopIndex
+      if (nextIdx >= 0 && monuments) {
+        const next = monuments[nextIdx]
+        if (next) {
+          setSelectedMonument(next)
+          mapControlsRef.current?.focusOnStop(nextIdx)
+          return
+        }
+      }
+      setSelectedMonument(null)
+    } else if (statusBlock?.type === 'stage_deactivated') {
+      setQuizFlow({ step: 'idle' })
+    }
+  }, [statusBlock, dismissBlock, nextAvailableStopIndex, monuments])
+
+  const stages = useMemo<{ roman: string; status: StageStatus }[]>(() => {
+    return stageGroups.map((group, idx) => {
+      const allDone = group.length > 0 && group.every(i => completedStops[i] || deactivatedStopIdSet.has(firestoreStops[i]?.id ?? ''))
+      const status: StageStatus = allDone ? 'done' : idx === activeStageIndex ? 'active' : 'locked'
+      return { roman: ROMAN[idx] ?? String(idx + 1), status }
+    })
+  }, [completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
+
+  const { t, i18n } = useTranslation()
+
+  // ── Menu pantalla completa ────────────────────────────────────
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  const openMenu = useCallback(() => {
+    setMenuBtnAnimating(true)
+    setShowMenu(true)
+    setMenuView('main')
+    setTimeout(() => setMenuBtnAnimating(false), 450)
+  }, [])
 
   // Dismiss que limpia el bloqueo Y cierra el monumento seleccionado
   const handleLogout = () => signOut(auth).then(() => navigate('/'))

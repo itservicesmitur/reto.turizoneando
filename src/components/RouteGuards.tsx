@@ -125,18 +125,17 @@ function CompleteProfileForm({ user, onComplete }: CompleteProfileFormProps) {
   const genderOpts = [
     { key: 'M', label: t('register.g_male') },
     { key: 'F', label: t('register.g_female') },
-    { key: 'NB', label: t('register.g_nb') },
     { key: 'PNTS', label: t('register.g_pnts') },
   ]
 
   return (
-    <div style={{
+    <div className="rg-complete-outer" style={{
       minHeight: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'var(--color-navy)',
+      background: 'var(--color-primary-dark)',
       fontFamily: 'var(--font-body)',
       padding: '20px',
       boxSizing: 'border-box',
@@ -362,7 +361,14 @@ function CompleteProfileForm({ user, onComplete }: CompleteProfileFormProps) {
           </button>
         </form>
       </div>
-      <style>{`@keyframes complete-spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes complete-spin { to { transform: rotate(360deg); } }
+        @media (min-width: 600px) {
+          .rg-complete-outer {
+            background: #031f26 !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
