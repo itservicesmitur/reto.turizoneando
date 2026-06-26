@@ -2,7 +2,17 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
 import AdminLayout from './layouts/AdminLayout'
-import { ProtectedRoute, AdminRoute, ProviderRoute } from './components/RouteGuards'
+
+// Route guards are lazy-loaded so Firebase doesn't initialize on the landing page
+const ProtectedRoute = lazy(() =>
+  import('./components/RouteGuards').then(m => ({ default: m.ProtectedRoute }))
+)
+const AdminRoute = lazy(() =>
+  import('./components/RouteGuards').then(m => ({ default: m.AdminRoute }))
+)
+const ProviderRoute = lazy(() =>
+  import('./components/RouteGuards').then(m => ({ default: m.ProviderRoute }))
+)
 
 // Wraps lazy() so that a chunk-not-found error (stale deploy) triggers a page
 // reload instead of crashing the React Router ErrorBoundary.
@@ -77,7 +87,7 @@ const router = createBrowserRouter([
 
   // ── Protected client routes ────────────────────────────────────
   {
-    element: <ProtectedRoute />,
+    element: <Suspense fallback={null}><ProtectedRoute /></Suspense>,
     children: [
       // Full-screen routes (no bottom nav)
       {
@@ -124,7 +134,7 @@ const router = createBrowserRouter([
 
   // ── Protected admin routes (/admin/*) ──────────────────────────
   {
-    element: <AdminRoute />,
+    element: <Suspense fallback={null}><AdminRoute /></Suspense>,
     children: [
       {
         path: '/admin',
@@ -242,7 +252,7 @@ const router = createBrowserRouter([
 
   // ── Provider routes (/provider/*, /validar/*) ────────────────
   {
-    element: <ProviderRoute />,
+    element: <Suspense fallback={null}><ProviderRoute /></Suspense>,
     children: [
       {
         path: '/provider',

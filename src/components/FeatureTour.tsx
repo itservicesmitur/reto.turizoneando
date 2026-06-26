@@ -147,8 +147,9 @@ function MapTooltip({ index, isLastStep, size, step, backProps, primaryProps, sk
             <div style={{ position: 'absolute', inset: 8, borderRadius: 16, background: 'linear-gradient(to right, rgba(7,95,110,0.78) 0%, rgba(7,95,110,0.32) 42%, transparent 68%)', zIndex: 2, pointerEvents: 'none' }} />
 
             {/* Turi */}
-            <div style={{ position: 'absolute', bottom: 4, left: '67%', transform: 'translateX(-50%)', width: 220, zIndex: 3 }}>
-              <video autoPlay loop muted playsInline style={{ width: '100%', display: 'block' }}>
+            <div style={{ position: 'absolute', bottom: 4, left: '67%', transform: 'translateX(-50%)', width: 220, zIndex: 3, background: 'transparent' }}>
+              <video autoPlay loop muted playsInline style={{ width: '100%', display: 'block', background: 'transparent' }}>
+                <source src="/assets/img/turiguaia_safari.mov" type='video/mp4; codecs="hvc1"' />
                 <source src="/assets/img/turiguaia.webm" type="video/webm" />
               </video>
             </div>
