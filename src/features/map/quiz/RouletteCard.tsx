@@ -69,6 +69,8 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const [wheelAngle, setWheelAngle]   = useState(0)
   const [claimResult, setClaimResult] = useState<ClaimedPrize | null>(null)
   const [prizes, setPrizes]           = useState<PrizeInfo[]>([])
+  const [prizesError, setPrizesError] = useState(false)
+  const [claimError, setClaimError]   = useState(false)
   const [landedSeg, setLandedSeg]     = useState(stopIndex % 8)
   const [wonInPrevStage, setWonInPrevStage] = useState(false)
   const [playerScore, setPlayerScore]       = useState(0)
@@ -77,11 +79,14 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const claimPrizeIdRef = useRef<string>('')
   const prizesRef      = useRef<PrizeInfo[]>([])
 
-  useEffect(() => {
+  const loadPrizes = () => {
+    setPrizesError(false)
     getPrizesForStage({ seasonId, stageId })
       .then(data => { console.log('[getPrizesForStage] respuesta:', data); setPrizes(data) })
-      .catch(err => console.error('[getPrizesForStage] error:', err))
-  }, [seasonId, stageId])
+      .catch(err => { console.error('[getPrizesForStage] error:', err); setPrizesError(true) })
+  }
+
+  useEffect(() => { loadPrizes() }, [seasonId, stageId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const user = auth.currentUser
@@ -284,17 +289,19 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
         setClaimResult(enriched)
       })
       .catch((err: unknown) => {
-        // 409 = ya existe un reclamo para este usuario+etapa (premio ya asignado antes)
+        console.warn('[claimPrizeAndNotify] error:', err)
         const code = (err as { code?: string })?.code
         const msg  = (err as { message?: string })?.message ?? ''
         if (code === 'already-exists' || msg.includes('409') || msg.toLowerCase().includes('conflict')) {
-          // El servidor ya tiene el premio — usamos un resultado vacío para que el usuario
-          // pueda igualmente presionar "Reclamar Premio" y ver su pantalla de premio
+          // Premio ya reclamado en esta etapa — mostrar vacío sin error
           setClaimResult(emptyPrize())
         } else {
-          setClaimResult(emptyPrize())
+          // Error de red o servidor — mostrar mensaje para reintentar
+          setClaimError(true)
+          setSpinning(false)
+          setSpinDone(false)
+          if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
         }
-        console.warn('[claimPrizeAndNotify] error (posiblemente ya reclamado):', err)
       })
     } // end else (non-empty slot)
 
@@ -698,11 +705,28 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
           </p>
         )}
 
+        {/* Error al reclamar premio — botón para reintentar el spin */}
+        {claimError && (
+          <div className="flex flex-col items-center gap-3 z-10">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl" style={{ background: 'rgba(224,52,75,0.18)', border: '1px solid rgba(224,52,75,0.4)' }}>
+              <i className="ri-wifi-off-line text-base" style={{ color: '#ff8fa3' }} />
+              <p className="text-sm font-bold" style={{ color: '#ff8fa3' }}>{t('map.network_error_retry')}</p>
+            </div>
+            <button
+              onClick={() => { setClaimError(false) }}
+              className="active:translate-y-[3px] transition-all"
+              style={{ width: 200, height: 52, borderRadius: 26, background: 'linear-gradient(180deg,#ffb06f 0%,#ff9447 45%,#e07830 100%)', border: '2px solid #d46f2b', boxShadow: 'inset 0 2px 0 rgba(255,255,255,.4), 0 5px 0 #b85e1c', color: '#fff', fontFamily: 'Outfit, Inter, system-ui, sans-serif', fontWeight: 900, fontSize: 16, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <i className="ri-refresh-line text-lg" />{t('map.retry')}
+            </button>
+          </div>
+        )}
+
         {/* Botón GIRAR — visible solo antes de girar */}
-        {!spinDone && (
+        {!spinDone && !claimError && (
           <button
             onClick={handleSpin}
-            disabled={spinning || prizes.length === 0}
+            disabled={spinning || (prizes.length === 0 && !prizesError)}
             className="active:translate-y-[4px] transition-all"
             style={{
               width: 240, height: 62,
@@ -711,7 +735,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
                 ? 'linear-gradient(180deg,#4b5563 0%,#374151 100%)'
                 : 'linear-gradient(180deg,#ffb06f 0%,#ff9447 45%,#e07830 100%)',
               border: '2px solid',
-              borderColor: spinning ? '#374151' : '#d46f2b',
+              borderColor: spinning ? '#374151' : prizesError ? '#e0344b' : '#d46f2b',
               boxShadow: (spinning || prizes.length === 0)
                 ? '0 6px 0 #1f2937'
                 : 'inset 0 2px 0 rgba(255,255,255,.4), 0 6px 0 #b85e1c, 0 14px 28px rgba(255,148,71,.55)',
@@ -722,7 +746,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               cursor: spinning ? 'not-allowed' : 'pointer',
-              opacity: prizes.length === 0 ? 0.6 : 1,
+              opacity: (prizes.length === 0 && !prizesError) ? 0.6 : 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -731,6 +755,8 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
           >
             {spinning ? (
               <><i className="ri-loader-4-line animate-spin text-xl" />{t('map.spinning')}</>
+            ) : prizesError ? (
+              <><i className="ri-refresh-line text-xl" onClick={e => { e.stopPropagation(); loadPrizes() }} />{t('map.retry')}</>
             ) : prizes.length === 0 ? (
               <><i className="ri-loader-4-line animate-spin text-xl" />{t('map.roulette_loading')}</>
             ) : (

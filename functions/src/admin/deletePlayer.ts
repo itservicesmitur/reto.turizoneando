@@ -16,7 +16,7 @@ export const deletePlayer = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "playerId is required.");
   }
 
-  const db   = getFirestore();
+  const db = getFirestore();
   const auth = getAuth();
 
   const playerRef = db.collection("players").doc(playerId);

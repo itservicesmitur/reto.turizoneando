@@ -475,8 +475,7 @@ export const sendAdminPasswordResetEmail = onCall({
     const oobCode = urlObj.searchParams.get("oobCode") || "";
     const apiKey = urlObj.searchParams.get("apiKey") || "";
 
-    const hostOrigin = request.rawRequest.headers.origin || "https://turizoneando.mitur.gob.do";
-    const customResetLink = `${hostOrigin}/reset-password?oobCode=${oobCode}&apiKey=${apiKey}`;
+    const customResetLink = `https://turizoneando.mitur.gob.do/reset-password?oobCode=${oobCode}&apiKey=${apiKey}`;
 
     // 4. Construct HTML email
     const htmlContent = `<!DOCTYPE html>
@@ -1162,8 +1161,11 @@ export const sendPlayerPasswordResetEmail = onCall({
     const urlObj = new URL(defaultLink);
     const oobCode = urlObj.searchParams.get("oobCode") || "";
 
-    const hostOrigin = request.rawRequest.headers.origin || "https://turizoneando.mitur.gob.do";
-    const customResetLink = `${hostOrigin}/reset-password?oobCode=${oobCode}`;
+    // Always use the production URL — never trust request.rawRequest.headers.origin here
+    // because iOS PWAs and home-screen apps send Origin: "null" (string literal), which
+    // would produce "null/reset-password?oobCode=..." and iOS Mail would detect the token
+    // portion as a standalone verification code rather than part of a URL.
+    const customResetLink = `https://turizoneando.mitur.gob.do/reset-password?oobCode=${oobCode}`;
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -1229,7 +1231,7 @@ export const sendPlayerPasswordResetEmail = onCall({
 </body>
 </html>`;
 
-    const textContent = `Hola ${displayName},\n\nRecibimos una solicitud para restablecer tu contraseña en Turizoneando.\n\nUsa este enlace (válido por 1 hora):\n${customResetLink}\n\nSi no lo solicitaste, ignora este mensaje.\n\nTurizoneando — MITUR`;
+    const textContent = `Hola ${displayName},\n\nRecibimos una solicitud para restablecer tu contraseña en Turizoneando.\n\nPara elegir una nueva contraseña, abre este correo en tu cliente de email y haz clic en el botón "Restablecer contraseña".\n\nSi no puedes ver el botón, ve a turizoneando.mitur.gob.do/login y usa la opción "¿Olvidaste tu contraseña?" para solicitar un nuevo enlace.\n\nSi no solicitaste este cambio, ignora este mensaje con seguridad.\n\nTurizoneando — MITUR`;
 
     await sendRawEmail(normalizedEmail, "Restablece tu contraseña - Turizoneando", htmlContent, textContent);
   } catch (error: any) {

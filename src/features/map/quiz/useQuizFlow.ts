@@ -42,6 +42,7 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
   const [needsShakeKey,  setNeedsShakeKey]  = useState(0)
   const [hasAnimated,    setHasAnimated]    = useState(false)
   const [checking,       setChecking]       = useState(false)
+  const [networkError,   setNetworkError]   = useState(false)
   const questionStartRef  = useRef(Date.now())
   const earnedPointsRef   = useRef(0)
   const wrongCountRef     = useRef(0)
@@ -65,6 +66,7 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
       return
     }
     setNeedsSelection(false)
+    setNetworkError(false)
     setChecking(true)
 
     try {
@@ -102,11 +104,7 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
         setShakeKey(k => k + 1)
       }
     } catch {
-      saveProgress(stopId, questionIdx, selectedOption)
-      setCorrectAnswerIndex(null)
-      setIsCorrect(false)
-      setIsWrong(true)
-      setShakeKey(k => k + 1)
+      setNetworkError(true)
     } finally {
       setChecking(false)
     }
@@ -156,6 +154,7 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
     needsShakeKey,
     skipIntro,
     checking,
+    networkError,
     handleCheck,
     handleContinueCorrect,
     handleContinueWrong,

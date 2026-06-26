@@ -409,6 +409,8 @@
     "wrong_answer": "Wrong answer",
     "correct_answer": "Correct answer!",
     "pick_option": "Choose an option to continue",
+    "network_error_retry": "No connection — please try again",
+    "retry": "Retry",
     "exit": "Exit",
     "complete": "Complete!",
     "next": "Next",

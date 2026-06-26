@@ -409,6 +409,8 @@
     "wrong_answer": "Respuesta incorrecta",
     "correct_answer": "¡Respuesta correcta!",
     "pick_option": "Elige una opción para continuar",
+    "network_error_retry": "Sin conexión — vuelve a intentar",
+    "retry": "Reintentar",
     "exit": "Salir",
     "complete": "¡Completar!",
     "next": "Siguiente",

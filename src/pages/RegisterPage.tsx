@@ -166,7 +166,7 @@ export default function RegisterPage() {
   // ── Step 1: create Firebase account with email ─────────────────────────
   async function handleEmailNext() {
     setError(null)
-    if (!email.includes('@')) { setError(t('register.err_email')); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError(t('register.err_email')); return }
     if (password.length < 8)  { setError(t('register.pw_short')); return }
     if (password !== confirmPw) { setError(t('register.pw_mismatch')); return }
 

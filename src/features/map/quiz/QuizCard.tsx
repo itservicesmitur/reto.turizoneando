@@ -20,7 +20,7 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
     selectedOption, setSelectedOption,
     isWrong, isCorrect, correctAnswerIndex,
     shakeKey, needsSelection, needsShakeKey,
-    skipIntro, checking,
+    skipIntro, checking, networkError,
     handleCheck, handleContinueCorrect, handleContinueWrong,
   } = useQuizFlow({ stopId, seasonId, questions, onComplete })
 
@@ -192,6 +192,15 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
                 <p className="text-sm min-[430px]:text-base font-bold" style={{ color: '#ff9447' }}>{t('map.pick_option')}</p>
               </div>
             )}
+            {networkError && (
+              <div
+                className="flex items-center justify-center gap-2 px-4 py-3 min-[430px]:py-4 rounded-2xl animate-fade-in"
+                style={{ background: 'rgba(224,52,75,0.08)', border: '1px solid rgba(224,52,75,0.35)' }}
+              >
+                <i className="ri-wifi-off-line min-[430px]:text-lg" style={{ color: '#e0344b' }} />
+                <p className="text-sm min-[430px]:text-base font-bold" style={{ color: '#e0344b' }}>{t('map.network_error_retry')}</p>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -216,7 +225,9 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
               const handleAction = isWrong ? handleContinueWrong : isCorrect ? handleContinueCorrect : handleCheck
               const label = checking
                 ? <i className="ri-loader-4-line animate-spin text-xl" />
-                : (questionIdx + 1 >= totalQuestions ? t('map.complete') : isWrong || isCorrect ? t('map.continue') : t('map.next'))
+                : networkError
+                  ? t('map.retry')
+                  : (questionIdx + 1 >= totalQuestions ? t('map.complete') : isWrong || isCorrect ? t('map.continue') : t('map.next'))
               return (
                 <button
                   onClick={handleAction}

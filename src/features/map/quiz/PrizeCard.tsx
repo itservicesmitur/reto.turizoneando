@@ -22,8 +22,14 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
   const navigate = useNavigate()
   const [showRanking, setShowRanking] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(false)
 
   const handleDownload = async () => {
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError(false)
+    try {
     const tryLoad = (src: string): Promise<HTMLImageElement | null> =>
       fetch(src, { mode: 'cors' })
         .then(r => r.blob())
@@ -212,6 +218,11 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
     const a = document.createElement('a')
     a.href = url; a.download = `premio-turizoneando-${prize.code}.png`
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    } catch {
+      setDownloadError(true)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleCopy = () => {
@@ -272,10 +283,12 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           <>
             <button
               onClick={handleDownload}
+              disabled={downloading}
               className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-transform"
-              style={{ background: 'rgba(255,255,255,0.18)' }}
+              style={{ background: downloadError ? 'rgba(224,52,75,0.5)' : 'rgba(255,255,255,0.18)', opacity: downloading ? 0.6 : 1 }}
+              title={downloadError ? 'Error al descargar — intenta de nuevo' : 'Descargar voucher'}
             >
-              <i className="ri-download-2-line text-lg text-white" />
+              <i className={`${downloading ? 'ri-loader-4-line animate-spin' : downloadError ? 'ri-error-warning-line' : 'ri-download-2-line'} text-lg text-white`} />
             </button>
             <button
               onClick={handleCopy}
