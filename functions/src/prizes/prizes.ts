@@ -103,7 +103,7 @@ function getEligibleRelevances(stageNum: number, score: number): number[] {
   }
   // stage 3+
   if (score >= 120) return [3];
-  if (score >= 60)  return [2, 3];
+  if (score >= 60) return [2, 3];
   return [1, 2];
 }
 
@@ -127,9 +127,9 @@ export const getPrizesForStage = onCall(async (request) => {
     const playerSnap = await db.collection("players").doc(uid).get();
     if (!playerSnap.exists) throw new HttpsError("not-found", "Player not found.");
     const playerData = playerSnap.data() ?? {};
-    const ageNum  = parseInt(playerData.ageRange || "0", 10);
+    const ageNum = parseInt(playerData.ageRange || "0", 10);
     const isAdult = !isNaN(ageNum) && ageNum >= 18;
-    const score   = typeof playerData.score === "number" ? playerData.score : 0;
+    const score = typeof playerData.score === "number" ? playerData.score : 0;
 
     // 2. Get the prize list for this stage
     const stageSnap = await db

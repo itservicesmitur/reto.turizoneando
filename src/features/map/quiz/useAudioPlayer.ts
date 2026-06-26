@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { unlockAudioContext } from './sharedAudioContext'
 
 interface Options {
   audioUrl?: string
@@ -44,6 +45,9 @@ export function useAudioPlayer({ audioUrl, duration = 22, initialMuted = false }
   }, [duration])
 
   const handleToggle = () => {
+    // Unlock shared WebAudio context on this user gesture (iOS requirement)
+    unlockAudioContext()
+
     if (!audioUrl) {
       // Sin archivo de audio: simular progreso con RAF.
       if (playing) {
@@ -85,7 +89,10 @@ export function useAudioPlayer({ audioUrl, duration = 22, initialMuted = false }
         setProgress(0)
       }
       setPlaying(true)
-      audioRef.current.play()
+      // play() returns a promise on modern browsers — catch rejection on iOS
+      audioRef.current.play().catch(() => {
+        setPlaying(false)
+      })
     }
   }
 

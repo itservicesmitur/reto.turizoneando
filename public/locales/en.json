@@ -23,7 +23,15 @@
     "errorInvalid":    "Incorrect email or password.",
     "errorGeneric":    "Something went wrong. Please try again.",
     "errorDifferentCredential": "This email is already registered with a different sign-in method (e.g. password). Please log in with your email and password.",
-    "bannedError":     "Error 403: This account has been suspended. You cannot access the cultural challenge."
+    "bannedError":     "Error 403: This account has been suspended. You cannot access the cultural challenge.",
+    "resetTitle":      "Reset your password",
+    "resetSubtitle":   "Enter your email and we'll send you a link to reset it.",
+    "resetSubmit":     "Send link",
+    "resetSending":    "Sending...",
+    "resetSuccess":    "Done! Check your inbox and follow the link to reset your password.",
+    "resetBack":       "Back to sign in",
+    "resetErrorNotFound": "We couldn't find an account with that email.",
+    "resetErrorGeneric":  "Couldn't send the email. Check the address and try again."
   },
   "adminLogin": {
     "title":        "Admin Panel",

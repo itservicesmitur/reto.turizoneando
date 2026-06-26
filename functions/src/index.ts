@@ -36,6 +36,7 @@ setGlobalOptions({
 export { getPlayers } from "./admin/getPlayers";
 export { getPlayerAttempts } from "./admin/getPlayerAttempts";
 export { resetPlayer } from "./admin/resetPlayer";
+export { deletePlayer } from "./admin/deletePlayer";
 export { updatePlayerProfile } from "./admin/updatePlayerProfile";
 export {
   getAdmins,
@@ -84,6 +85,7 @@ export { getPrizes, getPrizeById, getPrizesForStage, claimPrize } from "./prizes
 export {
   sendAdminCustomEmail,
   sendAdminPasswordResetEmail,
+  sendPlayerPasswordResetEmail,
   sendAdminPrizeCodeEmail,
   sendPlayerPrizeCodes,
   claimPrizeAndNotify,

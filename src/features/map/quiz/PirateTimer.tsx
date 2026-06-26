@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getAudioContext } from './sharedAudioContext'
 
 const TOTAL = 60
 const SIZE  = 52
@@ -17,7 +18,6 @@ export default function PirateTimer({ questionIdx, paused, onTimeUp }: Props) {
   const [seconds, setSeconds] = useState(TOTAL)
   const pausedRef    = useRef(paused)
   const onTimeUpRef  = useRef(onTimeUp)
-  const audioCtxRef  = useRef<AudioContext | null>(null)
   const rafRef       = useRef(0)
 
   pausedRef.current   = paused
@@ -25,11 +25,8 @@ export default function PirateTimer({ questionIdx, paused, onTimeUp }: Props) {
 
   const playTick = (type: 'normal' | 'warning' | 'critical') => {
     try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-      }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') ctx.resume()
+      const ctx = getAudioContext()
+      if (ctx.state !== 'running') return
       const now = ctx.currentTime
 
       const beep = (freq: number, offset: number, dur: number, vol: number) => {
@@ -106,10 +103,6 @@ export default function PirateTimer({ questionIdx, paused, onTimeUp }: Props) {
       cancelAnimationFrame(rafRef.current)
     }
   }, [questionIdx])
-
-  useEffect(() => {
-    return () => { audioCtxRef.current?.close() }
-  }, [])
 
   const pct        = seconds / TOTAL
   const isCritical = seconds <= 5

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef, memo } from 'react'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -35,6 +35,7 @@ interface MapBoardProps {
   stageGroups?: number[][]
   introTarget?: { lat: number; lng: number }
   hiddenStopIds?: string[]
+  isSuspended?: boolean
 }
 
 interface BoatInstance {
@@ -74,8 +75,8 @@ interface SeagullInstance {
 
 let isGoogleMapsInitialized = false
 
-const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
-  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget, hiddenStopIds = [] },
+const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
+  { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget, hiddenStopIds = [], isSuspended = false },
   ref
 ) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -127,6 +128,15 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
   const lastGpsProcTimeRef = useRef<number>(0)
   const lastGpsProcPosRef = useRef<{ lat: number; lng: number } | null>(null)
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768
+
+  const webGLOverlayInstanceRef = useRef<any>(null)
+  const isSuspendedRef = useRef(isSuspended)
+  useEffect(() => {
+    isSuspendedRef.current = isSuspended
+    if (!isSuspended && webGLOverlayInstanceRef.current) {
+      webGLOverlayInstanceRef.current.requestRedraw()
+    }
+  }, [isSuspended])
 
   doRecalcRef.current = async () => {
     if (isRecalcingRef.current) return
@@ -557,6 +567,11 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
     let intervalId: any = null
     let threeRendererRef: THREE.WebGLRenderer | null = null
     let webGLOverlayRef: any = null
+    let headingListener: any = null
+    let renderingListener: any = null
+    let threeScene: THREE.Scene | null = null
+    let particleGeometry: THREE.BufferGeometry | null = null
+    let particleMaterial: THREE.PointsMaterial | null = null
     const boatMarkersRefList: any[] = []
 
     const completeLoading = () => {
@@ -594,7 +609,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             gestureHandling: 'none',
           })
 
-          map.addListener('heading_changed', () => {
+          headingListener = map.addListener('heading_changed', () => {
             onHeadingChangeRef.current?.(map.getHeading() || 0)
           })
 
@@ -750,7 +765,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
 
           // Nombres de barcos ocultos
 
-          const threeScene = new THREE.Scene()
+          threeScene = new THREE.Scene()
           const threeCamera = new THREE.PerspectiveCamera()
 
           const createSeagullMesh = () => {
@@ -793,7 +808,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             })
           }
 
-          const particleGeometry = new THREE.BufferGeometry()
+          particleGeometry = new THREE.BufferGeometry()
           const particlePositions = new Float32Array(particleCount * 3)
           particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3))
 
@@ -812,21 +827,24 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             return new THREE.CanvasTexture(canvas)
           }
 
-          const particleMaterial = new THREE.PointsMaterial({
+          particleMaterial = new THREE.PointsMaterial({
             size: 1.5, map: createParticleTexture(), transparent: true,
             opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false,
           })
-          const particleSystem = new THREE.Points(particleGeometry, particleMaterial)
+          const particleSystem = new THREE.Points(particleGeometry!, particleMaterial!)
 
           const webGLOverlay = new (window as any).google.maps.WebGLOverlayView()
           webGLOverlayRef = webGLOverlay
+          webGLOverlayInstanceRef.current = webGLOverlay
 
           webGLOverlay.onAdd = () => {
-            threeScene.add(new THREE.AmbientLight(0xffffff, 1.6))
+            const activeScene = threeScene
+            if (!activeScene) return
+            activeScene.add(new THREE.AmbientLight(0xffffff, 1.6))
             const dirLight = new THREE.DirectionalLight(0xffffff, 2.2)
             dirLight.position.set(2000, 4000, 3000)
-            threeScene.add(dirLight)
-            threeScene.add(particleSystem)
+            activeScene.add(dirLight)
+            activeScene.add(particleSystem)
 
             for (let i = 0; i < (isMobile ? 8 : 20); i++) {
               const mesh = createSeagullMesh()
@@ -843,7 +861,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                 wingPhase: Math.random() * Math.PI * 2,
                 wingSpeed: 10.0 + Math.random() * 6.0,
               })
-              threeScene.add(mesh)
+              activeScene.add(mesh)
             }
 
             const loader = new GLTFLoader()
@@ -883,7 +901,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                   boatGroup.add(wrapper)
                   boat.innerModel3D = wrapper
                   boat.model3D = boatGroup
-                  threeScene.add(boatGroup)
+                  activeScene.add(boatGroup)
                 })
                 webGLOverlay.requestRedraw()
               },
@@ -896,7 +914,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                   boatGroup.add(model)
                   boat.innerModel3D = model
                   boat.model3D = boatGroup
-                  threeScene.add(boatGroup)
+                  activeScene.add(boatGroup)
                 })
                 webGLOverlay.requestRedraw()
               }
@@ -917,49 +935,64 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             const renderer = threeRendererRef
             if (!renderer) return
 
+            const activeScene = threeScene
+            const activeGeometry = particleGeometry
+            if (!activeScene || !activeGeometry) return
+
+            if (isSuspendedRef.current || document.visibilityState !== 'visible') {
+              return
+            }
+
             const nowDraw = Date.now()
-            // Solo actualizar posiciones al ritmo limitado, pero SIEMPRE renderizar para evitar parpadeo
             const shouldUpdate = nowDraw - lastThreeDrawMs >= threeFrameMs
-            if (shouldUpdate) lastThreeDrawMs = nowDraw
 
             const center = map.getCenter()
             const anchorLat = center ? center.lat() : 18.475
             const anchorLng = center ? center.lng() : -69.882
             const pos = transformer.fromLatLngAltitude({ lat: anchorLat, lng: anchorLng, altitude: 0 })
             if (pos) threeCamera.projectionMatrix.fromArray(pos)
+            
             renderer.resetState()
+
+            if (!shouldUpdate) {
+              try {
+                renderer.render(activeScene, threeCamera)
+              } catch (err) {}
+              return
+            }
+
+            lastThreeDrawMs = nowDraw
+
             try {
               const time = nowDraw
               const latRad = (anchorLat * Math.PI) / 180
 
-              if (shouldUpdate) {
-                const posAttr = particleGeometry.attributes.position as THREE.BufferAttribute
-                for (let i = 0; i < particleCount; i++) {
-                  const p = particles[i]
-                  p.lat += p.speedLat; p.lng += p.speedLng; p.alt += p.speedAlt
-                  if (Math.abs(p.lat - 18.474) > 0.006) p.speedLat *= -1
-                  if (Math.abs(p.lng - -69.881) > 0.005) p.speedLng *= -1
-                  if (p.alt < 1.5 || p.alt > 22.0) p.speedAlt *= -1
-                  posAttr.setXYZ(i, (p.lng - anchorLng) * 111139 * Math.cos(latRad), (p.lat - anchorLat) * 111139, p.alt)
-                }
-                posAttr.needsUpdate = true
-
-                seagulls.forEach((gull) => {
-                  gull.angle += gull.speed
-                  const cx = (gull.centerLng - anchorLng) * 111139 * Math.cos(latRad)
-                  const cy = (gull.centerLat - anchorLat) * 111139
-                  const x = cx + Math.cos(gull.angle) * gull.radius
-                  const y = cy + Math.sin(gull.angle) * gull.radius
-                  const z = gull.height + Math.sin(time * 0.0025 + gull.wingPhase) * 2.0
-                  gull.mesh.position.set(x, y, z)
-                  gull.mesh.rotation.z = Math.atan2(Math.cos(gull.angle), -Math.sin(gull.angle)) - Math.PI / 2
-                  if (gull.leftWing && gull.rightWing) {
-                    const flap = Math.sin(time * 0.01 * gull.wingSpeed + gull.wingPhase) * 0.6
-                    gull.leftWing.rotation.y = flap
-                    gull.rightWing.rotation.y = -flap
-                  }
-                })
+              const posAttr = activeGeometry.attributes.position as THREE.BufferAttribute
+              for (let i = 0; i < particleCount; i++) {
+                const p = particles[i]
+                p.lat += p.speedLat; p.lng += p.speedLng; p.alt += p.speedAlt
+                if (Math.abs(p.lat - 18.474) > 0.006) p.speedLat *= -1
+                if (Math.abs(p.lng - -69.881) > 0.005) p.speedLng *= -1
+                if (p.alt < 1.5 || p.alt > 22.0) p.speedAlt *= -1
+                posAttr.setXYZ(i, (p.lng - anchorLng) * 111139 * Math.cos(latRad), (p.lat - anchorLat) * 111139, p.alt)
               }
+              posAttr.needsUpdate = true
+
+              seagulls.forEach((gull) => {
+                gull.angle += gull.speed
+                const cx = (gull.centerLng - anchorLng) * 111139 * Math.cos(latRad)
+                const cy = (gull.centerLat - anchorLat) * 111139
+                const x = cx + Math.cos(gull.angle) * gull.radius
+                const y = cy + Math.sin(gull.angle) * gull.radius
+                const z = gull.height + Math.sin(time * 0.0025 + gull.wingPhase) * 2.0
+                gull.mesh.position.set(x, y, z)
+                gull.mesh.rotation.z = Math.atan2(Math.cos(gull.angle), -Math.sin(gull.angle)) - Math.PI / 2
+                if (gull.leftWing && gull.rightWing) {
+                  const flap = Math.sin(time * 0.01 * gull.wingSpeed + gull.wingPhase) * 0.6
+                  gull.leftWing.rotation.y = flap
+                  gull.rightWing.rotation.y = -flap
+                }
+              })
 
               boats.forEach((boat, idx) => {
                 if (!boat.model3D) return
@@ -970,7 +1003,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                 const dy = latDiff * 111139
                 boat.model3D.position.set(dx, dy, 0)
                 const scaleFactor = (boat.sizeInMeters / 16) * 22
-                if (boat.innerModel3D && shouldUpdate) {
+                if (boat.innerModel3D) {
                   const offsetTime = time + idx * 1200
                   const targetZ = boat.currentRotation + Math.PI / 2
                   const prevZ = boat.innerModel3D.rotation.z
@@ -985,7 +1018,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
                 }
               })
 
-              renderer.render(threeScene, threeCamera)
+              renderer.render(activeScene, threeCamera)
             } catch (err) {
               if (!(window as any)._hasLoggedDrawError) {
                 console.error('Error en onDraw:', err)
@@ -1002,7 +1035,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
             }
           }
           attachOverlay()
-          map.addListener('renderingtype_changed', attachOverlay)
+          renderingListener = map.addListener('renderingtype_changed', attachOverlay)
 
           const getRotationAngle = (p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) => {
             const dy = p2.lat - p1.lat
@@ -1011,7 +1044,7 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
           }
 
           const animate = () => {
-            if (document.visibilityState !== 'visible') return
+            if (document.visibilityState !== 'visible' || isSuspendedRef.current) return
             boats.forEach((boat) => {
               if (boat.isWaiting) return
               const startNode = boat.coords[boat.goingForward ? boat.currentSegment : boat.currentSegment + 1]
@@ -1076,6 +1109,52 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       if (intervalId) clearInterval(intervalId)
       boatMarkersRefList.forEach((marker) => { if (marker) marker.map = null })
       if (webGLOverlayRef) webGLOverlayRef.setMap(null)
+
+      if (headingListener) headingListener.remove()
+      if (renderingListener) renderingListener.remove()
+
+      monumentMarkersRef.current.forEach(({ marker }) => {
+        if (marker) marker.map = null
+      })
+      monumentMarkersRef.current = []
+
+      if (routeBorderRef.current) { routeBorderRef.current.setMap(null); routeBorderRef.current = null }
+      if (directionsRendererRef.current) { directionsRendererRef.current.setMap(null); directionsRendererRef.current = null }
+      if (lastMileRef.current) { lastMileRef.current.setMap(null); lastMileRef.current = null }
+      if (lastMileZoomListenerRef.current) { lastMileZoomListenerRef.current.remove(); lastMileZoomListenerRef.current = null }
+      lastMileXRef.current.forEach((p: any) => p.setMap(null)); lastMileXRef.current = []
+
+      try {
+        if (threeScene) {
+          threeScene.traverse((object: any) => {
+            if (!object) return
+            if (object.geometry) {
+              object.geometry.dispose()
+            }
+            if (object.material) {
+              if (Array.isArray(object.material)) {
+                object.material.forEach((mat: any) => {
+                  if (mat.map) mat.map.dispose()
+                  mat.dispose()
+                })
+              } else {
+                if (object.material.map) object.material.map.dispose()
+                object.material.dispose()
+              }
+            }
+          })
+        }
+        if (particleMaterial) {
+          if (particleMaterial.map) particleMaterial.map.dispose()
+          particleMaterial.dispose()
+        }
+        if (particleGeometry) {
+          particleGeometry.dispose()
+        }
+      } catch (err) {
+        console.warn('Error during Three.js cleanup:', err)
+      }
+
       if (threeRendererRef) {
         threeRendererRef.dispose()
         threeRendererRef.forceContextLoss()
@@ -1357,6 +1436,6 @@ const MapBoard = forwardRef<MapBoardHandle, MapBoardProps>(function MapBoard(
       </div>
     </div>
   )
-})
+}))
 
 export default MapBoard

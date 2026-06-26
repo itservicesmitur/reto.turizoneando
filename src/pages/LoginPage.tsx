@@ -8,8 +8,9 @@ import {
   GoogleAuthProvider,
   type AuthError,
 } from 'firebase/auth'
+import { httpsCallable } from 'firebase/functions'
 import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../config/firebase'
+import { auth, db, functions } from '../config/firebase'
 import logoImg from '../assets/logo1.png'
 import mascotImg from '../assets/mascota.png'
 import { syncPlayerSocialProfile, getGoogleRedirectResult } from '../services/authService'
@@ -26,14 +27,19 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [showPass, setShowPass] = useState(false)
 
+  const [view, setView] = useState<'login' | 'reset'>('login')
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resetSent, setResetSent] = useState(false)
+
   useEffect(() => {
     getGoogleRedirectResult().then(async result => {
       if (!result) return
       setLoading(true)
       try {
-        await syncPlayerSocialProfile(result.user, i18n.language as 'es' | 'en')
-        const snap = await getDoc(doc(db, 'players', result.user.uid))
-        if (snap.exists() && snap.data().banned === true) {
+        const { banned } = await syncPlayerSocialProfile(result.user, i18n.language as 'es' | 'en')
+        if (banned) {
           await auth.signOut()
           setError(t('login.bannedError'))
           return
@@ -79,6 +85,21 @@ export default function LoginPage() {
     }
   }
 
+  async function handleForgotPassword(e: FormEvent) {
+    e.preventDefault()
+    setResetError(null)
+    setResetLoading(true)
+    try {
+      const sendReset = httpsCallable(functions, 'sendPlayerPasswordResetEmail')
+      await sendReset({ email: resetEmail })
+      setResetSent(true)
+    } catch {
+      setResetError(t('login.resetErrorGeneric'))
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   async function handleGoogle() {
     setError(null)
     setLoading(true)
@@ -86,10 +107,9 @@ export default function LoginPage() {
       const userCredential = await signInWithPopup(auth, googleProvider)
       
       // Sync Google profile data (email, name, photo) to Firestore
-      await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
+      const { banned } = await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
 
-      const snap = await getDoc(doc(db, 'players', userCredential.user.uid))
-      if (snap.exists() && snap.data().banned === true) {
+      if (banned) {
         await auth.signOut()
         setError(t('login.bannedError'))
         return
@@ -390,7 +410,11 @@ export default function LoginPage() {
                   <label htmlFor="password" style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>
                     {t('login.password')}
                   </label>
-                  <button type="button" style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setResetEmail(email); setResetSent(false); setResetError(null); setView('reset') }}
+                    style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--color-primary-dark)', cursor: 'pointer', padding: 0, fontWeight: 600 }}
+                  >
                     {t('login.forgotPassword')}
                   </button>
                 </div>
@@ -514,6 +538,178 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
+
+          {/* ── Reset password overlay ───────────────────────────── */}
+          {view === 'reset' && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'var(--color-surface)',
+              borderRadius: '28px 28px 0 0',
+              display: 'flex', flexDirection: 'column',
+              padding: '18px 20px',
+              paddingBottom: 'calc(var(--safe-bottom) + 16px)',
+              gap: 0,
+              overflowY: 'auto',
+              zIndex: 10,
+            }}>
+              {/* Drag handle */}
+              <div style={{
+                width: 36, height: 4, borderRadius: 2,
+                background: 'var(--color-border)', margin: '0 auto 20px',
+              }} />
+
+              {/* Back button */}
+              <button
+                type="button"
+                onClick={() => { setView('login'); setResetSent(false); setResetError(null) }}
+                style={{
+                  alignSelf: 'flex-start', background: 'none', border: 'none',
+                  color: 'var(--color-primary-dark)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 13, fontWeight: 700, padding: 0, marginBottom: 20,
+                }}
+              >
+                <i className="ri-arrow-left-line" style={{ fontSize: 16 }} />
+                {t('login.resetBack')}
+              </button>
+
+              {!resetSent ? (
+                <>
+                  {/* Header */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{
+                      width: 52, height: 52, borderRadius: '50%',
+                      background: 'rgba(9,109,125,0.10)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 12,
+                    }}>
+                      <i className="ri-lock-password-line" style={{ fontSize: 24, color: 'var(--color-primary-dark)' }} />
+                    </div>
+                    <h2 style={{
+                      fontFamily: 'var(--font-display)',
+                      color: 'var(--color-primary-dark)', fontSize: 24,
+                      margin: '0 0 6px',
+                    }}>
+                      {t('login.resetTitle')}
+                    </h2>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 13, margin: 0 }}>
+                      {t('login.resetSubtitle')}
+                    </p>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handleForgotPassword} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      <label htmlFor="resetEmail" style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                        {t('login.email')}
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <i className="ri-mail-line" style={{
+                          position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                          color: 'var(--color-gray-mid)', fontSize: 16, pointerEvents: 'none',
+                        }} />
+                        <input
+                          id="resetEmail" type="email" autoComplete="email" inputMode="email"
+                          value={resetEmail} onChange={e => setResetEmail(e.target.value)} required
+                          style={{
+                            width: '100%', height: 48, borderRadius: 14,
+                            border: '2px solid var(--color-border)',
+                            paddingLeft: 42, paddingRight: 14, fontSize: 16,
+                            fontFamily: 'var(--font-body)', color: 'var(--color-text)',
+                            background: 'var(--color-gray-light)', outline: 'none',
+                            transition: 'border-color 150ms ease, box-shadow 150ms ease',
+                          }}
+                          onFocus={e => {
+                            e.currentTarget.style.borderColor = 'var(--color-primary-dark)'
+                            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(9,109,125,0.12)'
+                          }}
+                          onBlur={e => {
+                            e.currentTarget.style.borderColor = 'var(--color-border)'
+                            e.currentTarget.style.boxShadow = 'none'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {resetError && (
+                      <p role="alert" style={{
+                        margin: 0, padding: '10px 14px', borderRadius: 12,
+                        background: 'rgba(230,51,41,0.07)', border: '1.5px solid rgba(230,51,41,0.2)',
+                        color: 'var(--color-error)', fontSize: 13,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                      }}>
+                        <i className="ri-error-warning-line" style={{ flexShrink: 0, fontSize: 16 }} />
+                        {resetError}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit" disabled={resetLoading}
+                      style={{
+                        marginTop: 2, width: '100%', height: 50, borderRadius: 16,
+                        background: resetLoading ? 'var(--color-gray-mid)' : 'var(--gradient-primary)',
+                        color: '#fff',
+                        fontSize: 17, fontWeight: 800, fontFamily: 'var(--font-body)',
+                        border: 'none', cursor: resetLoading ? 'not-allowed' : 'pointer',
+                        transition: 'transform 150ms ease, box-shadow 150ms ease',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        boxShadow: resetLoading ? 'none' : '0 6px 20px rgba(224,52,75,0.4)',
+                        letterSpacing: 0.3,
+                      }}
+                      onMouseDown={e => { if (!resetLoading) e.currentTarget.style.transform = 'scale(0.97)' }}
+                      onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                      onTouchStart={e => { if (!resetLoading) e.currentTarget.style.transform = 'scale(0.97)' }}
+                      onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                    >
+                      {resetLoading
+                        ? <><i className="ri-loader-4-line" style={{ animation: 'spin 0.8s linear infinite' }} /> {t('login.resetSending')}</>
+                        : <><i className="ri-send-plane-line" style={{ fontSize: 18 }} /> {t('login.resetSubmit')}</>
+                      }
+                    </button>
+                  </form>
+                </>
+              ) : (
+                /* Success state */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: 20, gap: 16 }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '50%',
+                    background: 'rgba(0,187,180,0.12)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className="ri-mail-check-line" style={{ fontSize: 34, color: 'var(--color-primary-dark)' }} />
+                  </div>
+                  <div>
+                    <h2 style={{
+                      fontFamily: 'var(--font-display)',
+                      color: 'var(--color-primary-dark)', fontSize: 22,
+                      margin: '0 0 8px',
+                    }}>
+                      {t('login.resetTitle')}
+                    </h2>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+                      {t('login.resetSuccess')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setView('login'); setResetSent(false); setResetError(null) }}
+                    style={{
+                      marginTop: 8, width: '100%', height: 50, borderRadius: 16,
+                      background: 'var(--gradient-primary)',
+                      color: '#fff',
+                      fontSize: 16, fontWeight: 800, fontFamily: 'var(--font-body)',
+                      border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      boxShadow: '0 6px 20px rgba(224,52,75,0.4)',
+                    }}
+                  >
+                    <i className="ri-arrow-left-line" style={{ fontSize: 18 }} />
+                    {t('login.resetBack')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
       </div>{/* ── /lp-login-card ── */}

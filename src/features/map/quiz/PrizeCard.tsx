@@ -226,8 +226,8 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
 
   return (
     <div
-      className="fixed inset-0 z-999 flex flex-col items-center justify-center gap-5 overflow-hidden"
-      style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)' }}
+      className="fixed inset-0 z-999 flex flex-col items-center justify-center gap-5 overflow-x-hidden overflow-y-auto"
+      style={{ background: 'linear-gradient(to bottom, #075f6e 0%, #00bbb4 100%)', paddingTop: 16, paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
     >
       <style>{`
         @keyframes confettiFall {
@@ -241,7 +241,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
       `}</style>
 
       {/* Confetti */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-10" style={{ touchAction: 'none' }}>
         {Array.from({ length: 40 }).map((_, i) => {
           const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length]
           const isRound = i % 3 === 0
@@ -459,6 +459,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           onClick={() => setShowRanking(true)}
           className="flex-1 h-12 rounded-[18px] text-sm font-black active:translate-y-[4px] transition-all flex items-center justify-center gap-1.5"
           style={{
+            touchAction: 'manipulation',
             background: 'linear-gradient(180deg,#f2ead6 0%,#e5dcc6 100%)',
             color: '#8b6f47',
             border: '2px solid #c9bc9e',
@@ -472,6 +473,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           onClick={() => { onContinue(); navigate('/map') }}
           className="flex-1 h-12 rounded-[18px] text-sm font-black text-white active:translate-y-[4px] transition-all flex items-center justify-center gap-1.5"
           style={{
+            touchAction: 'manipulation',
             background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
             border: '2px solid #0c7f89',
             boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 12px 22px rgba(9,109,125,.25)',

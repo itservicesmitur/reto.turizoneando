@@ -61,10 +61,13 @@ export async function signUpWithApple(): Promise<{ user: User; isNew: boolean }>
   return { user, isNew: !snap.exists() }
 }
 
-export async function syncPlayerSocialProfile(user: User, preferredLang: 'es' | 'en' = 'es'): Promise<void> {
+export async function syncPlayerSocialProfile(user: User, preferredLang: 'es' | 'en' = 'es'): Promise<{ banned: boolean }> {
   const docRef = doc(db, 'players', user.uid)
   const snap = await getDoc(docRef)
   
+  const existingData = snap.exists() ? snap.data() : null
+  const banned = existingData?.banned === true
+
   const dataToSave: any = {
     uid: user.uid,
     email: user.email || '',
@@ -73,7 +76,6 @@ export async function syncPlayerSocialProfile(user: User, preferredLang: 'es' | 
     updatedAt: serverTimestamp(),
   }
 
-  const existingData = snap.exists() ? snap.data() : null
   if (user.displayName) {
     const parts = user.displayName.split(' ')
     const googleFirstName = parts[0] || ''
@@ -96,9 +98,22 @@ export async function syncPlayerSocialProfile(user: User, preferredLang: 'es' | 
     dataToSave.gender = ''
     dataToSave.nationality = ''
     dataToSave.ageRange = ''
+    
+    await setDoc(docRef, dataToSave, { merge: true })
+  } else {
+    // Check if the critical profile fields from social login changed before writing
+    const existing = existingData || {}
+    const hasChanges = 
+      existing.email !== (user.email || '') ||
+      existing.displayName !== (user.displayName || '') ||
+      existing.photoURL !== (user.photoURL || '')
+      
+    if (hasChanges) {
+      await setDoc(docRef, dataToSave, { merge: true })
+    }
   }
-
-  await setDoc(docRef, dataToSave, { merge: true })
+  
+  return { banned }
 }
 
 export async function getPlayerProfile(uid: string): Promise<Partial<PlayerProfile> | null> {

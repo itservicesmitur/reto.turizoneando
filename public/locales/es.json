@@ -23,7 +23,15 @@
     "errorInvalid":    "Correo o contraseña incorrectos.",
     "errorGeneric":    "Ocurrió un error. Intenta de nuevo.",
     "errorDifferentCredential": "Este correo ya está registrado con otro método de inicio de sesión (ej. contraseña). Inicia sesión con tu correo y contraseña.",
-    "bannedError":     "Error 403: Esta cuenta ha sido suspendida. No puedes ingresar al desafío cultural."
+    "bannedError":     "Error 403: Esta cuenta ha sido suspendida. No puedes ingresar al desafío cultural.",
+    "resetTitle":      "Recuperar contraseña",
+    "resetSubtitle":   "Ingresa tu correo y te enviaremos un enlace para restablecerla.",
+    "resetSubmit":     "Enviar enlace",
+    "resetSending":    "Enviando...",
+    "resetSuccess":    "¡Listo! Revisa tu bandeja de entrada y sigue el enlace para restablecer tu contraseña.",
+    "resetBack":       "Volver al inicio de sesión",
+    "resetErrorNotFound": "No encontramos una cuenta con ese correo.",
+    "resetErrorGeneric":  "No pudimos enviar el correo. Verifica la dirección e intenta de nuevo."
   },
   "adminLogin": {
     "title":        "Panel Administrativo",

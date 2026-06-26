@@ -6,6 +6,7 @@ import {
   updatePlayerActiveStatus,
   fetchPlayerAttempts,
   resetPlayerProgress,
+  deletePlayerAccount,
   sendAdminPasswordResetEmail,
   sendAdminCustomEmail,
   getMyPositionsRanking,
@@ -31,6 +32,8 @@ export default function PlayerDetailPage() {
   const [resetConfirm, setResetConfirm] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetSuccess, setResetSuccess] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [attempts, setAttempts] = useState<QuestionAttemptSummary[]>([])
   const [attemptsLoading, setAttemptsLoading] = useState(true)
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null)
@@ -151,6 +154,19 @@ export default function PlayerDetailPage() {
       alert(err instanceof Error ? err.message : 'Error al reiniciar el jugador')
     } finally {
       setResetLoading(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!playerId) return
+    try {
+      setDeleteLoading(true)
+      await deletePlayerAccount(playerId)
+      navigate('/admin/players')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar la cuenta')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -991,6 +1007,91 @@ export default function PlayerDetailPage() {
                 Enviar Mensaje Personalizado
               </button>
             </div>
+          </div>
+
+          {/* Card: Eliminar cuenta */}
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: 'var(--shadow-card)',
+            border: '1.5px solid rgba(230,51,41,0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-error)', fontSize: 18, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="ri-delete-bin-line" />
+              Eliminar Cuenta
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: 13.5, margin: 0, lineHeight: 1.5 }}>
+              Elimina permanentemente este jugador de Firestore y de Firebase Auth. Se borrarán todos sus intentos, premios y códigos de canje. <strong style={{ color: 'var(--color-error)' }}>Esta acción es irreversible.</strong>
+            </p>
+
+            {!deleteConfirm ? (
+              <button
+                onClick={() => setDeleteConfirm(true)}
+                style={{
+                  height: 40, padding: '0 18px', borderRadius: 10,
+                  border: 'none',
+                  background: 'var(--color-error)',
+                  color: '#fff', fontSize: 13, fontWeight: 800,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  alignSelf: 'flex-start',
+                  boxShadow: '0 4px 14px rgba(230,51,41,0.35)',
+                  transition: 'opacity 150ms ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.88' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+              >
+                <i className="ri-delete-bin-fill" style={{ fontSize: 16 }} />
+                Eliminar jugador
+              </button>
+            ) : (
+              <div style={{ background: 'rgba(230,51,41,0.06)', border: '1.5px solid rgba(230,51,41,0.3)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <i className="ri-alert-line" style={{ fontSize: 18 }} />
+                  ¿Eliminar permanentemente a <span style={{ fontStyle: 'italic', marginLeft: 4 }}>{player?.displayName || 'este jugador'}</span>?
+                </div>
+                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                  Se borrará su cuenta de Auth, todos sus datos en Firestore y sus códigos de premio. No hay forma de recuperar esta información.
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteLoading}
+                    style={{
+                      height: 38, padding: '0 18px', borderRadius: 8,
+                      border: 'none', background: 'var(--color-error)',
+                      color: '#fff', fontSize: 13, fontWeight: 800,
+                      cursor: deleteLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      opacity: deleteLoading ? 0.7 : 1,
+                      transition: 'opacity 150ms ease',
+                    }}
+                  >
+                    {deleteLoading ? (
+                      <><i className="ri-loader-4-line" style={{ animation: 'spin-circle 0.8s linear infinite' }} />Eliminando...</>
+                    ) : (
+                      <><i className="ri-delete-bin-fill" />Sí, eliminar</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(false)}
+                    disabled={deleteLoading}
+                    style={{
+                      height: 38, padding: '0 18px', borderRadius: 8,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text)', fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card 4: Reset player */}

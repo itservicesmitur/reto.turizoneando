@@ -197,10 +197,11 @@ export const getPublicPrizeCode = onCall(async (request) => {
 // ── VALIDATE PRIZE CODE (provider only) ─────────────────────────────────
 // Only the provider whose localId matches the prize's localId can validate.
 export const validatePrizeCode = onCall(async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
+  const auth = request.auth;
+  if (!auth) throw new HttpsError("unauthenticated", "Authentication required");
 
-  const role = (request.auth.token.role as string | undefined)?.toLowerCase();
-  const providerLocalId = request.auth.token.localId as string | undefined;
+  const role = (auth.token.role as string | undefined)?.toLowerCase();
+  const providerLocalId = auth.token.localId as string | undefined;
 
   if (role !== "provider" && role !== "admin") {
     throw new HttpsError("permission-denied", "Solo un local autorizado puede canjear este código.");
@@ -248,7 +249,7 @@ export const validatePrizeCode = onCall(async (request) => {
       transaction.update(docRef, {
         status: "claimed",
         claimedAt,
-        claimedBy: request.auth!.uid,
+        claimedBy: auth.uid,
       });
 
       return {

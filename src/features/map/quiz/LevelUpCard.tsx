@@ -24,6 +24,8 @@ const FLYING = [
   { sx: '-28px',  sy: '405px', delay: '0.84s' },
 ]
 
+const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(window.navigator.userAgent) && !(window as any).MSStream
+
 export default function LevelUpCard({
   level,
   coins,
@@ -447,10 +449,10 @@ export default function LevelUpCard({
           }} />
         )}
 
-        {frozenSrc ? (
+        {isIOS || frozenSrc ? (
           <div style={{ position: 'relative', width: '100%', height: '100%', background: 'transparent' }}>
             <img
-              src={frozenSrc}
+              src={frozenSrc || '/assets/img/COFRE_OPEN.webp'}
               alt="cofre"
               onLoad={() => setChestLoaded(true)}
               style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: 'transparent' }}

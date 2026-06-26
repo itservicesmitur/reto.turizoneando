@@ -60,9 +60,12 @@ function buildClaimPrizeEmailHtml(
   localName?: string,
   localAddress?: string,
   localPhone?: string,
+  localImageUrl?: string,
 ): string {
-  const cardBg = `background-image:url('${BG_HERO_URL}');background-size:cover;background-position:center;background-color:#0f766e;`;
-  const avatarUrl = prizeImageUrl || LOGO_URL;
+  const cardBg = prizeImageUrl
+    ? `background-image:url('${prizeImageUrl}');background-size:cover;background-position:center;background-color:#0f766e;`
+    : `background-image:url('${BG_HERO_URL}');background-size:cover;background-position:center;background-color:#0f766e;`;
+  const avatarUrl = localImageUrl || LOGO_URL;
   const year = new Date().getFullYear();
 
   const step = (n: number, text: string) => `
@@ -85,6 +88,9 @@ function buildClaimPrizeEmailHtml(
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -179,8 +185,8 @@ function buildClaimPrizeEmailHtml(
                   </p>
                   <table width="100%" cellpadding="0" cellspacing="0"><tr>
                     <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                      <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                      <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                      <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                      <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
                     </td>
                   </tr></table>
                   <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
@@ -259,6 +265,9 @@ function buildMultiplePrizesEmailHtml(
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -295,8 +304,8 @@ function buildMultiplePrizesEmailHtml(
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
               </td>
             </tr></table>
             <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
@@ -360,6 +369,9 @@ export const sendAdminCustomEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -395,8 +407,8 @@ export const sendAdminCustomEmail = onCall({
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
               </td>
             </tr></table>
             <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
@@ -479,6 +491,9 @@ export const sendAdminPasswordResetEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -529,8 +544,8 @@ export const sendAdminPasswordResetEmail = onCall({
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
               </td>
             </tr></table>
             <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
@@ -686,6 +701,7 @@ export const claimPrizeAndNotify = onCall({
     localName: string;
     localAddress: string;
     localPhone: string;
+    localImageUrl: string;
   };
 
   let claimed: ClaimResult | null = null;
@@ -738,6 +754,7 @@ export const claimPrizeAndNotify = onCall({
         let localName = prizeData.localName || "";
         let localAddress = "";
         let localPhone = "";
+        let localImageUrl = "";
         if (localId) {
           try {
             const localSnap = await db.collection("locals").doc(localId).get();
@@ -746,8 +763,11 @@ export const claimPrizeAndNotify = onCall({
               localName = ld.name || localName;
               localAddress = ld.address || "";
               localPhone = ld.phone || "";
+              localImageUrl = ld.imageUrl || "";
             }
-          } catch (_) { /* non-critical */ }
+          } catch (_) {
+            // non-critical
+          }
         }
 
         tx.update(prizeRef, { stockCurrent: FieldValue.increment(-1) });
@@ -766,6 +786,7 @@ export const claimPrizeAndNotify = onCall({
           localName,
           localAddress,
           localPhone,
+          localImageUrl,
           status: "active",
           createdAt: now,
           expiresAt,
@@ -793,6 +814,7 @@ export const claimPrizeAndNotify = onCall({
           localName,
           localAddress,
           localPhone,
+          localImageUrl,
         } as ClaimResult;
       });
 
@@ -824,6 +846,7 @@ export const claimPrizeAndNotify = onCall({
         claimed.localName,
         claimed.localAddress,
         claimed.localPhone,
+        claimed.localImageUrl,
       );
 
       const textContent = `¡Felicidades ${claimed.playerDisplayName}!\n\nGanaste: ${claimed.prizeName}${claimed.prizeCategory ? ` (${claimed.prizeCategory})` : ""}\nCódigo: ${claimed.code}\nValidar en: ${validationUrl}\n\nMITUR - Turizoneando`;
@@ -891,6 +914,9 @@ export const sendOtpEmail = onCall({
     table{border-spacing:0;border-collapse:collapse;}
     td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
     @media only screen and (max-width:600px){
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -941,8 +967,8 @@ export const sendOtpEmail = onCall({
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
               </td>
             </tr></table>
             <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
@@ -1049,9 +1075,21 @@ export const sendAdminPrizeCodeEmail = onCall({
     const localName = cData.localName || "";
     const localAddress = cData.localAddress || "";
     const localPhone = cData.localPhone || "";
+    let localImageUrl = cData.localImageUrl || "";
 
     if (!playerEmail) {
       throw new HttpsError("failed-precondition", "No player email is associated with this code.");
+    }
+
+    if (!localImageUrl && cData.localId) {
+      try {
+        const localSnap = await db.collection("locals").doc(cData.localId).get();
+        if (localSnap.exists) {
+          localImageUrl = localSnap.data()?.imageUrl || "";
+        }
+      } catch (err) {
+        console.error("Failed to fetch localImageUrl dynamically in resend:", err);
+      }
     }
 
     // 3. Construct Validation URL (pointing to MITUR site validation endpoint)
@@ -1067,6 +1105,7 @@ export const sendAdminPrizeCodeEmail = onCall({
       localName,
       localAddress,
       localPhone,
+      localImageUrl,
     );
 
     const textContent = `¡Felicidades ${playerDisplayName}!\n\nGanaste: ${prizeName} (${prizeCategory}) en Turizoneando.\n\nTu código único de canje es: ${uniqueCode}\n\nCanjéalo ingresando a: ${validationUrl}\n\nMITUR`;
@@ -1077,6 +1116,130 @@ export const sendAdminPrizeCodeEmail = onCall({
     console.error("Resending prize code email failed:", error);
     throw new HttpsError("internal", error.message || "Failed to resend prize code email.");
   }
+});
+
+// ── PLAYER PASSWORD RESET (public, no auth) ──────────────────────────────────
+export const sendPlayerPasswordResetEmail = onCall({
+  secrets: [sendgridApiKeySecret, sendgridFromEmailSecret]
+}, async (request) => {
+  const { email } = request.data as { email?: string };
+  if (!email || !email.includes("@")) {
+    throw new HttpsError("invalid-argument", "Valid email is required.");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const db = getFirestore();
+
+  // Rate limit: 1 request per email per 60 seconds (stored in Firestore)
+  const rateLimitRef = db.collection("_rateLimits").doc(`pwreset_${normalizedEmail.replace(/[@.]/g, "_")}`);
+  const rateDoc = await rateLimitRef.get();
+  if (rateDoc.exists) {
+    const lastRequest = (rateDoc.data()?.timestamp as Timestamp)?.seconds || 0;
+    if (Timestamp.now().seconds - lastRequest < 60) {
+      return { success: true }; // silently ignore — don't reveal rate limiting
+    }
+  }
+  await rateLimitRef.set({ timestamp: Timestamp.now() });
+
+  try {
+    // Get display name from Firestore (non-critical)
+    const playerQuery = await db.collection("players")
+      .where("email", "==", normalizedEmail)
+      .limit(1)
+      .get();
+
+    let displayName = "Jugador";
+    if (!playerQuery.empty) {
+      const pData = playerQuery.docs[0].data();
+      displayName = pData.displayName || `${pData.firstName || ""} ${pData.lastName || ""}`.trim() || "Jugador";
+    }
+
+    // Generate the Firebase reset link via Admin SDK
+    const defaultLink = await admin.auth().generatePasswordResetLink(
+      normalizedEmail,
+      { url: "https://turizoneando.mitur.gob.do/login" }
+    );
+    const urlObj = new URL(defaultLink);
+    const oobCode = urlObj.searchParams.get("oobCode") || "";
+
+    const hostOrigin = request.rawRequest.headers.origin || "https://turizoneando.mitur.gob.do";
+    const customResetLink = `${hostOrigin}/reset-password?oobCode=${oobCode}`;
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Restablece tu contraseña</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body{margin:0;padding:0;background-color:#ffffff;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+    table{border-spacing:0;border-collapse:collapse;}
+    td{padding:0;mso-table-lspace:0;mso-table-rspace:0;}
+    @media only screen and (max-width:600px){.footer-logo{height:36px !important;}}
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;">
+  <tr><td style="padding:16px 12px;" align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+      <tr>
+        <td style="background-image:url('${BG_HERO_URL}');background-size:cover;background-position:center;background-color:#0f766e;">
+          <table width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="background-color:rgba(0,0,0,0.28);padding:48px 24px 44px;text-align:center;">
+              <img src="${LOGO_URL}" alt="Turizoneando" width="180" style="display:block;margin:0 auto 6px;height:auto;" />
+              <p style="margin:0;color:#ffffff;font-size:15px;font-weight:300;letter-spacing:0.5px;">Restablecimiento de Contraseña</p>
+            </td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr><td style="padding:40px 32px;">
+        <h2 style="margin:0 0 10px;font-size:22px;font-weight:700;color:#58bea9;font-family:'Plus Jakarta Sans',sans-serif;">¡Hola, ${displayName}!</h2>
+        <p style="margin:0 0 24px;font-size:14px;color:#475569;line-height:1.7;">
+          Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong style="color:#334155;">Turizoneando</strong>.
+          <br><br>
+          Haz clic en el botón de abajo para elegir una nueva contraseña. El enlace es válido por <strong style="color:#334155;">1 hora</strong>.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+          <tr><td align="center" style="padding:8px 0 32px;">
+            <a href="${customResetLink}" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 32px;font-size:11px;color:#94a3b8;line-height:1.7;">
+          Si no solicitaste este cambio, puedes ignorar este mensaje con seguridad. Tu contraseña no cambiará.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
+            <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
+              </td>
+            </tr></table>
+            <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">
+              © ${new Date().getFullYear()} Turizoneando. Todos los derechos reservados.
+            </p>
+          </td>
+        </tr></table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+    const textContent = `Hola ${displayName},\n\nRecibimos una solicitud para restablecer tu contraseña en Turizoneando.\n\nUsa este enlace (válido por 1 hora):\n${customResetLink}\n\nSi no lo solicitaste, ignora este mensaje.\n\nTurizoneando — MITUR`;
+
+    await sendRawEmail(normalizedEmail, "Restablece tu contraseña - Turizoneando", htmlContent, textContent);
+  } catch (error: any) {
+    // Swallow "user-not-found" silently to prevent email enumeration
+    if (error?.errorInfo?.code !== "auth/user-not-found") {
+      console.error("[sendPlayerPasswordResetEmail] Error:", error?.errorInfo?.code || error?.message);
+    }
+  }
+
+  return { success: true };
 });
 
 // ── LOW-STOCK ALERT: Firestore trigger ────────────────────────────────────────
@@ -1166,6 +1329,9 @@ const localName = String(afterSnap.localName || "");
     @media only screen and (max-width:600px){
       .stock-left{display:block !important;width:100% !important;margin-bottom:16px !important;}
       .stock-right{display:block !important;width:100% !important;}
+      .footer-logo {
+        height: 36px !important;
+      }
     }
   </style>
 </head>
@@ -1232,8 +1398,8 @@ const localName = String(afterSnap.localName || "");
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
-                <img src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;margin-right:20px;" />
-                <img src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="60" style="display:inline-block;height:60px;width:auto;vertical-align:middle;" />
+                <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
+                <img class="footer-logo" src="${CLUSTER_LOGO_URL}" alt="Cluster Turístico Santo Domingo" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;" />
               </td>
             </tr></table>
             <p style="margin:4px 0 0;text-align:center;font-size:10px;color:#94a3b8;">

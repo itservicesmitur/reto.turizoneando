@@ -5,6 +5,7 @@ import { auth, db } from '../../../config/firebase'
 import { claimPrizeAndNotify, getPrizesForStage } from '../services/prizeApi'
 import type { PrizeInfo } from '../services/prizeApi'
 import type { ClaimedPrize } from '../types/quiz.types'
+import { getAudioContext, resumeAudioContext, unlockAudioContext } from './sharedAudioContext'
 
 interface Props {
   stopIndex: number
@@ -75,7 +76,6 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const segIdxRef      = useRef<number>(stopIndex % 8)
   const claimPrizeIdRef = useRef<string>('')
   const prizesRef      = useRef<PrizeInfo[]>([])
-  const audioCtxRef    = useRef<AudioContext | null>(null)
 
   useEffect(() => {
     getPrizesForStage({ seasonId, stageId })
@@ -103,17 +103,13 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      audioCtxRef.current?.close()
     }
   }, [])
 
-  const playSpinSounds = () => {
+  const playSpinSounds = async () => {
     try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-      }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') ctx.resume()
+      const ctx = getAudioContext()
+      await resumeAudioContext()
       const now = ctx.currentTime
 
       const tick = (when: number, vol: number, freq = 340) => {
@@ -162,13 +158,10 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     } catch { /* AudioContext not available */ }
   }
 
-  const playWinSound = () => {
+  const playWinSound = async () => {
     try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-      }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') ctx.resume()
+      const ctx = getAudioContext()
+      await resumeAudioContext()
       const now = ctx.currentTime
 
       const note = (freq: number, when: number, dur: number, vol: number, type: OscillatorType = 'triangle') => {
@@ -252,6 +245,8 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const handleSpin = () => {
     if (spinning || spinDone) return
     setSpinning(true)
+    // Unlock on user gesture — guarantees iOS audio for spin + win sounds
+    unlockAudioContext()
     playSpinSounds()
 
     // El resultado se decide antes de girar.
@@ -262,7 +257,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     if (limitReached) {
       randomSlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
     } else {
-      const prob  = 0.40 + (Math.min(playerScore, 200) / 200) * 0.45
+      const prob  = 0.60 + (Math.min(playerScore, 200) / 200) * 0.30
       const wins  = Math.random() < prob
       randomSlot  = wins
         ? PRIZE_INDICES[Math.floor(Math.random() * PRIZE_INDICES.length)]

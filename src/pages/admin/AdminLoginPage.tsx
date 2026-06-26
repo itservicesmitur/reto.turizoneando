@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
     setLoading(true)
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      const tokenResult = await userCredential.user.getIdTokenResult(true)
+      const tokenResult = await userCredential.user.getIdTokenResult()
 
 
       const role = (tokenResult.claims.role as string | undefined)?.toLowerCase()

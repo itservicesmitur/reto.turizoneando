@@ -71,6 +71,19 @@ export async function fetchPlayerDetail(uid: string): Promise<PlayerData> {
   }
 }
 
+export async function deletePlayerAccount(uid: string): Promise<{ attemptsDeleted: number; seasonsDeleted: number; prizeCodesDeleted: number }> {
+  const fn = httpsCallable<{ playerId: string }, { success: boolean; attemptsDeleted: number; seasonsDeleted: number; prizeCodesDeleted: number }>(
+    functions,
+    'deletePlayer'
+  )
+  const response = await fn({ playerId: uid })
+  return {
+    attemptsDeleted: response.data.attemptsDeleted,
+    seasonsDeleted: response.data.seasonsDeleted,
+    prizeCodesDeleted: response.data.prizeCodesDeleted,
+  }
+}
+
 export async function resetPlayerProgress(uid: string): Promise<{ attemptsDeleted: number; seasonsDeleted: number }> {
   const fn = httpsCallable<{ playerId: string }, { success: boolean; attemptsDeleted: number; seasonsDeleted: number }>(
     functions,

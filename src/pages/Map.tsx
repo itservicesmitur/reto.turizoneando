@@ -28,6 +28,7 @@ import { useRealtimeStatus } from '../features/map/middleware/useRealtimeStatus'
 import StatusBlockCard from '../components/StatusBlockCard'
 import FeatureTour from '../components/FeatureTour'
 import '../features/map/quiz/quiz.css'
+import { unlockAudioContext } from '../features/map/quiz/sharedAudioContext'
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
@@ -642,6 +643,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
 
   const handleStartQuiz = useCallback(async () => {
     if (!selectedMonument || selectedStopIndex < 0) return
+    // Unlock audio on this user gesture so timer/roulette sounds work on iOS
+    unlockAudioContext()
     if (locationDenied) { setShowLocationGate(true); return }
 
     if (geoLimit) {
@@ -1172,6 +1175,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             stageGroups={stageGroups}
             introTarget={introTarget}
             hiddenStopIds={deactivatedStopIds}
+            isSuspended={quizFlow.step !== 'idle' || showMenu || showLocationGate || lockedAlert !== null}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>
