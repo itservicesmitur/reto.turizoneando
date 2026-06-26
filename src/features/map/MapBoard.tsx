@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, useImperativeHandle, forwardRef, memo } fr
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { useTranslation } from 'react-i18next'
 
 import type { Monumento, RouteInfo, MapBoardHandle } from './types/map.types'
 import { COLONIAL_ZONE_COORDS } from './data/monumentsData'
 import { computeLastMilePath, getRemainingRoute } from './utils/geo'
-import { updateXStroke, createDotElement, buildMarkerHTML } from './utils/mapHelpers'
+import { updateXStroke, createDotElement, buildMarkerHTML, getStopState, getMarkerContainerWidth, getMarkerZIndex } from './utils/mapHelpers'
 import { createProceduralBoat } from './three/boat'
 import type { BoatColorTheme } from './three/boat'
 
@@ -79,6 +80,9 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
   { monuments, onSelectMonument, selectedMonument, onLoadComplete, startIntroAnimation, onHeadingChange, visibleStage, completedStops = [], onLockedStopClick, stageGroups = [], introTarget, hiddenStopIds = [], isSuspended = false },
   ref
 ) {
+  const { t } = useTranslation()
+  const tRef = useRef(t)
+  tRef.current = t
   const mapRef = useRef<HTMLDivElement>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -160,14 +164,18 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
           origin: { location: { latLng: { latitude: pos.lat, longitude: pos.lng } } },
           destination: { location: { latLng: { latitude: dest.lat, longitude: dest.lng } } },
           travelMode: mode,
+          computeAlternativeRoutes: true,
+          ...(mode === 'DRIVE' && { routingPreference: 'TRAFFIC_AWARE_OPTIMAL' }),
         }),
       })
       if (navTokenRef.current !== token) return
       const data = await response.json()
-      const route = data.routes?.[0]
+      const routes: any[] = data.routes ?? []
+      const totalDist = (r: any) => (r?.legs ?? []).reduce((s: number, l: any) => s + (l.distanceMeters ?? 0), 0)
+      const route = routes.reduce((best: any, r: any) => totalDist(r) < totalDist(best) ? r : best, routes[0])
       const encoded = route?.polyline?.encodedPolyline
       if (!encoded) return
-      const distanceM: number = route?.legs?.[0]?.distanceMeters ?? 0
+      const distanceM: number = totalDist(route)
       const durationStr: string = route?.legs?.[0]?.duration ?? '0s'
       const distanceKm = (distanceM / 1000).toFixed(1)
       const durationMin = Math.ceil(parseInt(durationStr.replace('s', ''), 10) / 60)
@@ -237,10 +245,10 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
       // Throttle: ignorar updates más rápidos de 500ms que muevan menos de 2m
       const nowGps = Date.now()
       const timeSinceGps = nowGps - lastGpsProcTimeRef.current
-      if (timeSinceGps < 500 && lastGpsProcPosRef.current) {
+      if (timeSinceGps < 200 && lastGpsProcPosRef.current) {
         const dlat = lat - lastGpsProcPosRef.current.lat
         const dlng = (lng - lastGpsProcPosRef.current.lng) * Math.cos(lat * Math.PI / 180)
-        if (Math.sqrt(dlat * dlat + dlng * dlng) * 111139 < 2) return
+        if (Math.sqrt(dlat * dlat + dlng * dlng) * 111139 < 1) return
       }
       lastGpsProcTimeRef.current = nowGps
       lastGpsProcPosRef.current = { lat, lng }
@@ -261,10 +269,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
       }
 
       // ── Heading-up camera + ruta que se acorta ──────────────────────
-      if (navActiveRef.current && mapInstanceRef.current) {
-        const map = mapInstanceRef.current
-        const isVector = (map as any).get?.('renderingType') === 'VECTOR'
-
+      if (navActiveRef.current) {
         // 1. Calcular heading: usar GPS directo si está disponible y hay movimiento,
         //    sino calcular desde la diferencia de posición anterior
         let rawBearing = smoothedNavHeadingRef.current
@@ -288,22 +293,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         smoothedNavHeadingRef.current = (smoothedNavHeadingRef.current + hdiff * 0.35 + 360) % 360
         navBearingRef.current = smoothedNavHeadingRef.current
 
-        // 2. Cámara heading-up: centrar un poco adelante del usuario
-        //    para que aparezca en la parte baja de la pantalla (como Google Maps)
-        if (returnAnimFrameRef.current) { cancelAnimationFrame(returnAnimFrameRef.current); returnAnimFrameRef.current = null }
-        if (isVector) {
-          const headRad = smoothedNavHeadingRef.current * Math.PI / 180
-          const lookAheadM = 80
-          const latOff = (lookAheadM / 111139) * Math.cos(headRad)
-          const lngOff = (lookAheadM / 111139) * Math.sin(headRad) / Math.cos(lat * Math.PI / 180)
-          map.panTo({ lat: lat + latOff, lng: lng + lngOff })
-          map.setHeading(smoothedNavHeadingRef.current)
-          map.setTilt(65)
-        } else {
-          map.panTo({ lat, lng })
-        }
-
-        // 3. Recortar la polilínea desde la posición actual hacia adelante
+        // 2. Recortar la polilínea desde la posición actual hacia adelante
         const path = routePathRef.current
         if (path.length > 1) {
           const searchFrom = Math.max(0, lastNearestIdxRef.current)
@@ -357,7 +347,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null
         navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
-          enableHighAccuracy: false, maximumAge: 60000, timeout: 30000,
+          enableHighAccuracy: true, maximumAge: 0, timeout: 15000,
         })
       }
     }
@@ -365,7 +355,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
     watchIdRef.current = navigator.geolocation.watchPosition(
       onSuccess,
       onError,
-      { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     )
 
     return () => {
@@ -504,13 +494,17 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
     })
   }, [visibleStage])
 
-  // Actualizar visuals de marcadores cuando cambia el progreso
+  // Actualizar visuals de marcadores cuando cambia el progreso o el idioma
   useEffect(() => {
     if (monumentMarkersRef.current.length === 0) return
-    monumentMarkersRef.current.forEach(({ markerDiv, index, monumento }) => {
-      markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops, stageGroups)
+    monumentMarkersRef.current.forEach(({ marker, markerDiv, index, monumento }) => {
+      const state = getStopState(index, completedStops, stageGroups)
+      markerDiv.className = `treasure-pin-container pin-${state}`
+      markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStops, stageGroups, t)
+      markerDiv.style.width = getMarkerContainerWidth(state)
+      marker.zIndex = getMarkerZIndex(state)
     })
-  }, [completedStops, stageGroups])
+  }, [completedStops, stageGroups, t])
 
   // Ocultar inmediatamente marcadores de paradas desactivadas en tiempo real
   useEffect(() => {
@@ -636,8 +630,10 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
           monumentsRef.current.forEach((monumento, index) => {
             const markerDiv = document.createElement('div')
             markerDiv.className = 'treasure-pin-container'
-            markerDiv.style.cssText = 'width:220px;height:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;'
-            markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current, stageGroupsRef.current)
+            const initState = getStopState(index, completedStopsRef.current, stageGroupsRef.current)
+            markerDiv.className = `treasure-pin-container pin-${initState}`
+            markerDiv.style.cssText = `width:${getMarkerContainerWidth(initState)};height:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;`
+            markerDiv.innerHTML = buildMarkerHTML(monumento, index, completedStopsRef.current, stageGroupsRef.current, tRef.current)
 
             const gs = stageGroupsRef.current
             const stageIdx = gs.length > 0
@@ -706,6 +702,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
               position: { lat: monumento.lat, lng: monumento.lng },
               title: monumento.nombre,
               content: markerDiv,
+              zIndex: getMarkerZIndex(initState),
             })
             monumentMarkersRef.current.push({ marker: markerEl, stageIdx, markerDiv, index, monumento })
           })
@@ -1247,14 +1244,18 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
             origin: { location: { latLng: { latitude: pos.lat, longitude: pos.lng } } },
             destination: { location: { latLng: { latitude: destLat, longitude: destLng } } },
             travelMode: travelModeRef.current,
+            computeAlternativeRoutes: true,
+            ...(travelModeRef.current === 'DRIVE' && { routingPreference: 'TRAFFIC_AWARE_OPTIMAL' }),
           }),
         })
         if (navTokenRef.current !== token) return
         const data = await response.json()
-        const route = data.routes?.[0]
+        const routes: any[] = data.routes ?? []
+        const totalDistNav = (r: any) => (r?.legs ?? []).reduce((s: number, l: any) => s + (l.distanceMeters ?? 0), 0)
+        const route = routes.reduce((best: any, r: any) => totalDistNav(r) < totalDistNav(best) ? r : best, routes[0])
         const encoded = route?.polyline?.encodedPolyline
         if (!encoded) return
-        const distanceM: number = route?.legs?.[0]?.distanceMeters ?? 0
+        const distanceM: number = totalDistNav(route)
         const durationStr: string = route?.legs?.[0]?.duration ?? '0s'
         const distanceKm = (distanceM / 1000).toFixed(1)
         const durationMin = Math.ceil(parseInt(durationStr.replace('s', ''), 10) / 60)

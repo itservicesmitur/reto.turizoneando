@@ -622,7 +622,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       if (pos) setUserPosition(pos)
     }
     sync() // inmediato
-    const id = setInterval(sync, 3000)
+    const id = setInterval(sync, 500)
     return () => clearInterval(id)
   }, [selectedMonument])
 
@@ -988,6 +988,18 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
         </button>
       )}
 
+      {/* ── Botón centrar en mi ubicación ───────────────────────── */}
+      {!mapLoading && (
+        <button
+          onClick={() => mapControlsRef.current?.focusOnUser()}
+          className="absolute left-3 z-30 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border-2 border-primary/70 bg-primary-dark/95 backdrop-blur-md text-white active:scale-90 transition-all"
+          style={{ top: 'calc(max(1.5rem, env(safe-area-inset-top)) + 2.75rem)', boxShadow: '0 4px 24px rgba(0,187,180,0.35), inset 0 1px 0 rgba(255,255,255,0.08)' }}
+          aria-label="Centrar en mi ubicación"
+        >
+          <i className="ri-crosshair-2-line text-xl" />
+        </button>
+      )}
+
       {/* ── Botón menú top-right ─────────────────────────────────── */}
       {!mapLoading && (
         <button
@@ -1107,8 +1119,8 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                         {canStartChallenge
                           ? t('map.start_challenge')
                           : distanceToSelected !== null
-                            ? `${Math.round(distanceToSelected)} m · necesitas ${geoLimitRadius} m`
-                            : 'Obteniendo ubicación…'}
+                            ? t('map.requires_distance', { current: Math.round(distanceToSelected), radius: geoLimitRadius })
+                            : t('map.getting_location')}
                       </span>
                     </button>
                   </div>
@@ -1210,7 +1222,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             {selectedStopIndex >= 0 && completedStops[selectedStopIndex] ? (
               <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
                 <i className="ri-checkbox-circle-fill text-sm" style={{ color: '#16a34a' }} />
-                <span className="text-[10px] font-bold" style={{ color: '#16a34a' }}>Completada</span>
+                <span className="text-[10px] font-bold" style={{ color: '#16a34a' }}>{t('map.completed')}</span>
               </div>
             ) : (
               <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
@@ -1219,19 +1231,19 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                     <>
                       <i className="ri-map-pin-2-fill text-sm" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} />
                       <span className="text-[10px] font-bold" style={{ background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        {`Necesitas estar a ${geoLimitRadius} m`}
+                        {t('map.need_distance', { radius: geoLimitRadius })}
                       </span>
                     </>
                   ) : (
                     <>
                       <i className="ri-map-pin-2-fill text-sm" style={{ color: '#096d7d' }} />
-                      <span className="text-[10px] font-bold" style={{ color: '#096d7d' }}>Disponible</span>
+                      <span className="text-[10px] font-bold" style={{ color: '#096d7d' }}>{t('map.available')}</span>
                     </>
                   )
                 ) : (
                   <>
                     <i className="ri-lock-fill text-sm text-gray-400" />
-                    <span className="text-[10px] font-bold text-gray-400">Bloqueada</span>
+                    <span className="text-[10px] font-bold text-gray-400">{t('map.locked')}</span>
                   </>
                 )}
               </div>
@@ -1247,7 +1259,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             {/* Nombre sobre el overlay – bottom-left */}
             {!(selectedStopIndex >= 0 && completedStops[selectedStopIndex]) && (
               <div className="absolute bottom-3 left-4 right-12 flex flex-col gap-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.7)' }}>Parada</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.7)' }}>{t('map.stop_short')}</span>
                 <p className="text-sm font-extrabold uppercase tracking-wide leading-snug text-white drop-shadow-md">
                   {selectedMonument.nombre}
                 </p>
@@ -1273,7 +1285,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                       className="w-full flex items-center justify-center gap-1.5 py-1.5 active:opacity-70 transition-opacity"
                     >
                       <i className="ri-book-open-line text-sm" style={{ color: '#00bbb4' }} />
-                      <span className="text-xs font-semibold" style={{ color: '#00bbb4' }}>Leer historia de nuevo</span>
+                      <span className="text-xs font-semibold" style={{ color: '#00bbb4' }}>{t('map.read_story_again')}</span>
                     </button>
                   )
                 ) : (
@@ -1284,7 +1296,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                       style={{ background: '#096d7d' }}
                     >
                       <span className="flex-1 flex gap-1.5 items-center justify-center text-center text-white text-md font-semibold tracking-wide">
-                        <i className="ri-footprint-fill text-lg" /> Como llegar
+                        <i className="ri-footprint-fill text-lg" /> {t('map.how_to_get_there')}
                       </span>
                     </button>
 
@@ -1310,7 +1322,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                             style={{ color: canStartChallenge ? '#ffffff' : '#64748b' }}
                           >
                             <i className={`text-lg ${canStartChallenge ? 'ri-sword-fill' : 'ri-map-pin-time-line'}`} />
-                            {canStartChallenge ? t('map.start_challenge') : 'Comenzar Reto'}
+                            {t('map.start_challenge')}
                           </span>
                         </button>
 
@@ -1328,12 +1340,12 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
                   <div className="flex items-stretch gap-2">
                     <div className="flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 flex-1" style={{ background: 'rgba(0,187,180,0.08)' }}>
                       <i className="ri-walk-line text-base" style={{ color: '#096d7d' }} />
-                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>Distancia</span>
+                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>{t('map.distance')}</span>
                       <span className="text-xs font-extrabold" style={{ color: '#096d7d' }}>{routeInfo.distanceKm} km</span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 flex-1" style={{ background: 'rgba(0,187,180,0.08)' }}>
                       <i className="ri-time-line text-base" style={{ color: '#096d7d' }} />
-                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>Tiempo</span>
+                      <span className="text-[8px] font-bold uppercase tracking-wide" style={{ color: '#00bbb4' }}>{t('map.time')}</span>
                       <span className="text-xs font-extrabold" style={{ color: '#096d7d' }}>{formatDuration(routeInfo.durationMin)}</span>
                     </div>
                     <button
@@ -1835,21 +1847,21 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
               </div>
               <div>
                 <p className="text-[10px] font-black tracking-widest uppercase mb-1" style={{ color: '#00bbb4' }}>
-                  Reto bloqueado
+                  {t('map.challenge_locked')}
                 </p>
                 <h3 className="text-lg font-black" style={{ color: '#096d7d' }}>
-                  ¡Estás muy lejos!
+                  {t('map.too_far_title')}
                 </h3>
               </div>
               <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
-                Debes estar a menos de <strong>{geoLimitRadius} metros</strong> de la parada para poder iniciar el reto.
+                {t('map.too_far_desc', { radius: geoLimitRadius })}
               </p>
               <button
                 onClick={() => setTooFarAlert(false)}
                 className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
                 style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
               >
-                Entendido
+                {t('map.understood')}
               </button>
             </div>
           </div>
@@ -1878,21 +1890,21 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
               </div>
               <div>
                 <p className="text-[10px] font-black tracking-widest uppercase mb-1" style={{ color: '#e0344b' }}>
-                  Parada en preparación
+                  {t('map.stop_preparing_title')}
                 </p>
                 <h3 className="text-lg font-black" style={{ color: '#096d7d' }}>
-                  ¡Casi lista!
+                  {t('map.almost_ready')}
                 </h3>
               </div>
               <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(9,109,125,0.7)' }}>
-                Esta parada aún no tiene preguntas configuradas. Vuelve pronto, ¡estará lista muy pronto!
+                {t('map.stop_preparing_desc')}
               </p>
               <button
                 onClick={() => setNoQuestionsAlert(false)}
                 className="mt-1 w-full rounded-xl py-3 text-xs font-black tracking-widest text-white uppercase transition-all active:scale-95"
                 style={{ background: 'linear-gradient(135deg,#096d7d 0%,#00bbb4 100%)', boxShadow: '0 4px 16px rgba(0,187,180,0.35)' }}
               >
-                Entendido
+                {t('map.understood')}
               </button>
             </div>
           </div>

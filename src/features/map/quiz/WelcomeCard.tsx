@@ -21,6 +21,7 @@ export default function WelcomeCard({ text, audioUrl, onContinue }: Props) {
   })
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isIPhone = typeof window !== 'undefined' && /iPhone|iPod/i.test(navigator.userAgent)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -68,9 +69,17 @@ export default function WelcomeCard({ text, audioUrl, onContinue }: Props) {
 
           {/* Turi */}
           <div style={{ position: 'absolute', bottom: 4, left: '67%', transform: 'translateX(-50%)', width: 220, zIndex: 3 }}>
-            <video autoPlay loop muted playsInline style={{ width: '100%', display: 'block' }}>
-              <source src="/assets/img/turiguaia.webm" type="video/webm" />
-            </video>
+            {isIPhone ? (
+              <img
+                src="/assets/img/turiguaia_animated.webp"
+                alt="Turi"
+                style={{ width: '100%', display: 'block' }}
+              />
+            ) : (
+              <video autoPlay loop muted playsInline style={{ width: '100%', display: 'block' }}>
+                <source src="/assets/img/turiguaia.webm" type="video/webm" />
+              </video>
+            )}
           </div>
 
           {/* Botón mute — arriba izquierda */}

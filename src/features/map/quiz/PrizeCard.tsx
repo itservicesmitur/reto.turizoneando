@@ -315,7 +315,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}
         >
           <span className="text-[11px] font-black tracking-widest uppercase text-white" style={{ opacity: 0.9 }}>
-            HAS GANADO!
+            {t('map.you_have_won')}
           </span>
         </div>
         <h1
@@ -406,7 +406,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           {(prize.localName || prize.localAddress || prize.localPhone) && (
             <div className="px-5 pb-4 flex flex-col gap-1.5">
               <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(0,187,180,0.8)' }}>
-                Dónde canjear
+                {t('map.where_to_redeem')}
               </span>
               {prize.localName && (
                 <span className="text-[13px] font-bold leading-tight" style={{ color: '#096d7d' }}>
@@ -480,7 +480,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           }}
         >
           <i className="ri-trophy-line text-sm" />
-          Ranking
+          {t('map.menu_ranking')}
         </button>
         <button
           onClick={() => { onContinue(); navigate('/map') }}
@@ -493,9 +493,9 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
           }}
         >
           {isLastStop ? (
-            <><i className="ri-flag-line text-sm" />Finalizar</>
+            <><i className="ri-flag-line text-sm" />{t('map.finish')}</>
           ) : (
-            <><i className="ri-map-pin-line text-sm" />Siguiente</>
+            <><i className="ri-map-pin-line text-sm" />{t('map.next')}</>
           )}
         </button>
       </div>

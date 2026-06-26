@@ -466,8 +466,9 @@ export const sendAdminPasswordResetEmail = onCall({
     }
 
     // 3. Generate password reset link via Firebase Admin SDK and adapt it for our custom route
+    const appUrl = (process.env.APP_URL || "https://turizoneando.mitur.gob.do").replace(/\/$/, "");
     const actionCodeSettings = {
-      url: "https://turizoneando.mitur.gob.do/login",
+      url: `${appUrl}/login`,
     };
     const defaultLink = await admin.auth().generatePasswordResetLink(email.trim().toLowerCase(), actionCodeSettings);
 
@@ -475,7 +476,7 @@ export const sendAdminPasswordResetEmail = onCall({
     const oobCode = urlObj.searchParams.get("oobCode") || "";
     const apiKey = urlObj.searchParams.get("apiKey") || "";
 
-    const customResetLink = `https://turizoneando.mitur.gob.do/reset-password?oobCode=${oobCode}&apiKey=${apiKey}`;
+    const customResetLink = `${appUrl}/reset-password?oobCode=${oobCode}&apiKey=${apiKey}`;
 
     // 4. Construct HTML email
     const htmlContent = `<!DOCTYPE html>
@@ -529,6 +530,10 @@ export const sendAdminPasswordResetEmail = onCall({
             <a href="${customResetLink}" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
           </td></tr>
         </table>
+
+        <p style="margin:-16px 0 28px;text-align:center;font-size:11px;color:#64748b;line-height:1.8;">
+          Si el botón no abre, <a href="${customResetLink}" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
+        </p>
 
         <p style="margin:0 0 32px;font-size:11px;color:#94a3b8;line-height:1.7;">
           Este enlace de seguridad es de un solo uso. Si expiró, puedes volver a solicitar uno nuevo en la pantalla de inicio de sesión. Si no solicitaste este cambio, puedes ignorar este mensaje.
@@ -1161,11 +1166,12 @@ export const sendPlayerPasswordResetEmail = onCall({
     const urlObj = new URL(defaultLink);
     const oobCode = urlObj.searchParams.get("oobCode") || "";
 
-    // Always use the production URL — never trust request.rawRequest.headers.origin here
-    // because iOS PWAs and home-screen apps send Origin: "null" (string literal), which
-    // would produce "null/reset-password?oobCode=..." and iOS Mail would detect the token
-    // portion as a standalone verification code rather than part of a URL.
-    const customResetLink = `https://turizoneando.mitur.gob.do/reset-password?oobCode=${oobCode}`;
+    // Use APP_URL env var so each Firebase project sends links pointing to its own environment.
+    // Never trust request.rawRequest.headers.origin here — iOS PWAs send Origin: "null"
+    // (string literal), which would produce "null/reset-password?oobCode=..." and iOS Mail
+    // would surface the token as a standalone tappable code instead of a URL.
+    const appUrl = (process.env.APP_URL || "https://turizoneando.mitur.gob.do").replace(/\/$/, "");
+    const customResetLink = `${appUrl}/reset-password?oobCode=${oobCode}`;
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="es">
@@ -1207,6 +1213,9 @@ export const sendPlayerPasswordResetEmail = onCall({
             <a href="${customResetLink}" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
           </td></tr>
         </table>
+        <p style="margin:-16px 0 28px;text-align:center;font-size:11px;color:#64748b;line-height:1.8;">
+          Si el botón no abre, <a href="${customResetLink}" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
+        </p>
         <p style="margin:0 0 32px;font-size:11px;color:#94a3b8;line-height:1.7;">
           Si no solicitaste este cambio, puedes ignorar este mensaje con seguridad. Tu contraseña no cambiará.
         </p>

@@ -21,7 +21,7 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
     isWrong, isCorrect, correctAnswerIndex,
     shakeKey, needsSelection, needsShakeKey,
     skipIntro, checking, networkError,
-    handleCheck, handleContinueCorrect, handleContinueWrong,
+    handleCheck, handleContinueWrong,
   } = useQuizFlow({ stopId, seasonId, questions, onComplete })
 
   if (!question) return null
@@ -221,28 +221,45 @@ export default function QuizCard({ stopId, seasonId, questions, onComplete, onCl
               {t('map.exit')}
             </button>
 
-            {(() => {
-              const handleAction = isWrong ? handleContinueWrong : isCorrect ? handleContinueCorrect : handleCheck
-              const label = checking
-                ? <i className="ri-loader-4-line animate-spin text-xl" />
-                : networkError
-                  ? t('map.retry')
-                  : (questionIdx + 1 >= totalQuestions ? t('map.complete') : isWrong || isCorrect ? t('map.continue') : t('map.next'))
-              return (
-                <button
-                  onClick={handleAction}
-                  disabled={checking}
-                  className={`flex-1 h-11 min-[430px]:h-12 rounded-2xl text-sm min-[430px]:text-base font-black text-white flex items-center justify-center active:translate-y-[4px] transition-all ${checking ? 'opacity-60' : ''}`}
+            {(isWrong || isCorrect) ? (
+              /* Barra de progreso auto-avance */
+              <div
+                className="flex-1 h-11 min-[430px]:h-12 rounded-2xl overflow-hidden relative"
+                style={{ background: isCorrect ? 'rgba(0,187,180,0.12)' : 'rgba(224,52,75,0.10)', border: `2px solid ${isCorrect ? 'rgba(0,187,180,0.3)' : 'rgba(224,52,75,0.3)'}` }}
+              >
+                <div
+                  className="absolute inset-0 origin-left"
                   style={{
-                    background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
-                    border: '2px solid #0c7f89',
-                    boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 12px 22px rgba(9,109,125,.25)',
+                    background: isCorrect ? 'rgba(0,187,180,0.25)' : 'rgba(224,52,75,0.22)',
+                    animation: `quiz-auto-advance ${isCorrect ? '1s' : '1.5s'} linear forwards`,
                   }}
+                />
+                <span
+                  className="absolute inset-0 flex items-center justify-center text-sm font-black"
+                  style={{ color: isCorrect ? '#096d7d' : '#e0344b' }}
                 >
-                  {label}
-                </button>
-              )
-            })()}
+                  {isCorrect ? t('map.continue') : t('map.continue')}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={handleCheck}
+                disabled={checking}
+                className={`flex-1 h-11 min-[430px]:h-12 rounded-2xl text-sm min-[430px]:text-base font-black text-white flex items-center justify-center active:translate-y-[4px] transition-all ${checking ? 'opacity-60' : ''}`}
+                style={{
+                  background: 'linear-gradient(180deg,#18d5cd 0%,#00bbb4 45%,#096d7d 100%)',
+                  border: '2px solid #0c7f89',
+                  boxShadow: 'inset 0 2px 0 rgba(255,255,255,.35), 0 6px 0 #054f5c, 0 12px 22px rgba(9,109,125,.25)',
+                }}
+              >
+                {checking
+                  ? <i className="ri-loader-4-line animate-spin text-xl" />
+                  : networkError
+                    ? t('map.retry')
+                    : (questionIdx + 1 >= totalQuestions ? t('map.complete') : t('map.next'))
+                }
+              </button>
+            )}
           </div>
 
         </div>

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../config/firebase'
+import { useTranslation } from 'react-i18next'
 
 export type StatusBlockType = 'user_banned' | 'season_ended' | 'stop_deactivated' | 'stage_deactivated'
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function StatusBlockCard({ type, name, reason, onDismiss, onNextStop }: Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isFull = type === 'user_banned' || type === 'season_ended'
 
@@ -71,7 +73,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
               color: '#fff',
               lineHeight: 1.25,
             }}>
-              {type === 'user_banned' ? 'Cuenta suspendida' : 'Temporada finalizada'}
+              {type === 'user_banned' ? t('map.status_banned_title') : t('map.status_season_ended_title')}
             </h2>
 
             {/* Descripción */}
@@ -81,8 +83,10 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
               lineHeight: 1.55,
             }}>
               {type === 'user_banned'
-                ? 'Tu cuenta ha sido suspendida y no puedes acceder a la aplicación en este momento.'
-                : `La temporada${name ? ` "${name}"` : ''} ha concluido. Mantente atento a la próxima edición.`}
+                ? t('map.status_banned_desc')
+                : name
+                  ? t('map.status_season_ended_desc', { name })
+                  : t('map.status_season_ended_desc_no_name')}
             </p>
 
             {/* Razón de bloqueo (solo user_banned) */}
@@ -94,7 +98,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 border: '1px solid rgba(230,51,41,0.2)',
               }}>
                 <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>
-                  <strong style={{ color: '#f87171' }}>Motivo: </strong>{reason}
+                  <strong style={{ color: '#f87171' }}>{t('map.status_banned_reason')} </strong>{reason}
                 </p>
               </div>
             )}
@@ -108,10 +112,8 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 border: '1px solid rgba(255,255,255,0.07)',
               }}>
                 <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
-                  <strong style={{ color: 'rgba(255,255,255,0.6)' }}>Política de uso:</strong>{' '}
-                  El uso fraudulento de la plataforma, la creación de cuentas múltiples, el comportamiento
-                  abusivo o la violación de los términos de servicio puede resultar en la suspensión
-                  permanente de la cuenta. Para apelar esta decisión, contacta al soporte del evento.
+                  <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{t('map.status_banned_policy_title')}</strong>{' '}
+                  {t('map.status_banned_policy_body')}
                 </p>
               </div>
             )}
@@ -135,7 +137,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
               }}
             >
               <i className="ri-home-4-line" style={{ fontSize: 18 }} />
-              Ir al inicio
+              {t('map.status_go_home')}
             </button>
           </div>
         </div>
@@ -186,16 +188,20 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 fontSize: 16, fontWeight: 800,
                 color: '#321e0f',
               }}>
-                {type === 'stop_deactivated' ? 'Parada no disponible' : 'Etapa no disponible'}
+                {type === 'stop_deactivated' ? t('map.status_stop_deactivated_title') : t('map.status_stage_deactivated_title')}
               </h3>
               <p style={{
                 margin: 0, fontSize: 13,
                 color: 'rgba(50,30,15,0.68)', lineHeight: 1.5,
               }}>
                 {type === 'stop_deactivated'
-                  ? `La parada${name ? ` "${name}"` : ''} ha sido desactivada por el organizador.`
-                  : `${name ?? 'La etapa actual'} ha sido desactivada por el organizador.`}
-                {' '}Puedes continuar explorando otras paradas disponibles.
+                  ? name
+                    ? t('map.status_stop_deactivated_desc', { name })
+                    : t('map.status_stop_deactivated_desc_no_name')
+                  : name
+                    ? t('map.status_stage_deactivated_desc', { name })
+                    : t('map.status_stage_deactivated_desc_no_name')}
+                {' '}{t('map.status_deactivated_explore_more')}
               </p>
             </div>
           </div>
@@ -214,7 +220,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
               className="game-btn-tan"
               style={{ flex: 1, height: 52, fontSize: 14 }}
             >
-              Volver al mapa
+              {t('map.status_back_to_map')}
             </button>
             {type === 'stop_deactivated' && onNextStop && (
               <button
@@ -222,7 +228,7 @@ export default function StatusBlockCard({ type, name, reason, onDismiss, onNextS
                 className="game-btn-dark"
                 style={{ flex: 1, height: 52, fontSize: 14 }}
               >
-                Ir a la siguiente
+                {t('map.status_go_to_next')}
               </button>
             )}
           </div>

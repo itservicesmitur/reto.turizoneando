@@ -5,13 +5,14 @@ import { getPlayerPrizeCodes, type PlayerPrizeCode } from '../../../services/aut
 
 interface Props { onBack: () => void }
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, lng: string): string {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
+  const locale = lng?.startsWith('en') ? 'en-US' : 'es-ES'
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export default function MyPrizes({ onBack }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [prizes, setPrizes] = useState<PlayerPrizeCode[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState<string | null>(null)
@@ -59,17 +60,17 @@ export default function MyPrizes({ onBack }: Props) {
         <div className="flex justify-center gap-6 pb-10">
           <div className="flex flex-col items-center gap-1">
             <span className="text-3xl font-black text-white">{active.length}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>Disponibles</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>{t('map.available_cnt')}</span>
           </div>
           <div className="w-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
           <div className="flex flex-col items-center gap-1">
             <span className="text-3xl font-black text-white">{claimed.length}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>Canjeados</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>{t('map.claimed_cnt')}</span>
           </div>
           <div className="w-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
           <div className="flex flex-col items-center gap-1">
             <span className="text-3xl font-black text-white">{prizes.length}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>Total</span>
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)' }}>{t('map.total')}</span>
           </div>
         </div>
       </div>
@@ -99,16 +100,16 @@ export default function MyPrizes({ onBack }: Props) {
             {/* Disponibles */}
             {active.length > 0 && (
               <>
-                <p className="text-[10px] font-black uppercase tracking-widest px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>Disponibles</p>
-                {active.map(prize => <PrizeRow key={prize.code} prize={prize} copied={copied} onCopy={handleCopy} />)}
+                <p className="text-[10px] font-black uppercase tracking-widest px-1" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.available_cnt')}</p>
+                {active.map(prize => <PrizeRow key={prize.code} prize={prize} copied={copied} onCopy={handleCopy} t={t} lng={i18n.language} />)}
               </>
             )}
 
             {/* Canjeados */}
             {claimed.length > 0 && (
               <>
-                <p className="text-[10px] font-black uppercase tracking-widest px-1 pt-2" style={{ color: 'rgba(9,109,125,0.5)' }}>Canjeados</p>
-                {claimed.map(prize => <PrizeRow key={prize.code} prize={prize} copied={copied} onCopy={handleCopy} />)}
+                <p className="text-[10px] font-black uppercase tracking-widest px-1 pt-2" style={{ color: 'rgba(9,109,125,0.5)' }}>{t('map.claimed_cnt')}</p>
+                {claimed.map(prize => <PrizeRow key={prize.code} prize={prize} copied={copied} onCopy={handleCopy} t={t} lng={i18n.language} />)}
               </>
             )}
           </div>
@@ -118,7 +119,7 @@ export default function MyPrizes({ onBack }: Props) {
   )
 }
 
-function PrizeRow({ prize, copied, onCopy }: { prize: PlayerPrizeCode; copied: string | null; onCopy: (c: string) => void }) {
+function PrizeRow({ prize, copied, onCopy, t, lng }: { prize: PlayerPrizeCode; copied: string | null; onCopy: (c: string) => void; t: (key: string, options?: Record<string, unknown>) => string; lng: string }) {
   const isClaimed = prize.status !== 'active'
 
   return (
@@ -146,19 +147,19 @@ function PrizeRow({ prize, copied, onCopy }: { prize: PlayerPrizeCode; copied: s
         {/* Info */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black truncate" style={{ color: '#096d7d', textDecoration: isClaimed ? 'line-through' : 'none' }}>
-            {prize.prizeName || 'Premio'}
+            {prize.prizeName || t('map.prize_label')}
           </p>
           {prize.localName && (
             <p className="text-[11px] font-semibold truncate" style={{ color: 'rgba(9,109,125,0.6)' }}>{prize.localName}</p>
           )}
           {prize.expiresAt && !isClaimed && (
             <p className="text-[10px] font-bold mt-0.5" style={{ color: '#ff9447' }}>
-              Vence {formatDate(prize.expiresAt)}
+              {t('map.expires_on', { date: formatDate(prize.expiresAt, lng) })}
             </p>
           )}
           {isClaimed && prize.claimedAt && (
             <p className="text-[10px] font-bold mt-0.5" style={{ color: 'rgba(9,109,125,0.4)' }}>
-              Canjeado {formatDate(prize.claimedAt)}
+              {t('map.claimed_on', { date: formatDate(prize.claimedAt, lng) })}
             </p>
           )}
         </div>

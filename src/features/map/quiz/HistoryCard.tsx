@@ -139,7 +139,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
             boxShadow: 'inset 0 2px 0 rgba(255,255,255,.7), 0 6px 0 #b8a87e, 0 10px 18px rgba(0,0,0,.12)',
           }}
         >
-          <span>Saltar</span>
+          <span>{t('map.skip')}</span>
         </button>
 
         {/* Main action — teal / orange 3D */}
@@ -165,12 +165,12 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
           {done ? (
             <>
               <i className="ri-arrow-right-circle-fill text-xl" />
-              <span>Continuar</span>
+              <span>{t('map.continue')}</span>
             </>
           ) : playing ? (
             <>
               <i className="ri-pause-circle-fill text-xl" />
-              <span>Narrando</span>
+              <span>{t('map.narrating')}</span>
               <span className="flex items-center gap-[3px] ml-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '160ms' }} />
@@ -180,7 +180,7 @@ export default function HistoryCard({ stopIndex, narration, audioUrl, monumentNa
           ) : (
             <>
               <i className="ri-play-circle-fill text-xl" />
-              <span>Narrar</span>
+              <span>{t('map.tour_listen')}</span>
             </>
           )}
         </button>

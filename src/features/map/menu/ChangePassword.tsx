@@ -8,12 +8,12 @@ interface Props { onBack: () => void }
 type FieldKey = 'current' | 'next' | 'confirm'
 
 const ERRORS: Record<string, string> = {
-  'auth/wrong-password':        'La contraseña actual es incorrecta.',
-  'auth/invalid-credential':    'La contraseña actual es incorrecta.',
-  'auth/too-many-requests':     'Demasiados intentos. Espera unos minutos.',
-  'auth/requires-recent-login': 'Sesión expirada. Cierra sesión y vuelve a entrar.',
-  'auth/weak-password':         'La nueva contraseña debe tener al menos 6 caracteres.',
-  'no-email':                   'Esta cuenta no usa contraseña (Google / Apple).',
+  'auth/wrong-password':        'map.err_wrong_password',
+  'auth/invalid-credential':    'map.err_wrong_password',
+  'auth/too-many-requests':     'map.err_too_many_requests',
+  'auth/requires-recent-login': 'map.err_requires_recent_login',
+  'auth/weak-password':         'map.err_weak_password_min_6',
+  'no-email':                   'map.err_no_password_account',
 }
 
 const fieldStyle: React.CSSProperties = {
@@ -48,9 +48,9 @@ export default function ChangePassword({ onBack }: Props) {
     setErrorMsg(null)
 
     if (!isEmailUser) { setErrorMsg(ERRORS['no-email']); return }
-    if (!values.current) { setErrorMsg('Ingresa tu contraseña actual.'); return }
-    if (values.next.length < 6) { setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.'); return }
-    if (values.next !== values.confirm) { setErrorMsg('Las contraseñas no coinciden.'); return }
+    if (!values.current) { setErrorMsg('map.err_enter_current_password'); return }
+    if (values.next.length < 6) { setErrorMsg('map.err_weak_password_min_6'); return }
+    if (values.next !== values.confirm) { setErrorMsg('map.err_passwords_mismatch'); return }
 
     setSaving(true)
     try {
@@ -60,7 +60,7 @@ export default function ChangePassword({ onBack }: Props) {
       setTimeout(() => setSuccess(false), 3000)
     } catch (e: any) {
       const code: string = e?.code || e?.message || ''
-      setErrorMsg(ERRORS[code] || 'No se pudo cambiar la contraseña.')
+      setErrorMsg(ERRORS[code] || 'map.err_password_change_failed')
     } finally {
       setSaving(false)
     }
@@ -101,7 +101,7 @@ export default function ChangePassword({ onBack }: Props) {
 
           {!isEmailUser && (
             <p className="text-xs font-semibold mt-2 text-center px-4" style={{ color: 'rgba(255,220,180,0.9)' }}>
-              Cuenta Google / Apple — sin contraseña
+              {t('map.social_account_no_password')}
             </p>
           )}
         </div>
@@ -119,7 +119,7 @@ export default function ChangePassword({ onBack }: Props) {
             <div className="flex items-center gap-2 px-4 py-3 rounded-lg" style={{ background: 'rgba(255,148,71,0.08)', border: '1px solid rgba(255,148,71,0.3)' }}>
               <i className="ri-alert-line shrink-0" style={{ color: '#ff9447' }} />
               <p className="text-xs font-semibold" style={{ color: '#ff9447' }}>
-                Esta cuenta inició sesión con Google o Apple. No puedes cambiar la contraseña desde aquí.
+                {t('map.social_account_change_disabled')}
               </p>
             </div>
           )}
@@ -163,13 +163,13 @@ export default function ChangePassword({ onBack }: Props) {
           {errorMsg && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-lg animate-fade-in" style={{ background: 'rgba(224,52,75,0.08)', border: '1px solid rgba(224,52,75,0.25)' }}>
               <i className="ri-error-warning-line shrink-0" style={{ color: '#e0344b' }} />
-              <p className="text-xs font-semibold" style={{ color: '#e0344b' }}>{errorMsg}</p>
+              <p className="text-xs font-semibold" style={{ color: '#e0344b' }}>{t(errorMsg)}</p>
             </div>
           )}
           {success && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-lg animate-fade-in" style={{ background: 'rgba(0,187,180,0.08)', border: '1px solid rgba(0,187,180,0.3)' }}>
               <i className="ri-checkbox-circle-fill shrink-0" style={{ color: '#00bbb4' }} />
-              <p className="text-xs font-semibold" style={{ color: '#096d7d' }}>Contraseña actualizada correctamente</p>
+              <p className="text-xs font-semibold" style={{ color: '#096d7d' }}>{t('map.success_password_update')}</p>
             </div>
           )}
         </div>

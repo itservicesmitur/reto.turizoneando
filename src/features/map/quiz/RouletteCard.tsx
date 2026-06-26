@@ -277,6 +277,8 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
       setClaimResult({ code: EMPTY_PRIZE_ID, prizeId: EMPTY_PRIZE_ID, prizeName: '', prizeImageUrl: '', prizeCategory: '', description: '' })
       // La animación sigue igual abajo — no hay API que llamar
     } else {
+      // Asignar el slot ganador ahora para que la fase 2 lo use aunque la API tarde
+      segIdxRef.current = randomSlot
       const p = prizesRef.current
       claimPrizeIdRef.current = p.length > 0 ? p[Math.floor(Math.random() * p.length)].id : ''
       console.log('[handleSpin] prizes cargados:', p.length, '| prizeId seleccionado:', claimPrizeIdRef.current)

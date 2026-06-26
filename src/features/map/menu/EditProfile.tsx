@@ -15,9 +15,9 @@ const fieldStyle: React.CSSProperties = {
 }
 
 const GENDER_OPTIONS = [
-  { value: 'g_male',   label: 'Masculino' },
-  { value: 'g_female', label: 'Femenino' },
-  { value: 'g_other',  label: 'Otros' },
+  { value: 'g_male',   labelKey: 'register.g_male' },
+  { value: 'g_female', labelKey: 'register.g_female' },
+  { value: 'g_pnts',   labelKey: 'register.g_pnts' },
 ]
 
 export default function EditProfile({ onBack }: Props) {
@@ -72,7 +72,7 @@ export default function EditProfile({ onBack }: Props) {
   // Upload foto
   const handlePhotoFile = (file: File) => {
     if (!file.type.startsWith('image/')) return
-    if (file.size > 5 * 1024 * 1024) { setErrorMsg('La imagen no debe superar 5 MB'); return }
+    if (file.size > 5 * 1024 * 1024) { setErrorMsg(t('map.err_avatar_size')); return }
     if (!uid) return
 
     const ext = file.name.split('.').pop() || 'jpg'
@@ -85,7 +85,7 @@ export default function EditProfile({ onBack }: Props) {
     task.on(
       'state_changed',
       snap => setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      ()   => { setErrorMsg('Error al subir la foto'); setUploadProgress(null) },
+      ()   => { setErrorMsg(t('map.err_avatar_upload')); setUploadProgress(null) },
       async () => {
         const url = await getDownloadURL(task.snapshot.ref)
         setPhotoURL(url)
@@ -111,7 +111,7 @@ export default function EditProfile({ onBack }: Props) {
       setSuccess(true)
       setTimeout(() => setSuccess(false), 2500)
     } catch {
-      setErrorMsg('No se pudo guardar. Intenta de nuevo.')
+      setErrorMsg(t('map.err_profile_save'))
     } finally {
       setSaving(false)
     }
@@ -245,7 +245,7 @@ export default function EditProfile({ onBack }: Props) {
                       className="w-full px-4 py-3 text-sm font-semibold text-left flex items-center justify-between transition-all"
                       style={fieldStyle}
                     >
-                      <span style={{ color: '#096d7d' }}>{selectedGender?.label}</span>
+                      <span style={{ color: '#096d7d' }}>{selectedGender ? t(selectedGender.labelKey) : ''}</span>
                       <i className={genderOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} style={{ color: '#00bbb4', fontSize: 18 }} />
                     </button>
                     {genderOpen && (
@@ -258,7 +258,7 @@ export default function EditProfile({ onBack }: Props) {
                             className="w-full px-4 py-3 text-left text-sm font-semibold flex items-center justify-between transition-colors"
                             style={{ background: gender === opt.value ? '#00bbb4' : 'transparent', color: gender === opt.value ? '#ffffff' : '#096d7d', borderBottom: i < GENDER_OPTIONS.length - 1 ? '1px solid rgba(0,187,180,0.12)' : 'none' }}
                           >
-                            <span>{opt.label}</span>
+                            <span>{t(opt.labelKey)}</span>
                             {gender === opt.value && <i className="ri-check-line" />}
                           </button>
                         ))}
@@ -268,7 +268,7 @@ export default function EditProfile({ onBack }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className={labelCls} style={{ color: 'rgba(9,109,125,0.55)' }}>{t('register.age') || 'Edad'}</label>
-                  <input type="number" inputMode="numeric" value={age} onChange={e => setAge(e.target.value)} placeholder="Ej: 25" className={inputCls} style={fieldStyle} />
+                  <input type="number" inputMode="numeric" value={age} onChange={e => setAge(e.target.value)} placeholder={t('map.placeholder_age')} className={inputCls} style={fieldStyle} />
                 </div>
               </div>
 
@@ -282,7 +282,7 @@ export default function EditProfile({ onBack }: Props) {
               {success && (
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg animate-fade-in" style={{ background: 'rgba(0,187,180,0.08)', border: '1px solid rgba(0,187,180,0.3)' }}>
                   <i className="ri-checkbox-circle-fill shrink-0" style={{ color: '#00bbb4' }} />
-                  <p className="text-xs font-semibold" style={{ color: '#096d7d' }}>Perfil actualizado correctamente</p>
+                  <p className="text-xs font-semibold" style={{ color: '#096d7d' }}>{t('map.success_profile_update')}</p>
                 </div>
               )}
             </div>

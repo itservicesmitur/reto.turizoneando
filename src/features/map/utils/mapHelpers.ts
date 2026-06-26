@@ -17,19 +17,15 @@ export function createDotElement(nav = false): HTMLDivElement {
   return dot
 }
 
-export function buildMarkerHTML(
-  monumento: Pick<Monumento, 'imagen' | 'nombre'>,
+export function getStopState(
   index: number,
   completedStops: boolean[],
-  stageGroups: number[][] = []
-): string {
+  stageGroups: number[][]
+): 'completed' | 'available' | 'locked' {
   const stageIdx = stageGroups.length > 0
     ? stageGroups.findIndex(g => g.includes(index))
     : Math.floor(index / 4)
   const safeStageIdx = Math.max(stageIdx, 0)
-  const indexWithinStage = stageGroups.length > 0
-    ? (stageGroups[safeStageIdx]?.indexOf(index) ?? index % 4)
-    : index % 4
   const isCompleted = completedStops[index] ?? false
   const prevStagesDone = safeStageIdx === 0 ? true
     : stageGroups.length > 0
@@ -47,35 +43,61 @@ export function buildMarkerHTML(
       if (!completedStops.slice(s * 4, s * 4 + 4).every(Boolean)) { activeStageIndex = s; break }
     }
   }
-  // Sequential within stage: all previous stops must be completed
   const posInStage = stageGroups[safeStageIdx]?.indexOf(index) ?? 0
   const prevStopsInStageDone = posInStage <= 0
     || (stageGroups[safeStageIdx]?.slice(0, posInStage).every(i => completedStops[i]) ?? true)
-
   const isAvailable = !isCompleted && prevStagesDone && safeStageIdx === activeStageIndex && prevStopsInStageDone
+  if (isCompleted) return 'completed'
+  if (isAvailable) return 'available'
+  return 'locked'
+}
 
-  if (isCompleted) {
+export function getMarkerContainerWidth(state: 'completed' | 'available' | 'locked'): string {
+  if (state === 'available') return '190px'
+  if (state === 'completed') return '50px'
+  return '38px'
+}
+
+export function getMarkerZIndex(state: 'completed' | 'available' | 'locked'): number {
+  if (state === 'available') return 200
+  if (state === 'completed') return 20
+  return 5
+}
+
+export function buildMarkerHTML(
+  monumento: Pick<Monumento, 'imagen' | 'nombre'>,
+  index: number,
+  completedStops: boolean[],
+  stageGroups: number[][] = [],
+  t?: (key: string) => string
+): string {
+  const translate = t || ((key: string) => {
+    if (key === 'map.completed') return 'COMPLETADO'
+    if (key === 'map.available') return 'DISPONIBLE'
+    if (key === 'map.locked') return 'BLOQUEADA'
+    if (key === 'map.stop_short') return 'Parada'
+    return key
+  })
+
+  const state = getStopState(index, completedStops, stageGroups)
+
+  if (state === 'completed') {
     return `
       <div class="gmap-pin-wrapper">
-        <div class="gmap-pin-head">
-          <div class="gmap-pin-circle" style="border-color:#16a34a;box-shadow:0 0 0 3px white,0 0 0 5.5px #16a34a,0 4px 14px rgba(22,163,74,0.35);">
-            <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.85);" />
+        <div class="gmap-pin-head" style="width:38px;height:38px;">
+          <div class="gmap-pin-circle" style="width:38px;height:38px;border-width:3px;border-color:#16a34a;box-shadow:0 0 0 2px white,0 0 0 4px #16a34a,0 3px 10px rgba(22,163,74,0.28);">
+            <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.65) brightness(0.9);" />
+          </div>
+          <div style="position:absolute;top:-3px;right:-3px;width:16px;height:16px;background:#16a34a;border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:10;">
+            <svg style="width:8px;height:8px;fill:white;" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
           </div>
         </div>
-        <div class="gmap-pin-tip" style="border-top-color:#16a34a;"></div>
-      </div>
-      <div class="gmap-info-card">
-        <div class="gmap-info-left" style="color:#16a34a;">
-          <i class="ri-checkbox-circle-fill"></i>
-          <span class="gmap-info-badge">COMPLETADO</span>
-        </div>
-        <div class="gmap-info-divider"></div>
-        <span class="gmap-info-name">${monumento.nombre}</span>
+        <div class="gmap-pin-tip" style="border-left:10px solid transparent;border-right:10px solid transparent;border-top:8px solid #16a34a;margin-top:-4px;filter:drop-shadow(0 2px 1px rgba(0,0,0,0.12));"></div>
       </div>
     `
   }
 
-  if (isAvailable) {
+  if (state === 'available') {
     return `
       <div class="gmap-pin-wrapper">
         <div class="gmap-pin-head">
@@ -89,7 +111,7 @@ export function buildMarkerHTML(
       <div class="gmap-info-card">
         <div class="gmap-info-left" style="color:#096d7d;">
           <i class="ri-map-pin-2-fill"></i>
-          <span class="gmap-info-badge">DISPONIBLE</span>
+          <span class="gmap-info-badge">${translate('map.available').toUpperCase()}</span>
         </div>
         <div class="gmap-info-divider"></div>
         <span class="gmap-info-name">${monumento.nombre}</span>
@@ -97,25 +119,18 @@ export function buildMarkerHTML(
     `
   }
 
+  // locked
   return `
     <div class="gmap-pin-wrapper">
-      <div class="gmap-pin-head">
-        <div class="gmap-pin-circle" style="border-color:rgba(9,109,125,0.7);box-shadow:0 4px 10px rgba(9,109,125,0.2);">
-          <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.25) brightness(0.95);" />
+      <div class="gmap-pin-head" style="width:28px;height:28px;">
+        <div class="gmap-pin-circle" style="width:28px;height:28px;border-width:2px;border-color:rgba(9,109,125,0.4);box-shadow:0 2px 6px rgba(9,109,125,0.10);">
+          <img src="${monumento.imagen}" alt="${monumento.nombre}" style="filter:grayscale(0.55) brightness(0.8);" />
         </div>
-        <div class="gmap-lock-badge" style="background:rgba(9,109,125,0.7);">
-          <svg style="width:9px;height:9px;fill:currentColor;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;background:rgba(9,109,125,0.72);border:1.5px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:10;">
+          <svg style="width:6px;height:6px;fill:white;" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
         </div>
       </div>
-      <div class="gmap-pin-tip" style="border-top-color:rgba(9,109,125,0.7);"></div>
-    </div>
-    <div class="gmap-info-card">
-      <div class="gmap-info-left" style="color:rgba(9,109,125,0.7);">
-        <i class="ri-lock-2-fill"></i>
-        <span class="gmap-info-badge">BLOQUEADA</span>
-      </div>
-      <div class="gmap-info-divider"></div>
-      <span class="gmap-info-name" style="color:rgba(9,109,125,0.7);">Parada ${indexWithinStage + 1}</span>
+      <div class="gmap-pin-tip" style="border-left:8px solid transparent;border-right:8px solid transparent;border-top:6px solid rgba(9,109,125,0.4);margin-top:-3px;filter:drop-shadow(0 2px 1px rgba(0,0,0,0.10));"></div>
     </div>
   `
 }

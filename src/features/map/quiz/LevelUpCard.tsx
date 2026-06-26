@@ -367,7 +367,7 @@ export default function LevelUpCard({
           </div>
 
           {/* Botones */}
-          <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+          <div style={{ display: 'flex', gap: 10, width: '100%', position: 'relative', zIndex: 30 }}>
             {/* Cream 3D — Mapa */}
             <button
               onClick={onBackToMap}
@@ -432,6 +432,7 @@ export default function LevelUpCard({
             : 'none',
           transition: 'opacity 0.2s ease-in-out',
           background: 'transparent',
+          pointerEvents: 'none',
         }}
       >
         {phase !== 'in' && (
