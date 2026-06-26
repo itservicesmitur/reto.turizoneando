@@ -40,6 +40,21 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
+// Layer 4 — Force reload if server version is different
+declare const __APP_VERSION__: number
+
+if (typeof window !== 'undefined') {
+  fetch(`/version.json?t=${Date.now()}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.version && data.version !== __APP_VERSION__) {
+        console.log('New version detected! Reloading to update...', data.version, 'local:', __APP_VERSION__)
+        window.location.reload()
+      }
+    })
+    .catch(() => { /* silent */ })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Suspense fallback={null}>

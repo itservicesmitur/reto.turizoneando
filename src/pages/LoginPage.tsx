@@ -38,6 +38,7 @@ export default function LoginPage() {
       if (!result) return
       setLoading(true)
       try {
+        await result.user.getIdToken(true)
         const { banned } = await syncPlayerSocialProfile(result.user, i18n.language as 'es' | 'en')
         if (banned) {
           await auth.signOut()
@@ -105,7 +106,11 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const userCredential = await signInWithPopup(auth, googleProvider)
-      
+
+      // Force a fresh ID token so Firestore's offline cache doesn't use a stale auth context
+      // from a previous session (causes permission-denied on the first Firestore read/write).
+      await userCredential.user.getIdToken(true)
+
       // Sync Google profile data (email, name, photo) to Firestore
       const { banned } = await syncPlayerSocialProfile(userCredential.user, i18n.language as 'es' | 'en')
 
