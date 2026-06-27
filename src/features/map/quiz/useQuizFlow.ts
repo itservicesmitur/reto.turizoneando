@@ -5,18 +5,18 @@ import { getCorrectAnswer, registerAttempt } from '../services/quizApi'
 type QuizSave = { questionIdx: number; wrongAnswer: number | null }
 
 interface ShuffledQuestion {
-  shuffled: [string, string, string, string]
+  shuffled: string[]
   originalIndices: number[] // originalIndices[shuffledPos] = originalPos
 }
 
-function shuffleOptions(options: [string, string, string, string]): ShuffledQuestion {
-  const indices = [0, 1, 2, 3]
-  for (let i = 3; i > 0; i--) {
+function shuffleOptions(options: string[]): ShuffledQuestion {
+  const indices = options.map((_, i) => i)
+  for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[indices[i], indices[j]] = [indices[j], indices[i]]
   }
   return {
-    shuffled: indices.map(i => options[i]) as [string, string, string, string],
+    shuffled: indices.map(i => options[i]),
     originalIndices: indices,
   }
 }

@@ -196,10 +196,10 @@ export default function LandingPage() {
         <div className="absolute inset-0 z-10 flex items-center -ml-7 xs:ml-0">
           <div className="w-full max-w-6xl mx-auto px-20 md:px-14  ">
             <div className="flex flex-col items-start text-left w-full md:w-[52%] pb-40 md:pb-0">
-              <img src="/assets/img/logoConFondo.webp" alt="Turizoneando" className="w-36 sm:w-48 md:w-64 h-auto self-start md:-ml-10 mb-2 md:-mb-4"
+              <img src="/assets/img/logoConFondo.webp" alt="Turizoneando" className="w-48 sm:w-64 md:w-80 h-auto self-start -ml-9 sm:-ml-12 md:-ml-15 mb-2"
                 style={{ animation: 'heroNewIn 0.65s cubic-bezier(0.22,1,0.36,1) 0.05s both' }} />
 
-              <h1 className="text-[#0a2857] font-black uppercase leading-tight text-[clamp(15px,4.2vw,40px)] mb-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.4)] text-left"
+              <h1 className="text-white font-black uppercase leading-tight text-[clamp(15px,4.2vw,40px)] mb-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.4)] text-left"
                 style={{ animation: 'heroNewIn 0.7s cubic-bezier(0.22,1,0.36,1) 0.22s both' }}>
                 <span className="block whitespace-nowrap">{t('landing.hero_title_1')}</span>
                 <span className="block whitespace-nowrap">{t('landing.hero_title_2')}</span>
@@ -208,7 +208,7 @@ export default function LandingPage() {
               <div className="w-11 h-0.5 bg-accent-orange rounded-full mb-3 md:w-16"
                 style={{ animation: 'heroNewIn 0.5s ease 0.38s both' }} />
 
-              <p className="text-white/90 text-[11px] sm:text-xs md:text-sm font-bold uppercase leading-relaxed tracking-[0.4px] mb-5 max-w-xs sm:max-w-md md:max-w-xl [text-shadow:0_1px_4px_rgba(0,0,0,0.35)] text-left"
+              <p className="text-[#0a2857]/85 text-[11px] sm:text-xs md:text-sm font-bold uppercase leading-relaxed tracking-[0.4px] mb-5 max-w-xs sm:max-w-md md:max-w-xl text-left"
                 style={{ animation: 'heroNewIn 0.65s ease 0.46s both' }}>
                 {t('landing.hero_body')}
               </p>

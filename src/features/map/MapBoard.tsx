@@ -183,6 +183,8 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
       const decodedPath = encoding.decodePath(encoded)
       if (navTokenRef.current !== token) return
       routePathRef.current = decodedPath.map((p: any) => ({ lat: p.lat(), lng: p.lng() }))
+      lastNearestIdxRef.current = 0
+      prevNavPosRef.current = null
       if (routeBorderRef.current) { routeBorderRef.current.setMap(null); routeBorderRef.current = null }
       if (directionsRendererRef.current) { directionsRendererRef.current.setMap(null); directionsRendererRef.current = null }
       if (lastMileRef.current) { lastMileRef.current.setMap(null); lastMileRef.current = null }
@@ -296,17 +298,20 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         // 2. Recortar la polilínea desde la posición actual hacia adelante
         const path = routePathRef.current
         if (path.length > 1) {
-          const searchFrom = Math.max(0, lastNearestIdxRef.current)
-          const searchTo = Math.min(path.length - 1, searchFrom + 60)
+          // Búsqueda local restringida para evitar saltos abruptos (GPS jitter)
+          const isFirstSearch = lastNearestIdxRef.current === 0 && prevNavPosRef.current === null
+          const searchFrom = isFirstSearch ? 0 : Math.max(0, lastNearestIdxRef.current - 3)
+          const searchTo = isFirstSearch ? path.length - 1 : Math.min(path.length - 1, lastNearestIdxRef.current + 6)
+
           let minDist = Infinity
-          let nearestIdx = searchFrom
+          let nearestIdx = lastNearestIdxRef.current
           for (let i = searchFrom; i <= searchTo; i++) {
             const dlat = path[i].lat - lat
             const dlng = (path[i].lng - lng) * Math.cos(lat * Math.PI / 180)
             const d = dlat * dlat + dlng * dlng
             if (d < minDist) { minDist = d; nearestIdx = i }
           }
-          if (nearestIdx >= lastNearestIdxRef.current) lastNearestIdxRef.current = nearestIdx
+          lastNearestIdxRef.current = nearestIdx
           const remaining = [{ lat, lng }, ...path.slice(lastNearestIdxRef.current + 1)]
           if (remaining.length > 1) {
             routeBorderRef.current?.setPath(remaining)
