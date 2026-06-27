@@ -45,12 +45,28 @@ export default function LocationGate({ onDismiss }: Props) {
         {/* Alerta */}
         <div className="px-5 pt-4 pb-5 flex flex-col gap-3">
           <div
-            className="flex items-start gap-2.5 px-4 py-3 rounded-2xl"
+            className="px-4 py-3 rounded-2xl flex flex-col gap-1.5"
             style={{ background: 'rgba(224,52,75,0.06)', border: '1px solid rgba(224,52,75,0.22)' }}
           >
-            <i className="ri-error-warning-line text-base shrink-0 mt-0.5" style={{ color: '#e0344b' }} />
-            <p className="text-[12px] leading-relaxed font-medium" style={{ color: '#991b1b' }}>
-              {t('map.location_gate_denied')}
+            <div className="flex items-center gap-2">
+              <i className="ri-error-warning-line text-base shrink-0" style={{ color: '#e0344b' }} />
+              <p className="text-[12px] font-black leading-snug" style={{ color: '#991b1b' }}>
+                {t('map.location_gate_denied')}
+              </p>
+            </div>
+            <p className="text-[11px] font-semibold mt-0.5" style={{ color: '#991b1b' }}>
+              {t('map.location_gate_denied_check')}
+            </p>
+            <ul className="flex flex-col gap-1 pl-1">
+              {[t('map.location_gate_denied_item1'), t('map.location_gate_denied_item2')].map((item, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[11px] leading-snug font-medium" style={{ color: '#991b1b' }}>
+                  <span className="shrink-0 mt-[2px]">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] font-medium mt-0.5" style={{ color: '#991b1b' }}>
+              {t('map.location_gate_denied_footer')}
             </p>
           </div>
 

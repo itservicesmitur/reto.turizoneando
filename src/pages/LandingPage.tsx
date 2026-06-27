@@ -92,7 +92,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!statsStarted) return
-    const targets = [18, 3, 19, 2]
+    const targets = [18, 3, 18, 2]
     const duration = 1400
     const start = performance.now()
     let raf: number
@@ -189,15 +189,15 @@ export default function LandingPage() {
         {/* Fondos responsivos con fade inferior via mask-image */}
         <img src="/assets/img/fondoHero.webp" alt="" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none hidden md:block"
           style={{ maskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 95%, transparent 100%)' }} />
-        <img src="/assets/img/fondoMobile-hero.webp" alt="" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top pointer-events-none md:hidden"
+        <img src="/assets/img/fondoMobile-hero.webp" alt="" fetchPriority="high" decoding="async" className="absolute w-full h-full object-cover object-top pointer-events-none md:hidden"
           style={{ maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%)' }} />
 
         {/* Texto: centrado verticalmente, ocupa solo la mitad izquierda */}
-        <div className="absolute inset-0 z-10 flex items-center -ml-7 xs:ml-0">
-          <div className="w-full max-w-6xl mx-auto px-20 md:px-14  ">
+        <div className="absolute inset-0 z-10 flex items-center">
+          <div className="w-full max-w-6xl mx-auto px-10 sm:px-12 md:px-14">
             <div className="flex flex-col items-start text-left w-full md:w-[52%] pb-40 md:pb-0">
-              <img src="/assets/img/logoConFondo.webp" alt="Turizoneando" className="w-48 sm:w-64 md:w-80 h-auto self-start -ml-9 sm:-ml-12 md:-ml-15 mb-2"
-                style={{ animation: 'heroNewIn 0.65s cubic-bezier(0.22,1,0.36,1) 0.05s both' }} />
+              <img src="/assets/img/logoConFondo.webp" alt="Turizoneando" className="w-36 sm:w-48 md:w-64 h-auto block -ml-12 sm:-ml-11 md:-ml-19 -mb-2 md:-mb-2"
+                style={{ alignSelf: 'flex-start', animation: 'heroNewIn 0.65s cubic-bezier(0.22,1,0.36,1) 0.05s both' }} />
 
               <h1 className="text-white font-black uppercase leading-tight text-[clamp(15px,4.2vw,40px)] mb-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.4)] text-left"
                 style={{ animation: 'heroNewIn 0.7s cubic-bezier(0.22,1,0.36,1) 0.22s both' }}>
@@ -978,8 +978,28 @@ export default function LandingPage() {
       <div ref={statsRef} className="bg-primary-dark py-8 md:py-10 px-4 my-15 relative">
         <div className="absolute inset-0 opacity-[0.04] bg-[radial-gradient(circle_at_2px_2px,white_2px,transparent_0)] bg-size-[28px_28px] pointer-events-none" />
         <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="flex items-center justify-center">
+          {/* Mobile: grid 2×2 — Desktop: fila horizontal */}
+          <div className="grid grid-cols-2 gap-6 md:hidden">
+            {([
+              { icon: 'ri-map-pin-2-line', label: t('landing.stats_stops') },
+              { icon: 'ri-trophy-line',    label: t('landing.stats_stages') },
+              { icon: 'ri-question-line',  label: t('landing.stats_quizz') },
+              { icon: 'ri-global-line',    label: t('landing.stats_langs') },
+            ] as const).map((s, i) => (
+              <div key={i} className="lp-r flex items-center gap-3 justify-center"
+                style={{ transitionDelay: `${i * 0.1}s` }}>
+                <span className="font-display text-5xl font-black text-white leading-none tabular-nums">
+                  {counters[i]}
+                </span>
+                <div className="flex flex-col gap-1">
+                  <i className={`${s.icon} text-white/40 text-base leading-none`} />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/50 whitespace-nowrap">{s.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
 
+          <div className="hidden md:flex items-center justify-center">
             {([
               { icon: 'ri-map-pin-2-line', label: t('landing.stats_stops') },
               { icon: 'ri-trophy-line',    label: t('landing.stats_stages') },
@@ -988,22 +1008,21 @@ export default function LandingPage() {
             ] as const).map((s, i) => (
               <Fragment key={i}>
                 {i > 0 && (
-                  <div className="shrink-0 mx-4 sm:mx-7 md:mx-10 w-px h-10 md:h-14"
+                  <div className="shrink-0 mx-7 md:mx-10 w-px h-10 md:h-14"
                     style={{ background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.22) 30%, rgba(255,255,255,0.22) 70%, transparent 100%)' }} />
                 )}
-                <div className="lp-r flex items-center gap-2.5 md:gap-5"
+                <div className="lp-r flex items-center gap-5"
                   style={{ transitionDelay: `${i * 0.1}s` }}>
-                  <span className="font-display text-4xl sm:text-5xl lg:text-7xl font-black text-white leading-none tabular-nums">
+                  <span className="font-display text-5xl lg:text-7xl font-black text-white leading-none tabular-nums">
                     {counters[i]}
                   </span>
                   <div className="flex flex-col gap-1">
-                    <i className={`${s.icon} text-white/40 text-sm md:text-[22px] leading-none`} />
-                    <span className="text-[7px] sm:text-[8px] md:text-[11px] font-bold uppercase tracking-widest text-white/50 whitespace-nowrap">{s.label}</span>
+                    <i className={`${s.icon} text-white/40 text-[22px] leading-none`} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-white/50 whitespace-nowrap">{s.label}</span>
                   </div>
                 </div>
               </Fragment>
             ))}
-
           </div>
         </div>
       </div>

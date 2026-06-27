@@ -470,23 +470,19 @@ export default function RegisterPage() {
             background: 'var(--color-surface)',
             borderRadius: '28px 28px 0 0',
             boxShadow: '0 -8px 40px rgba(27,43,110,0.25)',
-            position: 'relative', zIndex: 5, overflow: 'hidden',
-            display: 'flex', flexDirection: 'column',
+            position: 'relative', zIndex: 5,
+            overflowX: 'hidden',
+            overflowY: 'auto',
           }}
         >
           {/* Accent strip */}
           <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: 4,
+            position: 'sticky', top: 0, left: 0, right: 0, height: 4, zIndex: 10,
             background: 'var(--gradient-primary)',
           }} />
 
-          <div style={{
-            flex: 1,
-            minHeight: 0,
-            padding: '18px 20px',
+          <div className="rp-form-inner" style={{
             paddingBottom: 'calc(var(--safe-bottom) + 16px)',
-            display: 'flex', flexDirection: 'column', gap: 0,
-            overflowY: 'auto',
           }}>
 
             {/* Drag handle */}
@@ -906,15 +902,24 @@ export default function RegisterPage() {
         }
 
         @media (min-width: 900px) {
-          .rp-card { flex-direction: row; max-width: 880px; min-height: 620px; }
+          .rp-card { flex-direction: row; max-width: 1040px; min-height: 650px; }
           .rp-hero {
             flex: 1; min-height: 0 !important;
             padding: 48px 36px 36px !important;
             justify-content: center !important;
           }
           .rp-form {
-            width: 440px; flex-shrink: 0; flex: none;
+            width: 520px; flex-shrink: 0; flex: none;
             overflow-y: auto;
+          }
+        }
+
+        .rp-form-inner {
+          padding: 18px 20px;
+        }
+        @media (min-width: 900px) {
+          .rp-form-inner {
+            padding: 32px 36px;
           }
         }
       `}</style>
