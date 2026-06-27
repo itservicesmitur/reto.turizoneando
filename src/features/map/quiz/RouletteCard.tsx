@@ -72,7 +72,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const [prizesError, setPrizesError] = useState(false)
   const [claimError, setClaimError]   = useState(false)
   const [landedSeg, setLandedSeg]     = useState(stopIndex % 8)
-  const [wonInPrevStage, setWonInPrevStage] = useState(false)
+  const [prizesWonCount, setPrizesWonCount] = useState(0)
   const [playerScore, setPlayerScore]       = useState(0)
   const rafRef         = useRef<number | null>(null)
   const segIdxRef      = useRef<number>(stopIndex % 8)
@@ -91,8 +91,6 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   useEffect(() => {
     const user = auth.currentUser
     if (!user) return
-    const stageNum = parseInt(stageId.replace('stage_', '')) || 1
-    const prevStageId = stageNum > 1 ? `stage_${stageNum - 1}` : null
     Promise.all([
       getDoc(doc(db, 'players', user.uid)),
       getDoc(doc(db, 'players', user.uid, 'seasons', seasonId)),
@@ -100,8 +98,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
       const score = playerSnap.data()?.score
       setPlayerScore(typeof score === 'number' ? score : 0)
       const prizesWon: { stageId: string }[] = seasonSnap.data()?.prizesWon ?? []
-      const prevWon = prevStageId !== null && prizesWon.some(p => p.stageId === prevStageId)
-      setWonInPrevStage(prevWon)
+      setPrizesWonCount(prizesWon.length)
     }).catch(() => {})
   }, [seasonId])
 
@@ -255,14 +252,14 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     playSpinSounds()
 
     // El resultado se decide antes de girar.
-    // Regla "no consecutivo": si ganó en la etapa anterior → siempre vacío.
-    // De lo contrario → probabilidad según score: score 0 = 40%, score 200+ = 85%.
-    const limitReached = wonInPrevStage
+    // Regla "máximo 2 premios por temporada": si ya ganó 2 o más → siempre vacío.
+    // De lo contrario → probabilidad según score: score 0 = 70%, score 200+ = 93%.
+    const limitReached = prizesWonCount >= 2
     let randomSlot: number
     if (limitReached) {
       randomSlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
     } else {
-      const prob  = 0.60 + (Math.min(playerScore, 200) / 200) * 0.30
+      const prob  = 0.65 + (Math.min(playerScore, 200) / 200) * 0.25
       const wins  = Math.random() < prob
       randomSlot  = wins
         ? PRIZE_INDICES[Math.floor(Math.random() * PRIZE_INDICES.length)]
