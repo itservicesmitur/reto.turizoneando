@@ -291,8 +291,23 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
         console.warn('[claimPrizeAndNotify] error:', err)
         const code = (err as { code?: string })?.code
         const msg  = (err as { message?: string })?.message ?? ''
-        if (code === 'already-exists' || msg.includes('409') || msg.toLowerCase().includes('conflict')) {
-          // Premio ya reclamado en esta etapa — mostrar vacío sin error
+        
+        const isLimitOrAlreadyClaimed = 
+          code === 'already-exists' || 
+          code === 'functions/already-exists' ||
+          msg.includes('already-exists') || 
+          msg.includes('ALREADY_EXISTS') ||
+          msg.toLowerCase().includes('limit') ||
+          msg.toLowerCase().includes('límite') ||
+          msg.includes('409') || 
+          msg.toLowerCase().includes('conflict') ||
+          msg.includes('Ya alcanzaste') ||
+          msg.includes('Ya reclamaste');
+
+        if (isLimitOrAlreadyClaimed) {
+          // Premio ya reclamado o límite alcanzado — mostrar vacío y hacer caer en slot vacío
+          const randomEmptySlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
+          segIdxRef.current = randomEmptySlot
           setClaimResult(emptyPrize())
         } else {
           // Error de red o servidor — mostrar mensaje para reintentar

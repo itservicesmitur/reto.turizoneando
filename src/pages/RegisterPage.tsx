@@ -7,7 +7,6 @@ import {
   signUpWithGoogle,
   getGoogleRedirectResult,
   savePlayerProfile,
-  sendOtp,
 } from '../services/authService'
 import type { User } from 'firebase/auth'
 import logoImg   from '../assets/logo1.png'
@@ -287,7 +286,6 @@ export default function RegisterPage() {
         emailVerified: !needsOtp,
       })
       if (needsOtp) {
-        await sendOtp()
         navigate('/verify-email', { replace: true })
       } else {
         navigate('/map', { replace: true })

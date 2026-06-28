@@ -34,6 +34,38 @@ export default function VerifyEmailPage() {
     })
   }, [navigate])
 
+  // Send OTP automatically when user and email are ready
+  useEffect(() => {
+    if (!authReady || !userEmail) return
+
+    let isMounted = true
+
+    async function triggerInitialOtp() {
+      try {
+        await sendOtp()
+        if (isMounted) {
+          startCountdown(60)
+        }
+      } catch (err: any) {
+        if (!isMounted) return
+        const raw = err?.message || ''
+        const seconds = parseInt(raw, 10)
+        if (!isNaN(seconds) && seconds > 0) {
+          startCountdown(seconds)
+          // No error message since it's just the rate limit from a previous send
+        } else {
+          setError(raw || (lang === 'en' ? 'Could not send verification code.' : 'No se pudo enviar el código de verificación.'))
+        }
+      }
+    }
+
+    triggerInitialOtp()
+
+    return () => {
+      isMounted = false
+    }
+  }, [authReady, userEmail])
+
   function startCountdown(seconds = 60) {
     setCountdown(seconds)
     if (timerRef.current) clearInterval(timerRef.current)

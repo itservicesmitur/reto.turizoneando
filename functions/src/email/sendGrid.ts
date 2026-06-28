@@ -743,8 +743,8 @@ export const claimPrizeAndNotify = onCall({
         if (prizesWon.some((p: any) => p.prizeId === prizeId && p.stageId === stageId)) {
           throw new HttpsError("already-exists", "Ya reclamaste el premio de esta etapa.");
         }
-        if (prizesWon.length >= 1) {
-          throw new HttpsError("already-exists", "Ya alcanzaste el límite de 1 premio para este desafío.");
+        if (prizesWon.length >= 2) {
+          throw new HttpsError("already-exists", "Ya alcanzaste el límite de 2 premios para este desafío.");
         }
 
         if (codeSnap.exists) return null; // code collision — retry
@@ -884,7 +884,15 @@ export const sendOtpEmail = onCall({
   if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required");
 
   const uid = request.auth.uid;
-  const email = request.auth.token.email;
+  let email = request.auth.token.email;
+  if (!email) {
+    try {
+      const userRecord = await admin.auth().getUser(uid);
+      email = userRecord.email;
+    } catch (err) {
+      console.error("Failed to fetch user record for email fallback:", err);
+    }
+  }
   if (!email) throw new HttpsError("failed-precondition", "No email on account.");
 
   const db = getFirestore();
