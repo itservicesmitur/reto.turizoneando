@@ -44,6 +44,16 @@ export default function LandingPage() {
   const { t, i18n } = useTranslation()
   const [navScrolled, setNavScrolled]     = useState(false)
   const [textExpanded, setTextExpanded]   = useState(false)
+  const bodyTextRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = bodyTextRef.current
+    if (!el) return
+    if (textExpanded) {
+      el.classList.remove('line-clamp-4')
+    } else {
+      el.classList.add('line-clamp-4')
+    }
+  }, [textExpanded])
   const [activeStopTab, setActiveStopTab] = useState(0)
   const [counters, setCounters]           = useState([0, 0, 0, 0])
   const [statsStarted, setStatsStarted]   = useState(false)
@@ -437,7 +447,7 @@ export default function LandingPage() {
             </h2>
 
             {/* Descripcion con Ver mas en movil */}
-            <p className={`lp-r text-sm md:text-lg text-gray-600 leading-relaxed max-w-lg text-left ${textExpanded ? '' : 'line-clamp-4 md:line-clamp-none'}`}
+            <p ref={bodyTextRef} className="lp-r line-clamp-4 md:line-clamp-none text-sm md:text-lg text-gray-600 leading-relaxed max-w-lg text-left"
               style={{ transitionDelay: '0.22s' }}>
               {t('landing.what_body')}
             </p>

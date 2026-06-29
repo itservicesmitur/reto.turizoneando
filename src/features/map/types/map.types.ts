@@ -25,7 +25,7 @@ export interface MapBoardHandle {
   rotateLeft: () => void
   rotateRight: () => void
   resetRotation: () => void
-  startNavigation: (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void) => void
+  startNavigation: (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void, onError?: () => void) => void
   clearNavigation: () => void
   focusOnUser: () => void
   returnToOrigin: () => void

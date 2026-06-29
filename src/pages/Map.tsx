@@ -1187,7 +1187,6 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
             stageGroups={stageGroups}
             introTarget={introTarget}
             hiddenStopIds={deactivatedStopIds}
-            isSuspended={quizFlow.step !== 'idle' || showMenu || showLocationGate || lockedAlert !== null}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center" style={{ background: 'var(--color-map-wood-deep)' }}>
