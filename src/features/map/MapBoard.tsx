@@ -103,6 +103,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
   const advancedMarkerClassRef = useRef<any>(null)
   const userLocationMarkerRef = useRef<any>(null)
   const watchIdRef = useRef<number | null>(null)
+  const restartGeoWatchRef = useRef<() => void>(() => {})
   const directionsRendererRef = useRef<any>(null)
   const routeBorderRef = useRef<any>(null)
   const navTokenRef = useRef(0)
@@ -334,6 +335,8 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
       }
     }
 
+    const geoOpts = { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 } as const
+
     let fatalErrorCount = 0
     const onError = (err: GeolocationPositionError) => {
       // PERMISSION_DENIED (1) → fallo definitivo
@@ -351,17 +354,25 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
       if (fatalErrorCount >= 3 && watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null
-        navigator.geolocation.getCurrentPosition(onSuccess, () => {}, {
-          enableHighAccuracy: true, maximumAge: 0, timeout: 15000,
-        })
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            onSuccess(pos)
+            fatalErrorCount = 0
+            watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, geoOpts)
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+        )
       }
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      onSuccess,
-      onError,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    )
+    restartGeoWatchRef.current = () => {
+      if (watchIdRef.current !== null) return
+      fatalErrorCount = 0
+      watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, geoOpts)
+    }
+
+    watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, geoOpts)
 
     return () => {
       if (watchIdRef.current !== null) {
@@ -1168,6 +1179,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && mapInstanceRef.current) {
         ;(window as any).google?.maps?.event?.trigger(mapInstanceRef.current, 'resize')
+        restartGeoWatchRef.current()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -1223,12 +1235,12 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         }
       }
     },
-    startNavigation: async (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void) => {
+    startNavigation: async (destLat: number, destLng: number, onReady?: (info: RouteInfo) => void, onError?: () => void) => {
       if (!mapInstanceRef.current) return
       const token = ++navTokenRef.current
       if (returnAnimFrameRef.current) { cancelAnimationFrame(returnAnimFrameRef.current); returnAnimFrameRef.current = null }
       const pos = lastKnownPositionRef.current
-      if (!pos) return
+      if (!pos) { onError?.(); return }
       // Reset nav state para nueva ruta
       lastNearestIdxRef.current = 0
       prevNavPosRef.current = null
@@ -1259,7 +1271,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         const totalDistNav = (r: any) => (r?.legs ?? []).reduce((s: number, l: any) => s + (l.distanceMeters ?? 0), 0)
         const route = routes.reduce((best: any, r: any) => totalDistNav(r) < totalDistNav(best) ? r : best, routes[0])
         const encoded = route?.polyline?.encodedPolyline
-        if (!encoded) return
+        if (!encoded) { onError?.(); return }
         const distanceM: number = totalDistNav(route)
         const durationStr: string = route?.legs?.[0]?.duration ?? '0s'
         const distanceKm = (distanceM / 1000).toFixed(1)
@@ -1302,6 +1314,7 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
         map.fitBounds(bounds, { top: 80, bottom: 220, left: 60, right: 60 })
       } catch (err) {
         console.warn('Error al trazar ruta:', err)
+        onError?.()
       }
     },
     focusOnUser: () => {
