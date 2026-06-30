@@ -92,7 +92,6 @@ const MapBoard = memo(forwardRef<MapBoardHandle, MapBoardProps>(function MapBoar
   const lastNearestIdxRef = useRef<number>(0)
   const lastGpsProcTimeRef = useRef<number>(0)
   const lastGpsProcPosRef = useRef<{ lat: number; lng: number } | null>(null)
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 768
 
   doRecalcRef.current = async () => {
     if (isRecalcingRef.current) return
