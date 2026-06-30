@@ -223,6 +223,7 @@ export default function Map() {
     if (!showMenu || !navigator.geolocation) return
 
     let prevGranted: boolean | null = null
+    let prevDenied: boolean | null = null
 
     const checkPermission = () => {
       const query = navigator.permissions?.query
@@ -230,23 +231,21 @@ export default function Map() {
         query({ name: 'geolocation' as PermissionName })
           .then(s => {
             const nowGranted = s.state === 'granted'
+            const nowDenied  = s.state === 'denied'
             if (prevGranted !== null && prevGranted !== nowGranted) setLocationToggleMsg(false)
-            prevGranted = nowGranted
-            setLocationGranted(nowGranted)
-            setLocationDenied(s.state === 'denied')
+            if (nowGranted !== prevGranted) { prevGranted = nowGranted; setLocationGranted(nowGranted) }
+            if (nowDenied  !== prevDenied)  { prevDenied  = nowDenied;  setLocationDenied(nowDenied) }
           })
           .catch(() => {})
       } else {
         navigator.geolocation.getCurrentPosition(
           () => {
             if (prevGranted !== null && !prevGranted) setLocationToggleMsg(false)
-            prevGranted = true
-            setLocationGranted(true)
+            if (prevGranted !== true) { prevGranted = true; setLocationGranted(true) }
           },
           () => {
             if (prevGranted !== null && prevGranted) setLocationToggleMsg(false)
-            prevGranted = false
-            setLocationGranted(false)
+            if (prevGranted !== false) { prevGranted = false; setLocationGranted(false) }
           },
           { enableHighAccuracy: false, timeout: 2000 }
         )
@@ -399,14 +398,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           })
         )
 
-        // ── RESUMEN ──────────────────────────────────────────────
-        console.group('[Turizoneando] ✅ Carga completa')
-        console.log('Temporada:', activeSeasonName, '| id:', activeSeasonId)
-        console.log('Etapas:', stagesRaw.length, '| Paradas:', stopsWithQuestions.length)
-        stopsWithQuestions.forEach((s, i) =>
-          console.log(`  ${i + 1}. [stage:${s.stageId}] ${s.name} | q:${s.questions.length} | (${s.lat}, ${s.lng})`)
-        )
-        console.groupEnd()
+
 
         setFirestoreStops(stopsWithQuestions)
         setStageIdToPrizeId(Object.fromEntries(stagesRaw.map(s => [s.id, s.prizeId])))
@@ -423,8 +415,10 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
               if (stop.completed) completedIds.add(stop.id)
             })
           })
+
           setCompletedStops(stopsWithQuestions.map(s => completedIds.has(s.id)))
-        } catch {
+        } catch (err) {
+          console.error('[Turizoneando] ❌ Error al cargar progreso del jugador:', err)
           setCompletedStops(Array(mapped.length).fill(false))
         }
       } catch (err) {
@@ -456,7 +450,12 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
       query(collection(db, 'stops'), where('active', '==', true)),
       (snap) => {
         const nowActiveIds = new Set(snap.docs.map(d => d.id))
-        setDeactivatedStopIds(firestoreStops.filter(s => !nowActiveIds.has(s.id)).map(s => s.id))
+        const newDeactivated = firestoreStops.filter(s => !nowActiveIds.has(s.id)).map(s => s.id)
+        setDeactivatedStopIds(prev => {
+          // Evitar re-render si el contenido es idéntico
+          if (prev.length === newDeactivated.length && prev.every((id, i) => id === newDeactivated[i])) return prev
+          return newDeactivated
+        })
       },
       () => {} // silencioso en errores de red
     )
@@ -615,14 +614,21 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
   }, [selectedMonument, selectedStopIndex, completedStops, activeStageIndex, stageGroups, deactivatedStopIdSet, firestoreStops])
 
   // ── Polling de posición del usuario mientras una parada está seleccionada ────
+  const prevUserPositionRef = useRef<{ lat: number; lng: number } | null>(null)
   useEffect(() => {
-    if (!selectedMonument) { setUserPosition(null); return }
+    if (!selectedMonument) { setUserPosition(null); prevUserPositionRef.current = null; return }
     const sync = () => {
       const pos = mapControlsRef.current?.getUserPosition()
-      if (pos) setUserPosition(pos)
+      if (!pos) return
+      const prev = prevUserPositionRef.current
+      // Solo actualizar estado si la posición cambió (evita re-renders innecesarios cada 800ms)
+      if (!prev || Math.abs(prev.lat - pos.lat) > 0.000005 || Math.abs(prev.lng - pos.lng) > 0.000005) {
+        prevUserPositionRef.current = pos
+        setUserPosition(pos)
+      }
     }
     sync() // inmediato
-    const id = setInterval(sync, 500)
+    const id = setInterval(sync, 800)
     return () => clearInterval(id)
   }, [selectedMonument])
 
@@ -699,8 +705,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
     }
 
     if (questions.length === 0) {
-      if (stopId) setDeactivatedStopIds(prev => prev.includes(stopId) ? prev : [...prev, stopId])
-      setSelectedMonument(null)
+      setNoQuestionsAlert(true)
       return
     }
 
@@ -1099,7 +1104,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
               <div style={{ maxHeight: isHudExpanded ? '160px' : '0px', transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden' }}>
                 <div className="flex items-center gap-3.5 p-3.5" style={{ borderBottom: '1px solid rgba(9,109,125,0.12)' }}>
                   <div className="h-20 w-24 shrink-0 rounded-xl overflow-hidden shadow-md" style={{ border: '2px solid #096d7d' }}>
-                    <img src={selectedMonument?.imagen} alt={selectedMonument?.nombre} className="h-full w-full object-cover" />
+                    <img src={selectedMonument?.imagen || undefined} alt={selectedMonument?.nombre} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex flex-col flex-1 gap-1.5">
                     <div className="text-[10px] font-bold uppercase tracking-widest leading-none" style={{ color: '#00bbb4' }}>{t('map.destination')}</div>
@@ -1208,7 +1213,7 @@ const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
           <div className="relative h-44 w-full shrink-0">
             <img
               key={selectedMonument.nombre}
-              src={selectedMonument.imagen}
+              src={selectedMonument.imagen || undefined}
               alt={selectedMonument.nombre}
               className="h-full w-full object-cover animate-fade-in rounded-3xl"
             />

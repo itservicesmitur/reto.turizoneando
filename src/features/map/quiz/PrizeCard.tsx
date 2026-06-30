@@ -25,6 +25,8 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState(false)
 
+  const expDate = prize.expiresAt ? new Date(prize.expiresAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
   const handleDownload = async () => {
     if (downloading) return
     setDownloading(true)
@@ -162,7 +164,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
 
     const metaCY = footerY + FOOTER_H / 2
     // Date column
-    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+    const dateStr = expDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
     ctx.fillStyle = 'rgba(255,148,71,0.75)'; ctx.font = '700 8px system-ui,sans-serif'
     ctx.textAlign = 'left'; ctx.letterSpacing = '1px'
     ctx.fillText('VÁLIDO', PAD, metaCY - 8)
@@ -440,7 +442,7 @@ export default function PrizeCard({ prize, monumentImage, stopIndex, isLastStop 
                 {t('map.valid_label')}
               </span>
               <span className="text-[12px] font-bold" style={{ color: '#096d7d' }}>
-                {new Date().toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {expDate.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </div>
             <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, rgba(255,148,71,0.4), transparent)' }} />

@@ -18,6 +18,7 @@ interface ClaimRawResult {
   localName?: string
   localAddress?: string
   localPhone?: string
+  expiresAt?: string
 }
 
 export interface PrizeInfo {
@@ -72,5 +73,6 @@ export async function claimPrizeAndNotify(params: ClaimInput): Promise<ClaimedPr
     localName:     d.localName     ?? '',
     localAddress:  d.localAddress  ?? '',
     localPhone:    d.localPhone    ?? '',
+    expiresAt:     d.expiresAt,
   }
 }

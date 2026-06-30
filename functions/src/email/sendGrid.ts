@@ -14,6 +14,17 @@ const BG_HERO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-de
 const DOMINICAN_LOGO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fdominican_2.png?alt=media&token=94f82a14-2363-4019-a549-dda291fa972b';
 const CLUSTER_LOGO_URL = 'https://firebasestorage.googleapis.com/v0/b/turizoneando-dev.firebasestorage.app/o/EmailGridImg%2Fcluster_2.png?alt=media&token=54d01e86-158f-4567-9af4-9a5c7b30e9f2';
 
+function formatSpanishDate(date: Date): string {
+  const months = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+  ];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} de ${month} de ${year}`;
+}
+
 // Helper function to send email via SendGrid
 async function sendRawEmail(
   to: string,
@@ -61,6 +72,7 @@ function buildClaimPrizeEmailHtml(
   localAddress?: string,
   localPhone?: string,
   localImageUrl?: string,
+  expiresAt?: string,
 ): string {
   const cardBg = prizeImageUrl
     ? `background-image:url('${prizeImageUrl}');background-size:cover;background-position:center;background-color:#0f766e;`
@@ -151,6 +163,7 @@ function buildClaimPrizeEmailHtml(
                           </tr>
                         </table>
                         <p style="margin:8px 0 0;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:rgba(255,255,255,0.65);">Código único de canje</p>
+                        ${expiresAt ? `<p style="margin:12px 0 0;font-size:12px;color:#ffffff;opacity:0.9;font-family:'Plus Jakarta Sans',sans-serif;">Vence el: <strong style="color:#58bea9;">${expiresAt}</strong></p>` : ''}
                       </td>
                     </tr>
                   </table>
@@ -182,6 +195,9 @@ function buildClaimPrizeEmailHtml(
                   <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
                   <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
                     <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
+                  </p>
+                  <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+                    Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
                   </p>
                   <table width="100%" cellpadding="0" cellspacing="0"><tr>
                     <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
@@ -302,6 +318,9 @@ function buildMultiplePrizesEmailHtml(
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
             </p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
+            </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
                 <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
@@ -404,6 +423,9 @@ export const sendAdminCustomEmail = onCall({
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
+            </p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
@@ -527,12 +549,12 @@ export const sendAdminPasswordResetEmail = onCall({
         <!-- Button -->
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
           <tr><td align="center" style="padding:8px 0 32px;">
-            <a href="${customResetLink}" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
+            <a href="${customResetLink}" clicktracking="off" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
           </td></tr>
         </table>
 
         <p style="margin:-16px 0 28px;text-align:center;font-size:11px;color:#64748b;line-height:1.8;">
-          Si el botón no abre, <a href="${customResetLink}" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
+          Si el botón no abre, <a href="${customResetLink}" clicktracking="off" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
         </p>
 
         <p style="margin:0 0 32px;font-size:11px;color:#94a3b8;line-height:1.7;">
@@ -545,6 +567,9 @@ export const sendAdminPasswordResetEmail = onCall({
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
+            </p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
@@ -697,6 +722,7 @@ export const claimPrizeAndNotify = onCall({
   type ClaimResult = {
     code: string;
     wonAt: string;
+    expiresAt: string;
     playerEmail: string;
     playerDisplayName: string;
     prizeName: string;
@@ -751,7 +777,10 @@ export const claimPrizeAndNotify = onCall({
 
         const playerData = playerSnap.data() ?? {};
         const now = Timestamp.now();
-        const expiresAt = new Timestamp(now.seconds + 30 * 24 * 60 * 60, now.nanoseconds);
+        const expirationDays = typeof prizeData.codeExpirationDays === "number" && prizeData.codeExpirationDays > 0
+          ? prizeData.codeExpirationDays
+          : 30;
+        const expiresAt = new Timestamp(now.seconds + expirationDays * 24 * 60 * 60, now.nanoseconds);
 
         // Fetch local info outside transaction scope but use it here
         const localId: string = prizeData.localId || "";
@@ -810,6 +839,7 @@ export const claimPrizeAndNotify = onCall({
         return {
           code,
           wonAt: now.toDate().toISOString(),
+          expiresAt: expiresAt.toDate().toISOString(),
           playerEmail: playerData.email || "",
           playerDisplayName: playerData.displayName || "Ganador",
           prizeName: prizeData.name || "Premio",
@@ -842,6 +872,9 @@ export const claimPrizeAndNotify = onCall({
     try {
       const hostOrigin = request.rawRequest.headers.origin || "https://turizoneando.mitur.gob.do";
       const validationUrl = `${hostOrigin}/validar/${claimed.code}`;
+      const expDate = claimed.expiresAt ? new Date(claimed.expiresAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const formattedExpiration = formatSpanishDate(expDate);
+
       const htmlContent = buildClaimPrizeEmailHtml(
         claimed.playerDisplayName,
         claimed.prizeName,
@@ -851,9 +884,10 @@ export const claimPrizeAndNotify = onCall({
         claimed.localAddress,
         claimed.localPhone,
         claimed.localImageUrl,
+        formattedExpiration,
       );
 
-      const textContent = `¡Felicidades ${claimed.playerDisplayName}!\n\nGanaste: ${claimed.prizeName}${claimed.prizeCategory ? ` (${claimed.prizeCategory})` : ""}\nCódigo: ${claimed.code}\nValidar en: ${validationUrl}\n\nMITUR - Turizoneando`;
+      const textContent = `¡Felicidades ${claimed.playerDisplayName}!\n\nGanaste: ${claimed.prizeName}${claimed.prizeCategory ? ` (${claimed.prizeCategory})` : ""}\nCódigo: ${claimed.code}\nVence el: ${formattedExpiration}\nValidar en: ${validationUrl}\n\nMITUR - Turizoneando`;
       await sendRawEmail(
         claimed.playerEmail,
         `Tu premio de Turizoneando: ${claimed.prizeName} — Código ${claimed.code}`,
@@ -870,6 +904,7 @@ export const claimPrizeAndNotify = onCall({
     success: true,
     code: claimed.code,
     wonAt: claimed.wonAt,
+    expiresAt: claimed.expiresAt,
     emailSent,
     localName: claimed.localName,
     localAddress: claimed.localAddress,
@@ -976,6 +1011,9 @@ export const sendOtpEmail = onCall({
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
+            </p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
@@ -1109,6 +1147,9 @@ export const sendAdminPrizeCodeEmail = onCall({
     const validationUrl = `${hostOrigin}/validar/${uniqueCode}`;
 
     // 4. Construct HTML with new design
+    const expiresAtTimestamp = cData.expiresAt as Timestamp | undefined;
+    const formattedExpiration = expiresAtTimestamp ? formatSpanishDate(expiresAtTimestamp.toDate()) : "";
+
     const htmlContent = buildClaimPrizeEmailHtml(
       playerDisplayName,
       prizeName,
@@ -1118,9 +1159,10 @@ export const sendAdminPrizeCodeEmail = onCall({
       localAddress,
       localPhone,
       localImageUrl,
+      formattedExpiration,
     );
 
-    const textContent = `¡Felicidades ${playerDisplayName}!\n\nGanaste: ${prizeName} (${prizeCategory}) en Turizoneando.\n\nTu código único de canje es: ${uniqueCode}\n\nCanjéalo ingresando a: ${validationUrl}\n\nMITUR`;
+    const textContent = `¡Felicidades ${playerDisplayName}!\n\nGanaste: ${prizeName} (${prizeCategory}) en Turizoneando.\n\nTu código único de canje es: ${uniqueCode}\n\n${formattedExpiration ? `Vence el: ${formattedExpiration}\n\n` : ""}Canjéalo ingresando a: ${validationUrl}\n\nMITUR`;
 
     await sendRawEmail(playerEmail, `Tu premio de Turizoneando: ${prizeName} (Código: ${uniqueCode})`, htmlContent, textContent);
     return { success: true };
@@ -1218,11 +1260,11 @@ export const sendPlayerPasswordResetEmail = onCall({
         </p>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
           <tr><td align="center" style="padding:8px 0 32px;">
-            <a href="${customResetLink}" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
+            <a href="${customResetLink}" clicktracking="off" target="_blank" style="display:inline-block;background-color:#58bea9;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;">Restablecer contraseña</a>
           </td></tr>
         </table>
         <p style="margin:-16px 0 28px;text-align:center;font-size:11px;color:#64748b;line-height:1.8;">
-          Si el botón no abre, <a href="${customResetLink}" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
+          Si el botón no abre, <a href="${customResetLink}" clicktracking="off" target="_blank" style="color:#58bea9;text-decoration:underline;word-break:break-all;">${customResetLink}</a>
         </p>
         <p style="margin:0 0 32px;font-size:11px;color:#94a3b8;line-height:1.7;">
           Si no solicitaste este cambio, puedes ignorar este mensaje con seguridad. Tu contraseña no cambiará.
@@ -1230,6 +1272,9 @@ export const sendPlayerPasswordResetEmail = onCall({
         <table width="100%" cellpadding="0" cellspacing="0"><tr>
           <td style="border-top:1px solid #f1f5f9;padding-top:28px;">
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
+            </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">
                 <img class="footer-logo" src="${DOMINICAN_LOGO_URL}" alt="República Dominicana" height="48" style="display:inline-block;height:48px;width:auto;vertical-align:middle;margin-right:20px;" />
@@ -1414,6 +1459,9 @@ const localName = String(afterSnap.localName || "");
             <p style="margin:0 0 10px;text-align:center;font-size:11px;font-weight:500;color:#475569;">✅ Este correo fue enviado de forma segura</p>
             <p style="margin:0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;">
               <strong>Aviso de confidencialidad:</strong> Este mensaje y sus anexos son confidenciales y para el uso exclusivo de su destinatario. Si por error lo ha recibido, elimínelo de inmediato.
+            </p>
+            <p style="margin:12px 0 0;text-align:center;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Esto ha sido posible gracias a la colaboración de la Asociación de Restaurantes, la Dirección General de Museos, la Fundación Museo de la Catedral y locales independientes, aliados estratégicos del Clúster Turístico de Santo Domingo
             </p>
             <table width="100%" cellpadding="0" cellspacing="0"><tr>
               <td style="text-align:center;border-top:1px solid #f1f5f9;padding-top:14px;padding-bottom:6px;">

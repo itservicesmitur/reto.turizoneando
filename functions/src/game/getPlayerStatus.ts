@@ -62,13 +62,17 @@ async function resolvePlayerStatus(playerId: string, seasonId: string | undefine
     stopsSnap.docs.forEach(d => {
       const data = d.data();
       const stageId: string = data.stageId || "";
-      // Only include stops that belong to this season
+      // Only include stops that belong to this season.
+      // Check seasonIds/seasonId field first; fall back to stageId membership
+      // (mirrors the frontend filter so stops without seasonIds are still included).
       const seasonIds: string[] = Array.isArray(data.seasonIds)
         ? data.seasonIds
         : data.seasonId
         ? [data.seasonId]
         : [];
-      if (!seasonIds.includes(resolvedSeasonId)) return;
+      const belongsToSeason = seasonIds.includes(resolvedSeasonId) ||
+        (seasonIds.length === 0 && stageIds.includes(stageId));
+      if (!belongsToSeason) return;
       const stageStops = stopsByStage.get(stageId);
       if (!stageStops) return;
       stageStops.push({

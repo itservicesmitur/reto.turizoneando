@@ -82,7 +82,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
   const loadPrizes = () => {
     setPrizesError(false)
     getPrizesForStage({ seasonId, stageId })
-      .then(data => { console.log('[getPrizesForStage] respuesta:', data); setPrizes(data) })
+      .then(data => { setPrizes(data) })
       .catch(err => { console.error('[getPrizesForStage] error:', err); setPrizesError(true) })
   }
 
@@ -259,7 +259,8 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
     if (limitReached) {
       randomSlot = EMPTY_SEG_INDICES[Math.floor(Math.random() * EMPTY_SEG_INDICES.length)]
     } else {
-      const prob  = 0.65 + (Math.min(playerScore, 200) / 200) * 0.25
+      // Ajuste de probabilidad: score 0 = 35%, score 200+ = 55% (más equilibrado)
+      const prob  = 0.35 + (Math.min(playerScore, 200) / 200) * 0.20
       const wins  = Math.random() < prob
       randomSlot  = wins
         ? PRIZE_INDICES[Math.floor(Math.random() * PRIZE_INDICES.length)]
@@ -278,7 +279,7 @@ export default function RouletteCard({ stopIndex, seasonId, stageId, onSpinCompl
       segIdxRef.current = randomSlot
       const p = prizesRef.current
       claimPrizeIdRef.current = p.length > 0 ? p[Math.floor(Math.random() * p.length)].id : ''
-      console.log('[handleSpin] prizes cargados:', p.length, '| prizeId seleccionado:', claimPrizeIdRef.current)
+
 
       claimPrizeAndNotify({ prizeId: claimPrizeIdRef.current, seasonId, stageId })
       .then(result => {

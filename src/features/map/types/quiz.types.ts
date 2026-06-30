@@ -25,5 +25,6 @@ export interface ClaimedPrize {
   localName?: string
   localAddress?: string
   localPhone?: string
+  expiresAt?: string
 }
 

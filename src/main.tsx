@@ -40,15 +40,17 @@ document.addEventListener('visibilitychange', () => {
   }
 })
 
-// Layer 4 — Force reload if server version is different
+// Layer 4 — Force reload if server version is different (production only)
+// In dev mode Vite HMR handles this; running the check in dev causes a
+// timestamp mismatch between the baked __APP_VERSION__ and the on-disk
+// version.json, triggering an infinite reload loop.
 declare const __APP_VERSION__: number
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !import.meta.env.DEV) {
   fetch(`/version.json?t=${Date.now()}`)
     .then(res => res.json())
     .then(data => {
       if (data && data.version && data.version !== __APP_VERSION__) {
-        console.log('New version detected! Reloading to update...', data.version, 'local:', __APP_VERSION__)
         window.location.reload()
       }
     })

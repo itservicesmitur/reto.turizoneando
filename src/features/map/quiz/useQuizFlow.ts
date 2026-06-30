@@ -113,7 +113,7 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
       const attemptPayload = { questionId: rawQuestion.id || '', selectedIndex: originalIndex, timeMs, seasonId, stopId }
       const isLastCorrect  = correct && questionIdx + 1 >= totalQuestions
 
-      console.log('[Turizoneando] → registerAttempt payload:', JSON.stringify(attemptPayload, null, 2))
+
 
       if (isLastCorrect) {
         // Await para capturar pointsAwarded de la última pregunta antes de cerrar el quiz
@@ -121,14 +121,12 @@ export function useQuizFlow({ stopId, seasonId, questions, onComplete }: Options
           const data = await registerAttempt(attemptPayload)
           const res = data as { pointsAwarded?: number } | null
           earnedPointsRef.current += (res?.pointsAwarded ?? 0)
-          console.log('[Turizoneando] ✅ Intento registrado | CF:', data)
         } catch {}
       } else {
         registerAttempt(attemptPayload)
           .then(data => {
             const res = data as { pointsAwarded?: number } | null
             earnedPointsRef.current += (res?.pointsAwarded ?? 0)
-            console.log('[Turizoneando] ✅ Intento registrado | CF:', data)
           })
           .catch(() => {})
       }
